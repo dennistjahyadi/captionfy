@@ -15,6 +15,7 @@ set -euo pipefail
 cd "$(dirname "${BASH_SOURCE[0]}")"
 
 PACKAGE="com.captionfy.app"
+SCHEME="captionfy"          # must match expo.scheme in app.json
 APK="android/app/build/outputs/apk/release/app-release.apk"
 DEBUG_APK="android/app/build/outputs/apk/debug/app-debug.apk"
 METRO_PORT=8081
@@ -149,13 +150,17 @@ if [ "$DEV" = true ]; then
   METRO_PID=$!
   trap 'kill "$METRO_PID" 2>/dev/null || true' INT TERM
 
-  # Launch only once the bundler answers, or the dev client opens on its "no
-  # development server" screen and has to be reloaded by hand.
+  # Launch only once the bundler answers, or the dev client opens on its server
+  # picker with nothing to pick. Starting MainActivity on its own also stops at
+  # that picker, so open the app against Metro by deep link instead. localhost
+  # resolves on the device because of the adb reverse above.
   (
     DEADLINE=$(( SECONDS + 120 ))
     while [ "$SECONDS" -lt "$DEADLINE" ]; do
       if curl -sf -o /dev/null "http://127.0.0.1:$METRO_PORT/status"; then
-        "$ADB" -s "$SERIAL" shell am start -n "$PACKAGE/.MainActivity" >/dev/null 2>&1 || true
+        "$ADB" -s "$SERIAL" shell am start -a android.intent.action.VIEW \
+          -d "$SCHEME://expo-development-client/?url=http%3A%2F%2Flocalhost%3A$METRO_PORT" \
+          >/dev/null 2>&1 || true
         exit 0
       fi
       sleep 1

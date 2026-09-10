@@ -44,6 +44,49 @@ larger and slightly more accurate. The exact filename is recorded in every CSV r
 
 Models download to the app document directory on first use. None is bundled.
 
+### The test set
+
+No public dataset matches the target audio, which is a creator with an
+Indonesian-English or Vietnamese-English accent talking over a music bed on a
+phone mic. The set is built in three layers instead, weakest evidence first.
+
+**Accent, isolated.** The [Speech Accent Archive](https://accent.gmu.edu) has 14
+Indonesian and 40 Vietnamese speakers reading one fixed English paragraph, so
+ground truth is a known sentence rather than something you transcribe by hand.
+
+```bash
+./scripts/fetch-accent-samples.sh --count 5
+```
+
+These are clean read speech. No music, no street, no phone mic, no code-switching.
+A good score here is a floor, not a pass. Licence is CC BY-NC-SA 4.0, so they are
+for internal benchmarking and `test-clips/` is gitignored.
+
+**Music under voice, as a dial.** Found footage carries an unknown amount of music,
+so a bad score tells you nothing about how much music the model survives. Mixing
+the bed yourself makes it a variable:
+
+```bash
+afconvert -f WAVE -d LEI16@16000 -c 1 bed.mp3 bed.wav
+./scripts/mix-music-bed.py test-clips/accent/indonesian1.wav bed.wav test-clips/music/ --snr 20 10 5 0
+```
+
+Standard library only, no ffmpeg. The output hits the requested ratio to within a
+hundredth of a dB. Run one speaker across several ratios and the number you want is
+where accuracy falls over, which is worth more than a single verdict on one clip.
+Beds from the [Free Music Archive](https://freemusicarchive.org) or
+[ccMixter](https://ccmixter.org) under a Creative Commons licence.
+
+**Real creator audio.** Neither layer above contains a phone mic, a room, traffic,
+a fast talker, or a speaker switching language mid-sentence. Those clips have to
+come from real creators. This is the layer the pass/fail gate actually rests on.
+
+Push a built set and pick it with the audio button in the rig:
+
+```bash
+adb push test-clips /sdcard/Download/
+```
+
 ### Pass/fail
 
 The rig produces numbers; word error rate is hand-counted from the `transcript`
@@ -106,6 +149,20 @@ models in place. No `--fresh` needed.
 The banner reads `DEBUG BUILD` in red the whole time. That is the point: nothing
 measured in this mode is reportable. Re-run `./install-on-phone.sh` for numbers.
 
+With no phone to hand, the same loop runs on an emulator beside the editor:
+
+```bash
+./run-on-emulator.sh           # or: npm run emulator
+```
+
+It boots an AVD, waits for it, then hands the serial to `--dev` above, so there is
+one build path rather than two. It reuses an already running emulator and leaves it
+running afterwards, so a second run skips straight to the build. Pass an AVD name to
+pick one, or `--cold` to ignore a snapshot that boots to a black screen.
+
+Create the AVD in Android Studio under Device Manager. On Apple Silicon choose an
+`arm64-v8a` system image, which is also the architecture a real handset uses.
+
 ### Architectures
 
 `app.json` sets `buildArchs` to `arm64-v8a, x86_64`, which is what `expo-build-properties`
@@ -119,10 +176,9 @@ dominates build time. `arm64-v8a` covers every real handset and every emulator i
 on an Apple Silicon Mac; `x86_64` is kept only so an Intel machine or a cloud CI
 emulator can still build.
 
-Neither build path pays for both. `install-on-phone.sh` narrows to the plugged-in
-phone's own ABI, passing `-PreactNativeArchitectures` to Gradle for the release
-build and `ORG_GRADLE_PROJECT_reactNativeArchitectures` for `--dev`, since
-`expo run:android` has no flag for it.
+Neither build path pays for both. `install-on-phone.sh` reads the connected device's
+own ABI and passes `-PreactNativeArchitectures` to Gradle for the debug build as
+well as the release one, so a run compiles whisper.cpp exactly once.
 
 Watch the pipeline:
 

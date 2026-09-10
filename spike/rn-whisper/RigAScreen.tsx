@@ -4,7 +4,7 @@
  * Pick a video, decode it once, run every candidate model over the same bytes,
  * append a CSV row per model. The screen is a control panel, not a design.
  */
-import { Directory, Paths } from 'expo-file-system';
+import { Directory, File, Paths } from 'expo-file-system';
 import * as ImagePicker from 'expo-image-picker';
 import * as Sharing from 'expo-sharing';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -17,6 +17,7 @@ import {
   Text,
   TextInput,
   View,
+  type ViewStyle,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -47,7 +48,7 @@ export default function RigAScreen() {
   const [vadEnabled, setVadEnabled] = useState(true);
   const [detectLanguageOnce, setDetectLanguageOnce] = useState(true);
   const [lastRun, setLastRun] = useState<ClipRun | null>(null);
-  const [clip, setClip] = useState<ImagePicker.ImagePickerAsset | null>(null);
+  const [clipUri, setClipUri] = useState<string | null>(null);
   const [clipName, setClipName] = useState('');
   const logRef = useRef<ScrollView>(null);
 
@@ -96,7 +97,7 @@ export default function RigAScreen() {
     }
   }, [append, neededFiles, refreshReady]);
 
-  const pick = useCallback(async () => {
+  const pickVideo = useCallback(async () => {
     const picked = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ['videos'],
       allowsMultipleSelection: false,
@@ -108,15 +109,26 @@ export default function RigAScreen() {
     if (picked.canceled || picked.assets.length === 0) return;
 
     const asset = picked.assets[0];
-    setClip(asset);
+    setClipUri(asset.uri);
     // Android's photo picker reports a MediaStore id such as "19.mp4" rather than
     // the real filename, which would make a CSV of fifteen clips unreadable. The
     // label is a starting point for the operator, not the answer.
     setClipName(asset.fileName ?? asset.uri.split('/').pop() ?? 'clip');
   }, []);
 
+  // Test-set audio arrives as bare wav or mp3, which the gallery picker will not
+  // show. The pipeline never cared: audio-extract decodes whatever container the
+  // platform can open and the ASR only ever sees the PCM that comes out.
+  const pickAudio = useCallback(async () => {
+    const picked = await File.pickFileAsync({ mimeTypes: ['audio/*'] });
+    if (picked.canceled || !picked.result) return;
+
+    setClipUri(picked.result.uri);
+    setClipName(picked.result.name || picked.result.uri.split('/').pop() || 'clip');
+  }, []);
+
   const run = useCallback(async () => {
-    if (!clip) return;
+    if (!clipUri) return;
     const label = clipName.trim() || 'clip';
 
     setBusy(`Running ${label}`);
@@ -126,7 +138,7 @@ export default function RigAScreen() {
       if (!workDirectory.exists) workDirectory.create({ intermediates: true });
 
       const result = await runClip({
-        videoUri: clip.uri,
+        videoUri: clipUri,
         clipName: label,
         clipTag,
         models: selectedModels,
@@ -145,7 +157,7 @@ export default function RigAScreen() {
     } finally {
       setBusy(null);
     }
-  }, [append, clip, clipName, clipTag, detectLanguageOnce, selectedModels, vadEnabled]);
+  }, [append, clipUri, clipName, clipTag, detectLanguageOnce, selectedModels, vadEnabled]);
 
   const shareCsv = useCallback(async () => {
     const file = csvFile();
@@ -235,9 +247,12 @@ export default function RigAScreen() {
         />
       </View>
 
-      <Button label="Pick a video" onPress={pick} disabled={!!busy} />
+      <View style={styles.pickRow}>
+        <Button label="Pick a video" onPress={pickVideo} disabled={!!busy} style={styles.pickButton} />
+        <Button label="Pick audio" onPress={pickAudio} disabled={!!busy} style={styles.pickButton} />
+      </View>
 
-      {clip ? (
+      {clipUri ? (
         <>
           <Text style={styles.heading}>Clip label</Text>
           <Text style={styles.meta}>Goes in the CSV. Name it so you can score it later.</Text>
@@ -257,7 +272,7 @@ export default function RigAScreen() {
       <Button
         label={`Run ${selectedModels.length} model${selectedModels.length === 1 ? '' : 's'}`}
         onPress={run}
-        disabled={!!busy || !clip || !modelsReady || selectedModels.length === 0}
+        disabled={!!busy || !clipUri || !modelsReady || selectedModels.length === 0}
       />
       <Button label="Share CSV" onPress={shareCsv} disabled={!!busy} />
 
@@ -321,16 +336,18 @@ function Button({
   label,
   onPress,
   disabled,
+  style,
 }: {
   label: string;
   onPress: () => void;
   disabled?: boolean;
+  style?: ViewStyle;
 }) {
   return (
     <Pressable
       onPress={onPress}
       disabled={disabled}
-      style={[styles.button, disabled && styles.buttonDisabled]}
+      style={[styles.button, disabled && styles.buttonDisabled, style]}
     >
       <Text style={styles.buttonText}>{label}</Text>
     </Pressable>
@@ -370,6 +387,8 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   buttonDisabled: { opacity: 0.4 },
+  pickRow: { flexDirection: 'row', gap: 8 },
+  pickButton: { flex: 1 },
   input: {
     backgroundColor: '#111827',
     borderRadius: 8,

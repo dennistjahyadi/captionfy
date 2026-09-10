@@ -40,5 +40,14 @@ yarn-error.*
 /ios
 /android
 
+# Gradle output from the local Expo modules. The two rules above are anchored to
+# the repo root, so they never reached these. The source beside them is tracked.
+modules/*/android/build/
+modules/*/android/.cxx/
+modules/*/android/.gradle/
+
 # Phase 0 spike output pulled off device
 /spike-results/
+
+# Test clips are third-party licensed audio. Fetch them, do not redistribute them.
+/test-clips/

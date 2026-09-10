@@ -9,6 +9,7 @@
     "android:release": "expo run:android --variant release",
     "phone": "./install-on-phone.sh",
     "dev": "./install-on-phone.sh --dev",
+    "emulator": "./run-on-emulator.sh",
     "ios": "expo run:ios",
     "ios:release": "expo run:ios --configuration Release",
     "prebuild": "expo prebuild",
