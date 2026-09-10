@@ -84,26 +84,34 @@ export function isDownloaded(spec: Pick<ModelSpec, 'fileName'>): boolean {
 /**
  * Downloads a model if it is not already on disk.
  *
- * A half-written file from an interrupted download would load as a corrupt model,
- * so anything already present but implausibly small is discarded rather than reused.
+ * On Android the response body streams straight into the destination, so a
+ * download that dies partway leaves a truncated file behind. That file passes an
+ * existence check and then fails deep inside whisper's loader, which is how one
+ * model in a batch silently produces an empty transcript. Downloading under a
+ * `.part` name and renaming on success means a file at the real name is always
+ * a file that finished.
  */
 export async function ensureDownloaded(
   spec: DownloadableFile,
   onProgress?: (fraction: number) => void
 ): Promise<File> {
   const file = modelFile(spec);
-  const minimumPlausibleBytes = spec.approxMb * 1024 * 1024 * 0.5;
-
-  if (file.exists && file.size >= minimumPlausibleBytes) {
+  if (file.exists && file.size > 0) {
     onProgress?.(1);
     return file;
   }
   if (file.exists) file.delete();
 
-  return File.downloadFileAsync(spec.url, file, {
+  const partial = new File(modelsDirectory(), `${spec.fileName}.part`);
+  if (partial.exists) partial.delete();
+
+  const downloaded = await File.downloadFileAsync(spec.url, partial, {
     idempotent: true,
     onProgress: ({ bytesWritten, totalBytes }) => {
       if (totalBytes > 0) onProgress?.(bytesWritten / totalBytes);
     },
   });
+
+  downloaded.rename(spec.fileName);
+  return modelFile(spec);
 }

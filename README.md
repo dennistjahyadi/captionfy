@@ -104,11 +104,26 @@ Columns worth knowing:
 | `seconds_per_60s` | The brief's 45 s budget, normalised |
 | `vad_fell_back` | VAD found no speech and fixed windows were used instead |
 | `peak_is_per_run` | `no` means the peak includes earlier models in the session |
+| `source_hz` / `source_channels` | Confirms the resampler and downmix actually ran |
 | `transcript` | Hand-count word error rate from this |
 
 The VAD toggle on screen exists so a music clip can be measured with and without
 the gate. If music word error rate blows past 25%, that pair of rows says whether
 the gate is helping or eating the speech.
+
+Two things to keep in mind when reading the numbers.
+
+Android refuses the write to `/proc/self/clear_refs` that would reset the peak
+memory watermark, so `peak_is_per_run` is `no` there and every peak is a process
+lifetime high water mark. Models run cheapest first, so the first model's peak is
+its own and a later one is meaningful only where it exceeds the model before it.
+For a clean per-model number, run one model per app launch.
+
+Each VAD span is transcribed as an independent utterance, so whisper punctuates
+and capitalises each one on its own. Expect sentence case and terminal
+punctuation at span boundaries that a single-pass transcript would not have. It
+does not affect the words, and captions do not care, but do not count it as an
+error when hand-scoring.
 
 ### Rig B
 

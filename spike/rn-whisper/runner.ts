@@ -162,7 +162,9 @@ export async function runClip(options: RunOptions): Promise<ClipRun> {
 }
 
 async function readPcm(path: string): Promise<ArrayBuffer> {
-  const bytes = await new File(path).bytes();
+  // The native module deals in filesystem paths because that is what MediaCodec and
+  // AVAssetReader want. expo-file-system only accepts URIs.
+  const bytes = await new File(`file://${path}`).bytes();
   // bytes() may hand back a view into a larger buffer; whisper.rn reads the whole
   // ArrayBuffer, so it has to be exactly the PCM and nothing else.
   return bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength);
@@ -297,6 +299,22 @@ function fixedWindows(durationMs: number): SpeechSpan[] {
   return windows;
 }
 
+/**
+ * whisper.rn rejects from JSI with plain objects, not Error instances, so
+ * `String(error)` yields "[object Object]" and the CSV records a failure with no
+ * cause. Anything that carries a message is worth more than its type name.
+ */
 function describeError(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
+  if (error instanceof Error) return error.message;
+  if (typeof error === 'object' && error !== null) {
+    const record = error as Record<string, unknown>;
+    const message = record.message ?? record.reason ?? record.code;
+    if (typeof message === 'string' && message !== '') return message;
+    try {
+      return JSON.stringify(error);
+    } catch {
+      return Object.prototype.toString.call(error);
+    }
+  }
+  return String(error);
 }
