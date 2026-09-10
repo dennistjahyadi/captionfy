@@ -21,7 +21,14 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import SpikeMetrics from '../../modules/spike-metrics';
 import { appendRun, appendWords, csvFile } from './csv';
-import { ensureDownloaded, isDownloaded, MODELS, VAD_MODEL } from './models';
+import {
+  ensureDownloaded,
+  isDownloaded,
+  MODELS,
+  VAD_MODEL,
+  type DownloadableFile,
+  type ModelId,
+} from './models';
 import { buildType, runClip, type ClipRun, type ClipTag } from './runner';
 
 const CLIP_TAGS: ClipTag[] = ['clean-accented', 'music-under-voice'];
@@ -35,12 +42,18 @@ export default function RigAScreen() {
   const [modelsReady, setModelsReady] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
   const [clipTag, setClipTag] = useState<ClipTag>('clean-accented');
+  const [selectedIds, setSelectedIds] = useState<ModelId[]>(() => MODELS.map((model) => model.id));
   const [vadEnabled, setVadEnabled] = useState(true);
   const [lastRun, setLastRun] = useState<ClipRun | null>(null);
   const logRef = useRef<ScrollView>(null);
 
   const device = useMemo(() => SpikeMetrics.getDeviceProfile(), []);
-  const allFiles = useMemo(() => [VAD_MODEL, ...MODELS], []);
+  const selectedModels = useMemo(
+    () => MODELS.filter((model) => selectedIds.includes(model.id)),
+    [selectedIds]
+  );
+  // VAD gates every run, so it is downloaded whatever the model selection is.
+  const neededFiles = useMemo(() => [VAD_MODEL, ...selectedModels], [selectedModels]);
 
   const append = useCallback((message: string) => {
     SpikeMetrics.log(message);
@@ -48,8 +61,8 @@ export default function RigAScreen() {
   }, []);
 
   const refreshReady = useCallback(() => {
-    setModelsReady(allFiles.every(isDownloaded));
-  }, [allFiles]);
+    setModelsReady(neededFiles.every(isDownloaded));
+  }, [neededFiles]);
 
   useEffect(refreshReady, [refreshReady]);
 
@@ -60,7 +73,7 @@ export default function RigAScreen() {
   const download = useCallback(async () => {
     setBusy('Downloading models');
     try {
-      for (const spec of allFiles) {
+      for (const spec of neededFiles) {
         if (isDownloaded(spec)) {
           setDownloads((state) => ({ ...state, [spec.fileName]: 1 }));
           continue;
@@ -77,7 +90,7 @@ export default function RigAScreen() {
       refreshReady();
       setBusy(null);
     }
-  }, [allFiles, append, refreshReady]);
+  }, [append, neededFiles, refreshReady]);
 
   const pickAndRun = useCallback(async () => {
     const picked = await ImagePicker.launchImageLibraryAsync({
@@ -103,7 +116,7 @@ export default function RigAScreen() {
         videoUri: asset.uri,
         clipName,
         clipTag,
-        models: MODELS,
+        models: selectedModels,
         vadEnabled,
         pcmDestinationPath: `${workDirectory.uri.replace('file://', '')}/clip.pcm`,
         onLog: append,
@@ -118,7 +131,7 @@ export default function RigAScreen() {
     } finally {
       setBusy(null);
     }
-  }, [append, clipTag, vadEnabled]);
+  }, [append, clipTag, selectedModels, vadEnabled]);
 
   const shareCsv = useCallback(async () => {
     const file = csvFile();
@@ -153,18 +166,28 @@ export default function RigAScreen() {
         {device.osVersion} · {device.cpuCores} cores · {device.totalRamMb} MB RAM
       </Text>
 
-      <Text style={styles.heading}>Models</Text>
-      {allFiles.map((spec) => {
-        const progress = downloads[spec.fileName] ?? (isDownloaded(spec) ? 1 : 0);
+      <Text style={styles.heading}>Models to run</Text>
+      {MODELS.map((spec) => {
+        const selected = selectedIds.includes(spec.id);
         return (
-          <View key={spec.fileName} style={styles.row}>
-            <Text style={styles.rowLabel}>{spec.fileName}</Text>
-            <Text style={styles.rowValue}>
-              {progress >= 1 ? 'ready' : `${Math.round(progress * 100)}% of ~${spec.approxMb} MB`}
+          <Pressable
+            key={spec.fileName}
+            onPress={() => setSelectedIds((ids) => toggle(ids, spec.id))}
+            disabled={!!busy}
+            style={styles.row}
+          >
+            <Text style={[styles.rowLabel, !selected && styles.rowLabelOff]}>
+              {selected ? '\u2713 ' : '\u2007 '}
+              {spec.id}
             </Text>
-          </View>
+            <Text style={styles.rowValue}>{fileStatus(spec, downloads)}</Text>
+          </Pressable>
         );
       })}
+      <View style={styles.row}>
+        <Text style={styles.rowLabel}>{'\u2007 '}{VAD_MODEL.fileName}</Text>
+        <Text style={styles.rowValue}>{fileStatus(VAD_MODEL, downloads)}</Text>
+      </View>
 
       <Button label={modelsReady ? 'Re-check models' : 'Download models'} onPress={download} disabled={!!busy} />
 
@@ -187,9 +210,9 @@ export default function RigAScreen() {
       </View>
 
       <Button
-        label="Pick a video and run all models"
+        label={`Pick a video and run ${selectedModels.length} model${selectedModels.length === 1 ? '' : 's'}`}
         onPress={pickAndRun}
-        disabled={!!busy || !modelsReady}
+        disabled={!!busy || !modelsReady || selectedModels.length === 0}
       />
       <Button label="Share CSV" onPress={shareCsv} disabled={!!busy} />
 
@@ -212,6 +235,17 @@ export default function RigAScreen() {
       </ScrollView>
     </ScrollView>
   );
+}
+
+function toggle(ids: ModelId[], id: ModelId): ModelId[] {
+  return ids.includes(id) ? ids.filter((current) => current !== id) : [...ids, id];
+}
+
+function fileStatus(spec: DownloadableFile, downloads: DownloadState): string {
+  const progress = downloads[spec.fileName] ?? (isDownloaded(spec) ? 1 : 0);
+  if (progress >= 1) return 'ready';
+  if (progress > 0) return `${Math.round(progress * 100)}% of ~${spec.approxMb} MB`;
+  return `~${spec.approxMb} MB to fetch`;
 }
 
 function Results({ run }: { run: ClipRun }) {
@@ -274,6 +308,7 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
   },
   rowLabel: { color: '#D1D5DB', fontSize: 12, flexShrink: 1 },
+  rowLabelOff: { color: '#6B7280' },
   rowValue: { color: '#7CE3B1', fontSize: 12 },
   tagRow: { flexDirection: 'row', gap: 8 },
   tag: { borderColor: '#374151', borderWidth: 1, borderRadius: 999, paddingHorizontal: 12, paddingVertical: 6 },
