@@ -15,6 +15,7 @@ import {
   StyleSheet,
   Switch,
   Text,
+  TextInput,
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -45,6 +46,8 @@ export default function RigAScreen() {
   const [selectedIds, setSelectedIds] = useState<ModelId[]>(() => MODELS.map((model) => model.id));
   const [vadEnabled, setVadEnabled] = useState(true);
   const [lastRun, setLastRun] = useState<ClipRun | null>(null);
+  const [clip, setClip] = useState<ImagePicker.ImagePickerAsset | null>(null);
+  const [clipName, setClipName] = useState('');
   const logRef = useRef<ScrollView>(null);
 
   const device = useMemo(() => SpikeMetrics.getDeviceProfile(), []);
@@ -92,7 +95,7 @@ export default function RigAScreen() {
     }
   }, [append, neededFiles, refreshReady]);
 
-  const pickAndRun = useCallback(async () => {
+  const pick = useCallback(async () => {
     const picked = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ['videos'],
       allowsMultipleSelection: false,
@@ -104,17 +107,26 @@ export default function RigAScreen() {
     if (picked.canceled || picked.assets.length === 0) return;
 
     const asset = picked.assets[0];
-    const clipName = asset.fileName ?? asset.uri.split('/').pop() ?? 'clip';
+    setClip(asset);
+    // Android's photo picker reports a MediaStore id such as "19.mp4" rather than
+    // the real filename, which would make a CSV of fifteen clips unreadable. The
+    // label is a starting point for the operator, not the answer.
+    setClipName(asset.fileName ?? asset.uri.split('/').pop() ?? 'clip');
+  }, []);
 
-    setBusy(`Running ${clipName}`);
+  const run = useCallback(async () => {
+    if (!clip) return;
+    const label = clipName.trim() || 'clip';
+
+    setBusy(`Running ${label}`);
     setLog([]);
     try {
       const workDirectory = new Directory(Paths.cache, 'spike-pcm');
       if (!workDirectory.exists) workDirectory.create({ intermediates: true });
 
-      const run = await runClip({
-        videoUri: asset.uri,
-        clipName,
+      const result = await runClip({
+        videoUri: clip.uri,
+        clipName: label,
         clipTag,
         models: selectedModels,
         vadEnabled,
@@ -122,16 +134,16 @@ export default function RigAScreen() {
         onLog: append,
       });
 
-      appendRun(run);
-      appendWords(run);
-      setLastRun(run);
-      append(`wrote ${run.models.length} rows to ${csvFile().uri}`);
+      appendRun(result);
+      appendWords(result);
+      setLastRun(result);
+      append(`wrote ${result.models.length} rows to ${csvFile().uri}`);
     } catch (error) {
       append(`run failed: ${error instanceof Error ? error.message : String(error)}`);
     } finally {
       setBusy(null);
     }
-  }, [append, clipTag, selectedModels, vadEnabled]);
+  }, [append, clip, clipName, clipTag, selectedModels, vadEnabled]);
 
   const shareCsv = useCallback(async () => {
     const file = csvFile();
@@ -209,10 +221,29 @@ export default function RigAScreen() {
         <Switch value={vadEnabled} onValueChange={setVadEnabled} disabled={!!busy} />
       </View>
 
+      <Button label="Pick a video" onPress={pick} disabled={!!busy} />
+
+      {clip ? (
+        <>
+          <Text style={styles.heading}>Clip label</Text>
+          <Text style={styles.meta}>Goes in the CSV. Name it so you can score it later.</Text>
+          <TextInput
+            value={clipName}
+            onChangeText={setClipName}
+            editable={!busy}
+            autoCapitalize="none"
+            autoCorrect={false}
+            placeholder="clip label"
+            placeholderTextColor="#6B7280"
+            style={styles.input}
+          />
+        </>
+      ) : null}
+
       <Button
-        label={`Pick a video and run ${selectedModels.length} model${selectedModels.length === 1 ? '' : 's'}`}
-        onPress={pickAndRun}
-        disabled={!!busy || !modelsReady || selectedModels.length === 0}
+        label={`Run ${selectedModels.length} model${selectedModels.length === 1 ? '' : 's'}`}
+        onPress={run}
+        disabled={!!busy || !clip || !modelsReady || selectedModels.length === 0}
       />
       <Button label="Share CSV" onPress={shareCsv} disabled={!!busy} />
 
@@ -323,6 +354,15 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   buttonDisabled: { opacity: 0.4 },
+  input: {
+    backgroundColor: '#111827',
+    borderRadius: 8,
+    color: '#FFFFFF',
+    fontSize: 14,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    marginTop: 6,
+  },
   buttonText: { color: '#FFFFFF', fontSize: 14, fontWeight: '600' },
   busy: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 12 },
   busyText: { color: '#7CE3B1', fontSize: 12 },
