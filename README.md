@@ -63,15 +63,22 @@ column. The gate from the brief:
 Measurements only count in a release build on a physical arm64 device. A debug
 build is 10 to 20 times slower and the screen says so in red.
 
+Plug the phone in, with USB debugging turned on, and run:
+
 ```bash
 npm install
-npx expo prebuild --platform android
-npm run android:release        # or: npx expo run:android --variant release
+./install-on-phone.sh          # build, install, launch. --logs also tails the pipeline
 ```
 
-To cut build time to the architecture that is actually measured:
+The script finds the SDK, picks the handset over any running emulator, builds only
+that phone's architecture, and explains what to do when no device is found or the
+signature does not match. `--fresh` wipes app data, which means downloading the
+models again. `--skip-build` installs the APK that is already built.
+
+The long way, if you want the steps separately:
 
 ```bash
+npx expo prebuild --platform android
 cd android && ./gradlew :app:assembleRelease -PreactNativeArchitectures=arm64-v8a
 ```
 
