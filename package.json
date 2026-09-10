@@ -1,0 +1,50 @@
+{
+  "name": "captionfy",
+  "version": "0.0.1",
+  "main": "expo-router/entry",
+  "private": true,
+  "scripts": {
+    "start": "expo start --dev-client",
+    "android": "expo run:android",
+    "android:release": "expo run:android --variant release",
+    "ios": "expo run:ios",
+    "ios:release": "expo run:ios --configuration Release",
+    "prebuild": "expo prebuild",
+    "test": "jest",
+    "typecheck": "tsc --noEmit"
+  },
+  "jest": {
+    "preset": "jest-expo",
+    "testPathIgnorePatterns": [
+      "/node_modules/",
+      "/android/",
+      "/ios/"
+    ]
+  },
+  "dependencies": {
+    "buffer": "^6.0.3",
+    "expo": "~57.0.21",
+    "expo-build-properties": "~57.0.17",
+    "expo-constants": "~57.0.17",
+    "expo-dev-client": "~57.0.18",
+    "expo-file-system": "~57.0.6",
+    "expo-image-picker": "~57.0.16",
+    "expo-linking": "~57.0.9",
+    "expo-router": "~57.0.20",
+    "expo-sharing": "~57.0.18",
+    "expo-status-bar": "~57.0.1",
+    "react": "19.2.3",
+    "react-native": "0.86.3",
+    "react-native-safe-area-context": "~5.7.0",
+    "react-native-screens": "~4.26.0",
+    "whisper.rn": "^0.7.4"
+  },
+  "devDependencies": {
+    "@react-native/jest-preset": "^0.86.3",
+    "@types/jest": "^30.0.0",
+    "@types/react": "~19.2.2",
+    "jest": "^30.5.1",
+    "jest-expo": "^57.0.5",
+    "typescript": "~6.0.3"
+  }
+}

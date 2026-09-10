@@ -1,0 +1,16 @@
+{
+  "platforms": [
+    "apple",
+    "android"
+  ],
+  "apple": {
+    "modules": [
+      "SpikeMetricsModule"
+    ]
+  },
+  "android": {
+    "modules": [
+      "expo.modules.spikemetrics.SpikeMetricsModule"
+    ]
+  }
+}

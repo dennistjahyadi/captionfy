@@ -1,0 +1,302 @@
+/**
+ * Stage 0 measurement harness. Throwaway.
+ *
+ * Answers one question: is on-device accuracy good enough on messy creator audio
+ * on a mid-range phone? Everything here optimises for producing numbers that can
+ * be trusted, not for being the shape of the shipped pipeline.
+ */
+import { File } from 'expo-file-system';
+import { Platform } from 'react-native';
+import { initWhisper, initWhisperVad, type TranscribeOptions } from 'whisper.rn';
+
+import { extractPcm16, type ExtractedAudio } from '../../modules/audio-extract';
+import SpikeMetrics, { type DeviceProfile } from '../../modules/spike-metrics';
+import { mergeTokensIntoWords, offsetWords, type Word } from '../../src/domain/words';
+import { ensureDownloaded, modelFile, VAD_MODEL, type ModelSpec } from './models';
+
+const SAMPLE_RATE = 16_000;
+const BYTES_PER_SAMPLE = 2;
+
+/**
+ * whisper.cpp reports every timestamp in centiseconds, both for transcription
+ * segments and for VAD spans. At 16 kHz one centisecond is exactly 160 samples,
+ * so span boundaries land on sample boundaries with no rounding.
+ */
+const BYTES_PER_CENTISECOND = (SAMPLE_RATE / 100) * BYTES_PER_SAMPLE;
+
+/** whisper's encoder window is 30 s. Staying under it avoids an internal split. */
+const MAX_SPAN_MS = 28_000;
+
+/** Spans this short carry no word and only cost a model warm-up. */
+const MIN_SPAN_MS = 120;
+
+export type ClipTag = 'clean-accented' | 'music-under-voice';
+
+export type SpeechSpan = { t0Ms: number; t1Ms: number };
+
+export type ModelRun = {
+  modelId: string;
+  modelFileName: string;
+  /** True when whisper.cpp reported a GPU backend. Recorded so a silent CPU fallback is visible. */
+  gpu: boolean;
+  reasonNoGpu: string;
+  detectedLanguage: string;
+  words: Word[];
+  transcript: string;
+  transcribeMs: number;
+  peakRssMb: number;
+  /** False when the OS would not reset the watermark, so the peak covers earlier runs too. */
+  peakIsPerRun: boolean;
+  error?: string;
+};
+
+export type ClipRun = {
+  startedAt: string;
+  clipName: string;
+  clipTag: ClipTag;
+  device: DeviceProfile;
+  buildType: 'debug' | 'release';
+  audio: ExtractedAudio;
+  extractMs: number;
+  vadEnabled: boolean;
+  vadMs: number;
+  spans: SpeechSpan[];
+  /** True when VAD found no speech and the whole clip was transcribed in fixed windows. */
+  vadFellBack: boolean;
+  speechMs: number;
+  models: ModelRun[];
+};
+
+export type RunOptions = {
+  videoUri: string;
+  clipName: string;
+  clipTag: ClipTag;
+  models: ModelSpec[];
+  vadEnabled: boolean;
+  pcmDestinationPath: string;
+  onLog: (message: string) => void;
+};
+
+export const buildType: 'debug' | 'release' = __DEV__ ? 'debug' : 'release';
+
+/**
+ * whisper.rn only accelerates on Apple hardware. Asking for a GPU on Android
+ * costs an init attempt and a fallback for nothing.
+ */
+const useGpu = Platform.OS === 'ios';
+
+const VAD_OPTIONS = {
+  threshold: 0.5,
+  minSpeechDurationMs: 250,
+  minSilenceDurationMs: 100,
+  maxSpeechDurationS: MAX_SPAN_MS / 1000,
+  // The default 30 ms clips plosives off the front of a word. 100 ms costs nothing
+  // and stops the padding from becoming an accuracy variable.
+  speechPadMs: 100,
+  samplesOverlap: 0.1,
+};
+
+/** Runs every model over one clip and returns everything the CSV and WER count need. */
+export async function runClip(options: RunOptions): Promise<ClipRun> {
+  const { onLog } = options;
+  const device = SpikeMetrics.getDeviceProfile();
+
+  onLog(`device: ${device.label}, ${device.cpuCores} cores, ${device.totalRamMb} MB RAM`);
+  onLog(`build: ${buildType}`);
+  if (buildType === 'debug') {
+    onLog('WARNING: debug build. Timings from this run are not reportable.');
+  }
+
+  const extractStart = Date.now();
+  const audio = await extractPcm16(options.videoUri, options.pcmDestinationPath);
+  const extractMs = Date.now() - extractStart;
+  onLog(
+    `extracted ${(audio.durationMs / 1000).toFixed(1)} s from ` +
+      `${audio.sourceSampleRate} Hz x${audio.sourceChannelCount} in ${extractMs} ms`
+  );
+
+  const pcm = await readPcm(audio.path);
+
+  let spans: SpeechSpan[] = [];
+  let vadMs = 0;
+  let vadFellBack = false;
+
+  if (options.vadEnabled) {
+    const vadStart = Date.now();
+    spans = await detectSpeech(pcm, onLog);
+    vadMs = Date.now() - vadStart;
+    onLog(`vad: ${spans.length} speech spans in ${vadMs} ms`);
+  }
+
+  if (spans.length === 0) {
+    vadFellBack = options.vadEnabled;
+    if (vadFellBack) {
+      onLog('vad found no speech; falling back to fixed windows over the whole clip');
+    }
+    spans = fixedWindows(audio.durationMs);
+  }
+
+  spans = spans.flatMap(splitLongSpan).filter((span) => span.t1Ms - span.t0Ms >= MIN_SPAN_MS);
+  const speechMs = spans.reduce((total, span) => total + (span.t1Ms - span.t0Ms), 0);
+
+  const models: ModelRun[] = [];
+  for (const spec of options.models) {
+    models.push(await runModel(spec, pcm, spans, onLog));
+  }
+
+  return {
+    startedAt: new Date().toISOString(),
+    clipName: options.clipName,
+    clipTag: options.clipTag,
+    device,
+    buildType,
+    audio,
+    extractMs,
+    vadEnabled: options.vadEnabled,
+    vadMs,
+    spans,
+    vadFellBack,
+    speechMs,
+    models,
+  };
+}
+
+async function readPcm(path: string): Promise<ArrayBuffer> {
+  const bytes = await new File(path).bytes();
+  // bytes() may hand back a view into a larger buffer; whisper.rn reads the whole
+  // ArrayBuffer, so it has to be exactly the PCM and nothing else.
+  return bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength);
+}
+
+async function detectSpeech(pcm: ArrayBuffer, onLog: (message: string) => void): Promise<SpeechSpan[]> {
+  const context = await initWhisperVad({
+    filePath: modelFile(VAD_MODEL).uri,
+    useGpu,
+    nThreads: 4,
+  });
+
+  try {
+    const segments = await context.detectSpeechData(pcm, VAD_OPTIONS);
+    return segments.map((segment) => ({
+      // Centiseconds, despite what the whisper.rn README example prints.
+      t0Ms: Math.round(segment.t0 * 10),
+      t1Ms: Math.round(segment.t1 * 10),
+    }));
+  } catch (error) {
+    onLog(`vad failed: ${describeError(error)}`);
+    return [];
+  } finally {
+    await context.release();
+  }
+}
+
+async function runModel(
+  spec: ModelSpec,
+  pcm: ArrayBuffer,
+  spans: SpeechSpan[],
+  onLog: (message: string) => void
+): Promise<ModelRun> {
+  const file = await ensureDownloaded(spec);
+  const peakIsPerRun = SpikeMetrics.resetPeakRss();
+
+  const run: ModelRun = {
+    modelId: spec.id,
+    modelFileName: spec.fileName,
+    gpu: false,
+    reasonNoGpu: '',
+    detectedLanguage: '',
+    words: [],
+    transcript: '',
+    transcribeMs: 0,
+    peakRssMb: 0,
+    peakIsPerRun,
+  };
+
+  const start = Date.now();
+  let context: Awaited<ReturnType<typeof initWhisper>> | undefined;
+
+  try {
+    context = await initWhisper({ filePath: file.uri, useGpu });
+    run.gpu = context.gpu;
+    run.reasonNoGpu = context.reasonNoGPU ?? '';
+    onLog(`${spec.id}: loaded, gpu=${context.gpu}${context.gpu ? '' : ` (${run.reasonNoGpu})`}`);
+
+    const transcribeOptions: TranscribeOptions = {
+      language: spec.language,
+      // whisper.rn defaults to 2 threads on a 4-core phone, which halves throughput
+      // on every device we care about.
+      maxThreads: 4,
+      // maxLen 1 with tokenTimestamps makes whisper emit one segment per token,
+      // which is the only way to get word-level timing out of this binding.
+      maxLen: 1,
+      tokenTimestamps: true,
+      translate: false,
+    };
+
+    const words: Word[] = [];
+    for (const span of spans) {
+      const slice = pcm.slice(
+        msToByteOffset(span.t0Ms),
+        Math.min(msToByteOffset(span.t1Ms), pcm.byteLength)
+      );
+      if (slice.byteLength < MIN_SPAN_MS * (SAMPLE_RATE / 1000) * BYTES_PER_SAMPLE) continue;
+
+      const { promise } = context.transcribeData(slice, transcribeOptions);
+      const result = await promise;
+      if (result.isAborted) continue;
+
+      run.detectedLanguage ||= result.language ?? '';
+      const tokens = result.segments.map((segment) => ({
+        text: segment.text,
+        t0Ms: segment.t0 * 10,
+        t1Ms: segment.t1 * 10,
+      }));
+      words.push(...offsetWords(mergeTokensIntoWords(tokens), span.t0Ms));
+    }
+
+    run.words = words;
+    run.transcript = words.map((word) => word.text).join(' ');
+  } catch (error) {
+    run.error = describeError(error);
+    onLog(`${spec.id}: FAILED ${run.error}`);
+  } finally {
+    run.transcribeMs = Date.now() - start;
+    run.peakRssMb = Math.round(SpikeMetrics.getPeakRssBytes() / (1024 * 1024));
+    await context?.release();
+  }
+
+  onLog(
+    `${spec.id}: ${run.words.length} words in ${run.transcribeMs} ms, ` +
+      `peak ${run.peakRssMb} MB, language=${run.detectedLanguage || 'n/a'}`
+  );
+  return run;
+}
+
+function msToByteOffset(ms: number): number {
+  return Math.round(ms / 10) * BYTES_PER_CENTISECOND;
+}
+
+/** Cuts a span that outruns whisper's encoder window into equal pieces. */
+function splitLongSpan(span: SpeechSpan): SpeechSpan[] {
+  const duration = span.t1Ms - span.t0Ms;
+  if (duration <= MAX_SPAN_MS) return [span];
+
+  const pieces = Math.ceil(duration / MAX_SPAN_MS);
+  const pieceMs = Math.ceil(duration / pieces);
+  return Array.from({ length: pieces }, (_, index) => ({
+    t0Ms: span.t0Ms + index * pieceMs,
+    t1Ms: Math.min(span.t1Ms, span.t0Ms + (index + 1) * pieceMs),
+  }));
+}
+
+function fixedWindows(durationMs: number): SpeechSpan[] {
+  const windows: SpeechSpan[] = [];
+  for (let start = 0; start < durationMs; start += MAX_SPAN_MS) {
+    windows.push({ t0Ms: start, t1Ms: Math.min(durationMs, start + MAX_SPAN_MS) });
+  }
+  return windows;
+}
+
+function describeError(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
