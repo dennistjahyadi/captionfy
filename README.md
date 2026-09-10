@@ -85,6 +85,45 @@ cd android && ./gradlew :app:assembleRelease -PreactNativeArchitectures=arm64-v8
 whisper.rn compiles an `armv8.2-a+fp16` variant of whisper.cpp alongside a generic
 one and selects at runtime, so the NEON and fp16 paths need no extra flags.
 
+### Working on the UI
+
+The release APK bakes the JS bundle in, so every screen tweak costs a full rebuild
+and reinstall. For UI work use the debug build instead, which pulls JS from Metro:
+
+```bash
+./install-on-phone.sh --dev    # or: npm run dev
+```
+
+That builds once, installs, and leaves Metro running. Save a change to
+`spike/rn-whisper/` or `app/` and the phone redraws in about a second. Only native
+changes need the command again: anything under `modules/`, the plugin list in
+`app.json`, or a new dependency with native code.
+
+Both variants are signed with the same debug keystore and share a package name, so
+switching between `--dev` and the release install keeps the 465 MB of downloaded
+models in place. No `--fresh` needed.
+
+The banner reads `DEBUG BUILD` in red the whole time. That is the point: nothing
+measured in this mode is reportable. Re-run `./install-on-phone.sh` for numbers.
+
+### Architectures
+
+`app.json` sets `buildArchs` to `arm64-v8a, x86_64`, which is what `expo-build-properties`
+writes into `android/gradle.properties` on prebuild. That is the file's only home,
+because `/android` is generated and gitignored, so hand-edits there vanish on the
+next prebuild.
+
+Both entries are 64-bit. Play Store has required 64-bit since 2019, `minSdkVersion`
+is 26, and dropping `armeabi-v7a` and `x86` halves a whisper.cpp compile that
+dominates build time. `arm64-v8a` covers every real handset and every emulator image
+on an Apple Silicon Mac; `x86_64` is kept only so an Intel machine or a cloud CI
+emulator can still build.
+
+Neither build path pays for both. `install-on-phone.sh` narrows to the plugged-in
+phone's own ABI, passing `-PreactNativeArchitectures` to Gradle for the release
+build and `ORG_GRADLE_PROJECT_reactNativeArchitectures` for `--dev`, since
+`expo run:android` has no flag for it.
+
 Watch the pipeline:
 
 ```bash
@@ -110,6 +149,8 @@ Columns worth knowing:
 | `gpu` | Catches a silent fall back to CPU |
 | `seconds_per_60s` | The brief's 45 s budget, normalised |
 | `vad_fell_back` | VAD found no speech and fixed windows were used instead |
+| `chunks` | Transcribe calls made. Each one is a full encoder pass |
+| `lang_mode` | `detect-per-chunk` doubles the encoder passes |
 | `peak_is_per_run` | `no` means the peak includes earlier models in the session |
 | `source_hz` / `source_channels` | Confirms the resampler and downmix actually ran |
 | `transcript` | Hand-count word error rate from this |
@@ -118,7 +159,29 @@ The VAD toggle on screen exists so a music clip can be measured with and without
 the gate. If music word error rate blows past 25%, that pair of rows says whether
 the gate is helping or eating the speech.
 
-Two things to keep in mind when reading the numbers.
+### What actually costs time
+
+whisper's encoder runs at a fixed 1500 mel frames, which is 30 seconds, no matter
+how much real audio the call contains. A 400 ms span costs the same encoder pass as
+a 28 second one. Two consequences drive every timing number in the CSV.
+
+Speech spans are packed into as few chunks as the 28 second window allows, rather
+than transcribed one span at a time. Widening a chunk across the silence between
+two spans is free, because the window is padded either way. A new chunk opens only
+when the next span will not fit, which is what skips long stretches of no speech
+instead of paying to encode them. On a 42 second clip this turned seven encoder
+passes into two.
+
+Auto-detecting the language runs a whole extra encoder pass per call, so a
+multilingual model with `language: 'auto'` costs twice what the same weights cost
+with the language fixed. The rig detects on the first chunk and reuses the answer.
+Turn that off with the screen toggle to measure a clip whose speaker switches
+language mid-sentence, where per-chunk detection may be worth paying for.
+
+Read `chunks` and `lang_mode` together with `transcribe_ms`. Two runs of the same
+model over the same clip are only comparable when both match.
+
+Two more things to keep in mind when reading the numbers.
 
 Android refuses the write to `/proc/self/clear_refs` that would reset the peak
 memory watermark, so `peak_is_per_run` is `no` there and every peak is a process

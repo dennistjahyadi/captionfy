@@ -2,10 +2,13 @@
 #
 # Build the Stage 0 rig and put it on the phone plugged into this Mac.
 #
-#   ./install-on-phone.sh            build, install, launch
+#   ./install-on-phone.sh            release build: build, install, launch
+#   ./install-on-phone.sh --dev      debug build wired to Metro, for UI work
 #   ./install-on-phone.sh --logs     ...then tail the pipeline log
 #   ./install-on-phone.sh --fresh    wipe app data first (re-downloads 465 MB of models)
 #   ./install-on-phone.sh --skip-build   install the APK that is already built
+#
+# Only the release build produces reportable timings.
 #
 set -euo pipefail
 
@@ -13,16 +16,20 @@ cd "$(dirname "${BASH_SOURCE[0]}")"
 
 PACKAGE="com.captionfy.app"
 APK="android/app/build/outputs/apk/release/app-release.apk"
+DEBUG_APK="android/app/build/outputs/apk/debug/app-debug.apk"
+METRO_PORT=8081
 
 TAIL_LOGS=false
 FRESH=false
 SKIP_BUILD=false
+DEV=false
 for arg in "$@"; do
   case "$arg" in
     --logs) TAIL_LOGS=true ;;
     --fresh) FRESH=true ;;
     --skip-build) SKIP_BUILD=true ;;
-    -h|--help) sed -n '2,9p' "${BASH_SOURCE[0]}" | cut -c3-; exit 0 ;;
+    --dev) DEV=true ;;
+    -h|--help) sed -n '2,11p' "${BASH_SOURCE[0]}" | cut -c3-; exit 0 ;;
     *) echo "unknown option: $arg (try --help)" >&2; exit 2 ;;
   esac
 done
@@ -79,41 +86,100 @@ case "$SERIAL" in
   emulator-*) echo "    note: this is an emulator. Timings from it are not reportable." ;;
 esac
 
-# ---------------------------------------------------------------------- build
+# ------------------------------------------------------- build and install steps
 
-if [ "$SKIP_BUILD" = false ]; then
+ensure_native_project() {
   if [ ! -d android ]; then
     step "Generating the native project"
     npx expo prebuild --platform android
   fi
+}
+
+remove_existing_install() {
+  step "Removing the existing install"
+  "$ADB" -s "$SERIAL" uninstall "$PACKAGE" >/dev/null 2>&1 || true
+}
+
+install_apk() {
+  local apk="$1" output
+  [ -f "$apk" ] || fail "No APK at $apk. Run without --skip-build."
+  step "Installing"
+  if ! output="$("$ADB" -s "$SERIAL" install -r "$apk" 2>&1)"; then
+    echo "$output" >&2
+    case "$output" in
+      *INSTALL_FAILED_UPDATE_INCOMPATIBLE*|*signatures\ do\ not\ match*)
+        fail "A build signed with a different key is already installed. Re-run with --fresh." ;;
+      *INSTALL_FAILED_NO_MATCHING_ABIS*)
+        fail "This device does not run $ABI binaries. Add its ABI to buildArchs in app.json." ;;
+      *)
+        fail "Install failed. The adb output above says why." ;;
+    esac
+  fi
+  echo "$output" | tail -1
+}
+
+# ------------------------------------------------------------------ dev build
+
+# The release APK bakes the JS bundle in, so every UI tweak costs a reinstall.
+# The debug build pulls JS from Metro instead and redraws the device on save.
+# Both variants are signed with the same debug keystore and share a package name,
+# so swapping between them leaves the downloaded models in place.
+if [ "$DEV" = true ]; then
+  [ "$SKIP_BUILD" = false ] || fail "--skip-build means nothing with --dev."
+  [ "$TAIL_LOGS" = false ] || fail "--logs would fight Metro for the terminal. Tail it in a second one."
+
+  ensure_native_project
+  [ "$FRESH" = false ] || remove_existing_install
+
+  step "Building the debug APK for $ABI"
+  (cd android && ./gradlew :app:assembleDebug -PreactNativeArchitectures="$ABI" --console=plain -q)
+  install_apk "$DEBUG_APK"
+
+  # The dev client pulls its JS from Metro on this Mac. adb reverse republishes
+  # the Mac's port as localhost on the device, over USB or the emulator loopback,
+  # so no wifi and no IP address are involved.
+  "$ADB" -s "$SERIAL" reverse "tcp:$METRO_PORT" "tcp:$METRO_PORT" >/dev/null
+
+  step "Starting Metro"
+  echo "    Save a UI change and the screen reloads. Ctrl-C stops Metro."
+  echo "    Changes under modules/ are native and need this command again."
+  echo "    The banner will read DEBUG BUILD in red. That is correct here."
+
+  npx expo start --dev-client &
+  METRO_PID=$!
+  trap 'kill "$METRO_PID" 2>/dev/null || true' INT TERM
+
+  # Launch only once the bundler answers, or the dev client opens on its "no
+  # development server" screen and has to be reloaded by hand.
+  (
+    DEADLINE=$(( SECONDS + 120 ))
+    while [ "$SECONDS" -lt "$DEADLINE" ]; do
+      if curl -sf -o /dev/null "http://127.0.0.1:$METRO_PORT/status"; then
+        "$ADB" -s "$SERIAL" shell am start -n "$PACKAGE/.MainActivity" >/dev/null 2>&1 || true
+        exit 0
+      fi
+      sleep 1
+    done
+  ) &
+
+  wait "$METRO_PID"
+  exit $?
+fi
+
+# ---------------------------------------------------------------------- build
+
+if [ "$SKIP_BUILD" = false ]; then
+  ensure_native_project
 
   # Building only the phone's own architecture keeps whisper.cpp compile times sane.
   step "Building the release APK for $ABI"
   (cd android && ./gradlew :app:assembleRelease -PreactNativeArchitectures="$ABI" --console=plain -q)
 fi
 
-[ -f "$APK" ] || fail "No APK at $APK. Run without --skip-build."
-
 # -------------------------------------------------------------------- install
 
-if [ "$FRESH" = true ]; then
-  step "Removing the existing install"
-  "$ADB" -s "$SERIAL" uninstall "$PACKAGE" >/dev/null 2>&1 || true
-fi
-
-step "Installing"
-if ! OUTPUT="$("$ADB" -s "$SERIAL" install -r "$APK" 2>&1)"; then
-  echo "$OUTPUT" >&2
-  case "$OUTPUT" in
-    *INSTALL_FAILED_UPDATE_INCOMPATIBLE*|*signatures\ do\ not\ match*)
-      fail "A build signed with a different key is already installed. Re-run with --fresh." ;;
-    *INSTALL_FAILED_NO_MATCHING_ABIS*)
-      fail "This phone does not run $ABI binaries. Tell Claude and it will rebuild for all architectures." ;;
-    *)
-      fail "Install failed. The adb output above says why." ;;
-  esac
-fi
-echo "$OUTPUT" | tail -1
+[ "$FRESH" = false ] || remove_existing_install
+install_apk "$APK"
 
 step "Launching"
 "$ADB" -s "$SERIAL" shell am start -n "$PACKAGE/.MainActivity" >/dev/null

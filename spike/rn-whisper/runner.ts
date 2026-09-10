@@ -11,6 +11,7 @@ import { initWhisper, initWhisperVad, type TranscribeOptions } from 'whisper.rn'
 
 import { extractPcm16, type ExtractedAudio } from '../../modules/audio-extract';
 import SpikeMetrics, { type DeviceProfile } from '../../modules/spike-metrics';
+import { packSpansIntoChunks, totalSpanMs, type Span } from '../../src/domain/spans';
 import { mergeTokensIntoWords, offsetWords, type Word } from '../../src/domain/words';
 import { ensureDownloaded, modelFile, VAD_MODEL, type ModelSpec } from './models';
 
@@ -24,7 +25,11 @@ const BYTES_PER_SAMPLE = 2;
  */
 const BYTES_PER_CENTISECOND = (SAMPLE_RATE / 100) * BYTES_PER_SAMPLE;
 
-/** whisper's encoder window is 30 s. Staying under it avoids an internal split. */
+/**
+ * whisper's encoder runs at a fixed 1500 mel frames, which is 30 s, whatever the
+ * call actually contains. Chunks are packed up to just under that so no call pays
+ * for an internal split and no call wastes a window.
+ */
 const MAX_SPAN_MS = 28_000;
 
 /** Spans this short carry no word and only cost a model warm-up. */
@@ -32,7 +37,7 @@ const MIN_SPAN_MS = 120;
 
 export type ClipTag = 'clean-accented' | 'music-under-voice';
 
-export type SpeechSpan = { t0Ms: number; t1Ms: number };
+export type SpeechSpan = Span;
 
 export type ModelRun = {
   modelId: string;
@@ -61,9 +66,12 @@ export type ClipRun = {
   vadEnabled: boolean;
   vadMs: number;
   spans: SpeechSpan[];
+  /** Spans packed into encoder windows. One chunk is one transcribe call. */
+  chunks: SpeechSpan[];
   /** True when VAD found no speech and the whole clip was transcribed in fixed windows. */
   vadFellBack: boolean;
   speechMs: number;
+  detectLanguageOnce: boolean;
   models: ModelRun[];
 };
 
@@ -73,6 +81,13 @@ export type RunOptions = {
   clipTag: ClipTag;
   models: ModelSpec[];
   vadEnabled: boolean;
+  /**
+   * Detect the language on the first chunk and reuse it. whisper runs a whole
+   * extra encoder pass per call to auto-detect, which doubles the cost of a
+   * multilingual model. Turn it off to let every chunk detect on its own, which
+   * is what a clip that switches language mid-sentence may need.
+   */
+  detectLanguageOnce: boolean;
   pcmDestinationPath: string;
   onLog: (message: string) => void;
 };
@@ -136,12 +151,14 @@ export async function runClip(options: RunOptions): Promise<ClipRun> {
     spans = fixedWindows(audio.durationMs);
   }
 
-  spans = spans.flatMap(splitLongSpan).filter((span) => span.t1Ms - span.t0Ms >= MIN_SPAN_MS);
-  const speechMs = spans.reduce((total, span) => total + (span.t1Ms - span.t0Ms), 0);
+  spans = spans.filter((span) => span.t1Ms - span.t0Ms >= MIN_SPAN_MS);
+  const speechMs = totalSpanMs(spans);
+  const chunks = packSpansIntoChunks(spans, MAX_SPAN_MS);
+  onLog(`chunks: ${spans.length} spans packed into ${chunks.length} transcribe calls`);
 
   const models: ModelRun[] = [];
   for (const spec of options.models) {
-    models.push(await runModel(spec, pcm, spans, onLog));
+    models.push(await runModel(spec, pcm, chunks, options.detectLanguageOnce, onLog));
   }
 
   return {
@@ -155,8 +172,10 @@ export async function runClip(options: RunOptions): Promise<ClipRun> {
     vadEnabled: options.vadEnabled,
     vadMs,
     spans,
+    chunks,
     vadFellBack,
     speechMs,
+    detectLanguageOnce: options.detectLanguageOnce,
     models,
   };
 }
@@ -195,7 +214,8 @@ async function detectSpeech(pcm: ArrayBuffer, onLog: (message: string) => void):
 async function runModel(
   spec: ModelSpec,
   pcm: ArrayBuffer,
-  spans: SpeechSpan[],
+  chunks: SpeechSpan[],
+  detectLanguageOnce: boolean,
   onLog: (message: string) => void
 ): Promise<ModelRun> {
   const file = await ensureDownloaded(spec);
@@ -236,24 +256,35 @@ async function runModel(
     };
 
     const words: Word[] = [];
-    for (const span of spans) {
+    // Widened from the model's own 'en' | 'auto' because a detected language can
+    // be any of whisper's ninety-nine.
+    let language: string = spec.language;
+
+    for (const chunk of chunks) {
       const slice = pcm.slice(
-        msToByteOffset(span.t0Ms),
-        Math.min(msToByteOffset(span.t1Ms), pcm.byteLength)
+        msToByteOffset(chunk.t0Ms),
+        Math.min(msToByteOffset(chunk.t1Ms), pcm.byteLength)
       );
       if (slice.byteLength < MIN_SPAN_MS * (SAMPLE_RATE / 1000) * BYTES_PER_SAMPLE) continue;
 
-      const { promise } = context.transcribeData(slice, transcribeOptions);
+      const { promise } = context.transcribeData(slice, { ...transcribeOptions, language });
       const result = await promise;
       if (result.isAborted) continue;
 
       run.detectedLanguage ||= result.language ?? '';
+      // Reusing the detected language spares every later chunk the extra encoder
+      // pass that auto-detection costs.
+      if (detectLanguageOnce && language === 'auto' && result.language) {
+        language = result.language;
+        onLog(`${spec.id}: language detected as ${language}, reused for the rest`);
+      }
+
       const tokens = result.segments.map((segment) => ({
         text: segment.text,
         t0Ms: segment.t0 * 10,
         t1Ms: segment.t1 * 10,
       }));
-      words.push(...offsetWords(mergeTokensIntoWords(tokens), span.t0Ms));
+      words.push(...offsetWords(mergeTokensIntoWords(tokens), chunk.t0Ms));
     }
 
     run.words = words;
@@ -276,19 +307,6 @@ async function runModel(
 
 function msToByteOffset(ms: number): number {
   return Math.round(ms / 10) * BYTES_PER_CENTISECOND;
-}
-
-/** Cuts a span that outruns whisper's encoder window into equal pieces. */
-function splitLongSpan(span: SpeechSpan): SpeechSpan[] {
-  const duration = span.t1Ms - span.t0Ms;
-  if (duration <= MAX_SPAN_MS) return [span];
-
-  const pieces = Math.ceil(duration / MAX_SPAN_MS);
-  const pieceMs = Math.ceil(duration / pieces);
-  return Array.from({ length: pieces }, (_, index) => ({
-    t0Ms: span.t0Ms + index * pieceMs,
-    t1Ms: Math.min(span.t1Ms, span.t0Ms + (index + 1) * pieceMs),
-  }));
 }
 
 function fixedWindows(durationMs: number): SpeechSpan[] {

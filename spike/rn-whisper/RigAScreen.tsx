@@ -45,6 +45,7 @@ export default function RigAScreen() {
   const [clipTag, setClipTag] = useState<ClipTag>('clean-accented');
   const [selectedIds, setSelectedIds] = useState<ModelId[]>(() => MODELS.map((model) => model.id));
   const [vadEnabled, setVadEnabled] = useState(true);
+  const [detectLanguageOnce, setDetectLanguageOnce] = useState(true);
   const [lastRun, setLastRun] = useState<ClipRun | null>(null);
   const [clip, setClip] = useState<ImagePicker.ImagePickerAsset | null>(null);
   const [clipName, setClipName] = useState('');
@@ -130,6 +131,7 @@ export default function RigAScreen() {
         clipTag,
         models: selectedModels,
         vadEnabled,
+        detectLanguageOnce,
         pcmDestinationPath: `${workDirectory.uri.replace('file://', '')}/clip.pcm`,
         onLog: append,
       });
@@ -143,7 +145,7 @@ export default function RigAScreen() {
     } finally {
       setBusy(null);
     }
-  }, [append, clip, clipName, clipTag, selectedModels, vadEnabled]);
+  }, [append, clip, clipName, clipTag, detectLanguageOnce, selectedModels, vadEnabled]);
 
   const shareCsv = useCallback(async () => {
     const file = csvFile();
@@ -221,6 +223,18 @@ export default function RigAScreen() {
         <Switch value={vadEnabled} onValueChange={setVadEnabled} disabled={!!busy} />
       </View>
 
+      <View style={styles.row}>
+        <Text style={styles.rowLabel}>
+          Detect language once{'\n'}
+          <Text style={styles.rowHint}>Off costs an extra encoder pass per chunk</Text>
+        </Text>
+        <Switch
+          value={detectLanguageOnce}
+          onValueChange={setDetectLanguageOnce}
+          disabled={!!busy}
+        />
+      </View>
+
       <Button label="Pick a video" onPress={pick} disabled={!!busy} />
 
       {clip ? (
@@ -285,7 +299,8 @@ function Results({ run }: { run: ClipRun }) {
       <Text style={styles.heading}>Last run — {run.clipName}</Text>
       <Text style={styles.meta}>
         {(run.audio.durationMs / 1000).toFixed(1)} s clip · {(run.speechMs / 1000).toFixed(1)} s speech ·{' '}
-        {run.spans.length} spans{run.vadFellBack ? ' · VAD FOUND NOTHING, fixed windows used' : ''}
+        {run.spans.length} spans · {run.chunks.length} calls
+        {run.vadFellBack ? ' · VAD FOUND NOTHING, fixed windows used' : ''}
       </Text>
       {run.models.map((model) => (
         <View key={model.modelId} style={styles.result}>
@@ -340,6 +355,7 @@ const styles = StyleSheet.create({
   },
   rowLabel: { color: '#D1D5DB', fontSize: 12, flexShrink: 1 },
   rowLabelOff: { color: '#6B7280' },
+  rowHint: { color: '#6B7280', fontSize: 11 },
   rowValue: { color: '#7CE3B1', fontSize: 12 },
   tagRow: { flexDirection: 'row', gap: 8 },
   tag: { borderColor: '#374151', borderWidth: 1, borderRadius: 999, paddingHorizontal: 12, paddingVertical: 6 },
