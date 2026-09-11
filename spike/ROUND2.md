@@ -67,9 +67,19 @@ Both land in the app's documents directory under `spike-results/`.
 
 - `rig-a.csv` — one row per (clip, model).
 - `<clip>-<model>.words.json` — one file per model run. An array of
-  `{ word, t0, t1 }`, milliseconds from the start of the **clip**, not of the chunk
-  whisper actually saw. This is the karaoke-drift evidence: on a music clip, read
-  `t0` against where the word really lands.
+  `{ word, t0, t1, dtw_t0, dtw_t1 }`, milliseconds from the start of the **clip**,
+  not of the chunk whisper actually saw. This is the karaoke-drift evidence: on a
+  music clip, read each start against where the word really lands.
+
+  The two pairs are two ways of timing the same word. `t0`/`t1` is whisper.cpp's
+  heuristic, which is what round 1 measured and what whisper.rn exposes out of the
+  box. `dtw_t0`/`dtw_t1` is dynamic time warping over the decoder's
+  cross-attention, the method OpenAI's own `word_timestamps=True` uses. It is
+  compiled into whisper.cpp but whisper.rn hardcodes it off; `patches/` turns it
+  on, and the rig opens each model with the alignment-heads preset that matches
+  its weights. DTW gives one instant per token, the moment it was emitted, so a
+  word's `dtw_t1` is simply the next word's `dtw_t0`. One run of the music dial
+  therefore answers which method drifts less, without running anything twice.
 
 Running the same clip name twice appends a second CSV row but overwrites the words
 file. Change the clip name if you want to keep both.
@@ -105,6 +115,7 @@ side by side, which is the comparison round 2 is for.
 | `vad_spans` | How many speech spans VAD found |
 | `chunks` | **One of the two columns missing from round 1's file.** How many transcribe calls those spans were packed into. Spans are packed into 28 s windows because whisper's encoder costs the same for a 0.4 s call as a 28 s one, so this, not `vad_spans`, is what drives `transcribe_ms`. |
 | `lang_mode` | **The other one.** `detect-once` or `detect-per-chunk`. Auto-detection costs a whole extra encoder pass per call; `detect-once` pays it once. Always `detect-once` in round 2. |
+| `dtw` | `yes` when every token came back with a DTW timestamp, so the words file carries both timings. `no` means the whisper.rn patch is not in the build you ran; see below. |
 | `source_hz` | Sample rate of the source file before downmix and resample |
 | `source_channels` | Channel count of the source file |
 | `extract_ms` | Decode to 16 kHz mono PCM |

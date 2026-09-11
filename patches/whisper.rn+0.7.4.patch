@@ -1,0 +1,333 @@
+diff --git a/node_modules/whisper.rn/android/src/main/jni.cpp b/node_modules/whisper.rn/android/src/main/jni.cpp
+index fdbda6d..475664b 100644
+--- a/node_modules/whisper.rn/android/src/main/jni.cpp
++++ b/node_modules/whisper.rn/android/src/main/jni.cpp
+@@ -622,9 +622,10 @@ WhisperContextInitResult hostInitWhisperContext(
+     }
+ 
+     auto params = whisper_context_default_params();
+-    params.dtw_token_timestamps = false;
++    applyDtwPreset(params, options.dtwAheadsPreset);
+     params.use_gpu = false;
+-    params.flash_attn = options.useFlashAttn;
++    // whisper.cpp disables DTW under flash attention; let DTW win when both are asked for.
++    params.flash_attn = options.useFlashAttn && !params.dtw_token_timestamps;
+     params.use_coreml = false;
+ 
+     if (options.useGpu) {
+diff --git a/node_modules/whisper.rn/cpp/jsi/RNWhisperJSI.cpp b/node_modules/whisper.rn/cpp/jsi/RNWhisperJSI.cpp
+index ac3403e..0294a4f 100644
+--- a/node_modules/whisper.rn/cpp/jsi/RNWhisperJSI.cpp
++++ b/node_modules/whisper.rn/cpp/jsi/RNWhisperJSI.cpp
+@@ -277,10 +277,24 @@ private:
+     bool tracked_;
+ };
+ 
++struct TokenData {
++    std::string text;
++    // Heuristic token timestamps, centiseconds. -1 when tokenTimestamps is off.
++    int t0 = -1;
++    int t1 = -1;
++    // DTW timestamp, centiseconds. The instant the token was emitted, so a word
++    // has one of these, not a start and an end. -1 when DTW is off or the token
++    // is not a text token.
++    int tDtw = -1;
++    // Token probability. Low values are the low-confidence signal.
++    float p = 0.0f;
++};
++
+ struct SegmentData {
+     std::string text;
+     int t0 = 0;
+     int t1 = 0;
++    std::vector<TokenData> tokens;
+ };
+ 
+ struct TranscribeResultData {
+@@ -1352,11 +1366,29 @@ std::vector<SegmentData> readSegments(
+         if (resultText) {
+             resultText->append(text);
+         }
+-        segments.push_back({
+-            text,
+-            static_cast<int>(whisper_full_get_segment_t0(context, index)),
+-            static_cast<int>(whisper_full_get_segment_t1(context, index)),
+-        });
++        SegmentData segment;
++        segment.text = text;
++        segment.t0 = static_cast<int>(whisper_full_get_segment_t0(context, index));
++        segment.t1 = static_cast<int>(whisper_full_get_segment_t1(context, index));
++
++        const int nTokens = whisper_full_n_tokens(context, index);
++        segment.tokens.reserve(static_cast<size_t>(nTokens));
++        for (int t = 0; t < nTokens; ++t) {
++            const auto data = whisper_full_get_token_data(context, index, t);
++            // Special tokens (timestamps, SOT, EOT) carry no text and no timing.
++            if (data.id >= whisper_token_eot(context)) {
++                continue;
++            }
++            TokenData token;
++            token.text = whisper_full_get_token_text(context, index, t);
++            token.t0 = static_cast<int>(data.t0);
++            token.t1 = static_cast<int>(data.t1);
++            token.tDtw = static_cast<int>(data.t_dtw);
++            token.p = data.p;
++            segment.tokens.push_back(std::move(token));
++        }
++
++        segments.push_back(std::move(segment));
+     }
+ 
+     return segments;
+@@ -1415,6 +1447,23 @@ jsi::Array createSegmentsArray(
+             jsi::String::createFromUtf8(runtime, segment.text));
+         item.setProperty(runtime, "t0", jsi::Value(segment.t0));
+         item.setProperty(runtime, "t1", jsi::Value(segment.t1));
++
++        jsi::Array tokens(runtime, segment.tokens.size());
++        for (size_t t = 0; t < segment.tokens.size(); ++t) {
++            const auto &token = segment.tokens[t];
++            jsi::Object tokenItem(runtime);
++            tokenItem.setProperty(
++                runtime,
++                "text",
++                jsi::String::createFromUtf8(runtime, token.text));
++            tokenItem.setProperty(runtime, "t0", jsi::Value(token.t0));
++            tokenItem.setProperty(runtime, "t1", jsi::Value(token.t1));
++            tokenItem.setProperty(runtime, "tDtw", jsi::Value(token.tDtw));
++            tokenItem.setProperty(runtime, "p", jsi::Value(static_cast<double>(token.p)));
++            tokens.setValueAtIndex(runtime, t, tokenItem);
++        }
++        item.setProperty(runtime, "tokens", tokens);
++
+         array.setValueAtIndex(runtime, index, item);
+     }
+     return array;
+@@ -1782,6 +1831,8 @@ void installJSIBindings(
+             hostOptions.downloadCoreMLAssets =
+                 getBoolProperty(runtime, options, "downloadCoreMLAssets", false);
+             hostOptions.coreMLAssets = parseCoreMLAssets(runtime, options);
++            hostOptions.dtwAheadsPreset =
++                getStringProperty(runtime, options, "dtwAheadsPreset");
+ 
+             return createPromiseTask(runtime, callInvoker, [contextId, hostOptions]() -> PromiseResultGenerator {
+                 auto result = hostInitWhisperContext(hostOptions);
+diff --git a/node_modules/whisper.rn/cpp/jsi/RNWhisperJSI.h b/node_modules/whisper.rn/cpp/jsi/RNWhisperJSI.h
+index 350f8bb..f6f0f6b 100644
+--- a/node_modules/whisper.rn/cpp/jsi/RNWhisperJSI.h
++++ b/node_modules/whisper.rn/cpp/jsi/RNWhisperJSI.h
+@@ -39,8 +39,36 @@ struct WhisperContextInitOptions {
+     bool useCoreMLIos = true;
+     bool downloadCoreMLAssets = false;
+     std::vector<CoreMLAssetInfo> coreMLAssets;
++    // Alignment-heads preset name ("base.en", "small", ...). Non-empty turns on
++    // whisper.cpp's DTW token timestamps, which are read back as `tDtw` per token.
++    std::string dtwAheadsPreset;
+ };
+ 
++// Maps a model name to whisper.cpp's alignment-heads preset. Unknown names
++// leave DTW off rather than guess, because a wrong head set gives timestamps
++// that look plausible and are not.
++inline whisper_alignment_heads_preset dtwPresetFromName(const std::string &name) {
++    if (name == "tiny.en") return WHISPER_AHEADS_TINY_EN;
++    if (name == "tiny") return WHISPER_AHEADS_TINY;
++    if (name == "base.en") return WHISPER_AHEADS_BASE_EN;
++    if (name == "base") return WHISPER_AHEADS_BASE;
++    if (name == "small.en") return WHISPER_AHEADS_SMALL_EN;
++    if (name == "small") return WHISPER_AHEADS_SMALL;
++    if (name == "medium.en") return WHISPER_AHEADS_MEDIUM_EN;
++    if (name == "medium") return WHISPER_AHEADS_MEDIUM;
++    if (name == "large-v1") return WHISPER_AHEADS_LARGE_V1;
++    if (name == "large-v2") return WHISPER_AHEADS_LARGE_V2;
++    if (name == "large-v3") return WHISPER_AHEADS_LARGE_V3;
++    if (name == "large-v3-turbo") return WHISPER_AHEADS_LARGE_V3_TURBO;
++    return WHISPER_AHEADS_NONE;
++}
++
++inline void applyDtwPreset(whisper_context_params &params, const std::string &name) {
++    const auto preset = dtwPresetFromName(name);
++    params.dtw_token_timestamps = preset != WHISPER_AHEADS_NONE;
++    params.dtw_aheads_preset = preset;
++}
++
+ struct WhisperContextInitResult {
+     whisper_context *context = nullptr;
+     bool gpu = false;
+diff --git a/node_modules/whisper.rn/ios/RNWhisper.mm b/node_modules/whisper.rn/ios/RNWhisper.mm
+index f7032f4..ef02166 100644
+--- a/node_modules/whisper.rn/ios/RNWhisper.mm
++++ b/node_modules/whisper.rn/ios/RNWhisper.mm
+@@ -176,8 +176,9 @@ WhisperContextInitResult hostInitWhisperContext(
+ 
+     auto params = whisper_context_default_params();
+     params.use_gpu = options.useGpu;
+-    params.flash_attn = options.useFlashAttn;
+-    params.dtw_token_timestamps = false;
++    applyDtwPreset(params, options.dtwAheadsPreset);
++    // whisper.cpp disables DTW under flash attention; let DTW win when both are asked for.
++    params.flash_attn = options.useFlashAttn && !params.dtw_token_timestamps;
+     params.use_coreml = options.useCoreMLIos;
+ 
+ #if !defined(WHISPER_USE_COREML)
+diff --git a/node_modules/whisper.rn/lib/typescript/NativeRNWhisper.d.ts b/node_modules/whisper.rn/lib/typescript/NativeRNWhisper.d.ts
+index 0d1a41b..f6f1308 100644
+--- a/node_modules/whisper.rn/lib/typescript/NativeRNWhisper.d.ts
++++ b/node_modules/whisper.rn/lib/typescript/NativeRNWhisper.d.ts
+@@ -33,6 +33,21 @@ export type TranscribeOptions = {
+     /** Initial Prompt */
+     prompt?: string;
+ };
++export type TranscribeToken = {
++    /** Raw token text, leading space intact. */
++    text: string;
++    /** Heuristic token timestamps in centiseconds. -1 when tokenTimestamps is off. */
++    t0: number;
++    t1: number;
++    /**
++     * DTW timestamp in centiseconds: the instant the token was emitted, so one
++     * value per token rather than a start and an end. -1 when the context was
++     * opened without `dtwAheadsPreset`.
++     */
++    tDtw: number;
++    /** Token probability, 0..1. */
++    p: number;
++};
+ export type TranscribeResult = {
+     result: string;
+     language: string;
+@@ -40,6 +55,8 @@ export type TranscribeResult = {
+         text: string;
+         t0: number;
+         t1: number;
++        /** Text tokens of the segment. Special tokens are omitted. */
++        tokens: TranscribeToken[];
+     }>;
+     isAborted: boolean;
+ };
+@@ -55,6 +72,7 @@ export type NativeContextOptions = {
+     useCoreMLIos?: boolean;
+     downloadCoreMLAssets?: boolean;
+     coreMLAssets?: CoreMLAsset[];
++    dtwAheadsPreset?: string;
+ };
+ export type NativeWhisperContext = {
+     contextPtr: number;
+diff --git a/node_modules/whisper.rn/lib/typescript/index.d.ts b/node_modules/whisper.rn/lib/typescript/index.d.ts
+index 8fe9267..2b5add9 100644
+--- a/node_modules/whisper.rn/lib/typescript/index.d.ts
++++ b/node_modules/whisper.rn/lib/typescript/index.d.ts
+@@ -69,13 +69,19 @@ export type ContextOptions = {
+     useGpu?: boolean;
+     /** Use Flash Attention, only recommended if GPU available */
+     useFlashAttn?: boolean;
++    /**
++     * Turn on whisper.cpp's DTW token timestamps by naming the model so the right
++     * alignment heads are used. Each text token then carries `tDtw`. Disables flash attention.
++     */
++    dtwAheadsPreset?: DtwAheadsPreset;
+ };
++export type DtwAheadsPreset = 'tiny.en' | 'tiny' | 'base.en' | 'base' | 'small.en' | 'small' | 'medium.en' | 'medium' | 'large-v1' | 'large-v2' | 'large-v3' | 'large-v3-turbo';
+ /**
+  * Initialize a whisper context with a GGML model file
+  * @param options Whisper context options
+  * @returns Promise resolving to WhisperContext instance
+  */
+-export declare function initWhisper({ filePath, coreMLModelAsset, isBundleAsset, useGpu, useCoreMLIos, useFlashAttn, }: ContextOptions): Promise<WhisperContext>;
++export declare function initWhisper({ filePath, coreMLModelAsset, isBundleAsset, useGpu, useCoreMLIos, useFlashAttn, dtwAheadsPreset, }: ContextOptions): Promise<WhisperContext>;
+ export declare function releaseAllWhisper(): Promise<void>;
+ /** Current version of whisper.cpp */
+ export declare const libVersion: string;
+diff --git a/node_modules/whisper.rn/src/NativeRNWhisper.ts b/node_modules/whisper.rn/src/NativeRNWhisper.ts
+index 61250ef..fe25a59 100644
+--- a/node_modules/whisper.rn/src/NativeRNWhisper.ts
++++ b/node_modules/whisper.rn/src/NativeRNWhisper.ts
+@@ -37,6 +37,22 @@ export type TranscribeOptions = {
+   prompt?: string
+ }
+ 
++export type TranscribeToken = {
++  /** Raw token text, leading space intact. */
++  text: string
++  /** Heuristic token timestamps in centiseconds. -1 when tokenTimestamps is off. */
++  t0: number
++  t1: number
++  /**
++   * DTW timestamp in centiseconds: the instant the token was emitted, so one
++   * value per token rather than a start and an end. -1 when the context was
++   * opened without `dtwAheadsPreset`.
++   */
++  tDtw: number
++  /** Token probability, 0..1. */
++  p: number
++}
++
+ export type TranscribeResult = {
+   result: string
+   language: string
+@@ -44,6 +60,8 @@ export type TranscribeResult = {
+     text: string
+     t0: number
+     t1: number
++    /** Text tokens of the segment. Special tokens are omitted. */
++    tokens: TranscribeToken[]
+   }>
+   isAborted: boolean
+ }
+@@ -61,6 +79,7 @@ export type NativeContextOptions = {
+   useCoreMLIos?: boolean
+   downloadCoreMLAssets?: boolean
+   coreMLAssets?: CoreMLAsset[]
++  dtwAheadsPreset?: string
+ }
+ 
+ export type NativeWhisperContext = {
+diff --git a/node_modules/whisper.rn/src/index.ts b/node_modules/whisper.rn/src/index.ts
+index 9a0769c..5836d97 100644
+--- a/node_modules/whisper.rn/src/index.ts
++++ b/node_modules/whisper.rn/src/index.ts
+@@ -395,8 +395,29 @@ export type ContextOptions = {
+   useGpu?: boolean
+   /** Use Flash Attention, only recommended if GPU available */
+   useFlashAttn?: boolean
++  /**
++   * Turn on whisper.cpp's DTW token timestamps by naming the model so the right
++   * alignment heads are used: 'tiny.en', 'tiny', 'base.en', 'base', 'small.en',
++   * 'small', 'medium.en', 'medium', 'large-v1', 'large-v2', 'large-v3',
++   * 'large-v3-turbo'. Each text token then carries `tDtw`. Disables flash attention.
++   */
++  dtwAheadsPreset?: DtwAheadsPreset
+ }
+ 
++export type DtwAheadsPreset =
++  | 'tiny.en'
++  | 'tiny'
++  | 'base.en'
++  | 'base'
++  | 'small.en'
++  | 'small'
++  | 'medium.en'
++  | 'medium'
++  | 'large-v1'
++  | 'large-v2'
++  | 'large-v3'
++  | 'large-v3-turbo'
++
+ /**
+  * Initialize a whisper context with a GGML model file
+  * @param options Whisper context options
+@@ -409,6 +430,7 @@ export async function initWhisper({
+   useGpu = true,
+   useCoreMLIos = true,
+   useFlashAttn = false,
++  dtwAheadsPreset,
+ }: ContextOptions): Promise<WhisperContext> {
+   await installJsi()
+   const { whisperInitContext } = getJsi()
+@@ -431,6 +453,7 @@ export async function initWhisper({
+     useCoreMLIos,
+     downloadCoreMLAssets: __DEV__ && !!coreMLAssets,
+     coreMLAssets,
++    dtwAheadsPreset,
+   } satisfies NativeContextOptions)
+ 
+   return new WhisperContext(context)

@@ -70,6 +70,7 @@ const FIXED_SETTINGS = [
   ['tokenTimestamps', 'on'],
   ['VAD gate', 'on'],
   ['language', 'en, detected once'],
+  ['DTW timestamps', 'on, heads per model'],
 ] as const;
 
 type DownloadState = Record<string, number>;

@@ -69,7 +69,16 @@ export type ModelRun = {
   gpu: boolean;
   reasonNoGpu: string;
   detectedLanguage: string;
+  /** Words timed by whisper.cpp's heuristic token timestamps. What round 1 measured. */
   words: Word[];
+  /**
+   * The same words timed by DTW over the decoder's cross-attention. Same
+   * segmentation as `words`, index for index, because both come from the same
+   * token text. Empty when DTW was unavailable.
+   */
+  dtwWords: Word[];
+  /** True when every token came back with a DTW timestamp. */
+  dtw: boolean;
   transcript: string;
   transcribeMs: number;
   peakRssMb: number;
@@ -287,6 +296,8 @@ async function runModel(
     reasonNoGpu: '',
     detectedLanguage: '',
     words: [],
+    dtwWords: [],
+    dtw: false,
     transcript: '',
     transcribeMs: 0,
     peakRssMb: 0,
@@ -297,7 +308,9 @@ async function runModel(
   let context: Awaited<ReturnType<typeof initWhisper>> | undefined;
 
   try {
-    context = await initWhisper({ filePath: file.uri, useGpu });
+    // dtwAheadsPreset is a local patch to whisper.rn (see patches/). It turns on
+    // whisper.cpp's DTW token timestamps and returns them per token as tDtw.
+    context = await initWhisper({ filePath: file.uri, useGpu, dtwAheadsPreset: spec.dtwPreset });
     run.gpu = context.gpu;
     run.reasonNoGpu = context.reasonNoGPU ?? '';
     onLog(`${spec.id}: loaded, gpu=${context.gpu}${context.gpu ? '' : ` (${run.reasonNoGpu})`}`);
@@ -315,6 +328,8 @@ async function runModel(
     };
 
     const words: Word[] = [];
+    const dtwWords: Word[] = [];
+    let dtwComplete = true;
     // Widened from the model's own 'en' | 'auto' because a detected language can
     // be any of whisper's ninety-nine.
     let language: string = spec.language;
@@ -338,15 +353,37 @@ async function runModel(
         onLog(`${spec.id}: language detected as ${language}, reused for the rest`);
       }
 
+      // Heuristic timing, exactly as round 1 did it: with maxLen 1 each segment
+      // is one token and its t0/t1 come from whisper_exp_compute_token_level_timestamps.
       const tokens = result.segments.map((segment) => ({
         text: segment.text,
         t0Ms: segment.t0 * 10,
         t1Ms: segment.t1 * 10,
       }));
       words.push(...offsetWords(mergeTokensIntoWords(tokens), chunk.t0Ms));
+
+      // DTW timing. whisper.cpp gives one instant per token, the moment it was
+      // emitted, so a token's end is the next token's start and the last token
+      // keeps its heuristic end. Same token text as above, so both lists merge
+      // into the same words and line up index for index.
+      const flat = result.segments.flatMap((segment) => segment.tokens);
+      if (flat.some((token) => token.tDtw < 0)) {
+        dtwComplete = false;
+      } else {
+        const dtwTokens = flat.map((token, index) => {
+          const next = flat[index + 1];
+          const t0Ms = token.tDtw * 10;
+          const t1Ms = next ? next.tDtw * 10 : Math.max(t0Ms, token.t1 * 10);
+          return { text: token.text, t0Ms, t1Ms };
+        });
+        dtwWords.push(...offsetWords(mergeTokensIntoWords(dtwTokens), chunk.t0Ms));
+      }
     }
 
     run.words = words;
+    run.dtw = dtwComplete && dtwWords.length === words.length;
+    run.dtwWords = run.dtw ? dtwWords : [];
+    if (!run.dtw) onLog(`${spec.id}: DTW timestamps incomplete; words file carries heuristic timing only`);
     run.transcript = words.map((word) => word.text).join(' ');
   } catch (error) {
     run.error = describeError(error);

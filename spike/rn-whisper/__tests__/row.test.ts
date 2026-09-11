@@ -25,6 +25,7 @@ describe('rig-a.csv row shape', () => {
     expect(byColumn.vad_spans).toBe('1');
     expect(byColumn.chunks).toBe('1');
     expect(byColumn.lang_mode).toBe('detect-once');
+    expect(byColumn.dtw).toBe('yes');
     expect(byColumn.transcript).toBe('sample');
     expect(byColumn.language).toBe('en');
   });

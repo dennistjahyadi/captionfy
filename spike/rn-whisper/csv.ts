@@ -81,6 +81,10 @@ function ensureCurrentCsv(onLog?: (message: string) => void): File {
  * means reading every word boundary, and that does not belong in a column. One
  * file per run rather than one shared log so a clip can be opened on its own.
  *
+ * Each word carries both timings so one run answers which method drifts less:
+ * `t0`/`t1` from whisper.cpp's heuristic, `dtw_t0`/`dtw_t1` from DTW over the
+ * cross-attention. The DTW pair is null when DTW did not run.
+ *
  * Returns the files written.
  */
 export function writeWordFiles(run: ClipRun): File[] {
@@ -88,14 +92,19 @@ export function writeWordFiles(run: ClipRun): File[] {
     const file = new File(resultsDirectory(), wordFileName(run.clipName, model.modelId));
     if (file.exists) file.delete();
     file.create({ intermediates: true });
-    // `t0`/`t1` are milliseconds from the start of the clip, not of the chunk.
+    // All values are milliseconds from the start of the clip, not of the chunk.
     file.write(
       JSON.stringify(
-        model.words.map((word) => ({
-          word: word.text,
-          t0: Math.round(word.t0Ms),
-          t1: Math.round(word.t1Ms),
-        }))
+        model.words.map((word, index) => {
+          const dtw = model.dtw ? model.dtwWords[index] : undefined;
+          return {
+            word: word.text,
+            t0: Math.round(word.t0Ms),
+            t1: Math.round(word.t1Ms),
+            dtw_t0: dtw ? Math.round(dtw.t0Ms) : null,
+            dtw_t1: dtw ? Math.round(dtw.t1Ms) : null,
+          };
+        })
       )
     );
     return file;

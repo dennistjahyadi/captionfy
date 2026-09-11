@@ -30,6 +30,11 @@ export type ModelSpec = {
   note: string;
   /** Cannot be deselected. Round 2 is about this model; the other is a reference. */
   alwaysRun: boolean;
+  /**
+   * whisper.cpp alignment-heads preset for DTW timestamps. Must match the weights:
+   * the heads are model-specific, and a wrong set gives plausible-looking garbage.
+   */
+  dtwPreset: 'base.en' | 'small.en';
 };
 
 /** Run order matters: cheapest model first, so a device that OOMs still yields rows. */
@@ -43,6 +48,7 @@ export const MODELS: ModelSpec[] = [
     multilingual: false,
     note: 'The production candidate. Runs on every clip.',
     alwaysRun: true,
+    dtwPreset: 'base.en',
   },
   {
     id: 'small.en-q5_1',
@@ -53,6 +59,7 @@ export const MODELS: ModelSpec[] = [
     multilingual: false,
     note: 'Accuracy ceiling reference. Shows what base gives up, not a shipping candidate.',
     alwaysRun: false,
+    dtwPreset: 'small.en',
   },
 ];
 

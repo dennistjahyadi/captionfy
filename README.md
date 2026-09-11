@@ -259,9 +259,13 @@ the bundle is minified. The rig also writes the files below and has a Share butt
 <app documents>/spike-results/<clip>-<model>.words.json    word timings, one file per run
 ```
 
-The words file is an array of `{ word, t0, t1 }` in milliseconds from the start of
-the clip. Round 1 wrote a single shared `rig-a-words.jsonl` instead; one file per
-run replaced it so a clip can be opened on its own.
+The words file is an array of `{ word, t0, t1, dtw_t0, dtw_t1 }` in milliseconds
+from the start of the clip. `t0`/`t1` is whisper.cpp's heuristic token timing.
+`dtw_t0`/`dtw_t1` is DTW over the decoder's cross-attention, the method behind
+OpenAI's `word_timestamps=True`, which whisper.rn ships compiled in but hardcoded
+off; the patch under `patches/` turns it on. Both are recorded per word so one run
+says which drifts less. Round 1 wrote a single shared `rig-a-words.jsonl` instead;
+one file per run replaced it so a clip can be opened on its own.
 
 ### Reading the CSV
 
@@ -342,6 +346,16 @@ files Rig A writes. Not built yet.
 
 ## Known upstream friction
 
+- `patches/whisper.rn+0.7.4.patch` adds a `dtwAheadsPreset` option to `initWhisper`
+  and a `tokens` array on every segment, each token carrying `t0`, `t1`, `tDtw`
+  and `p`. whisper.cpp has had DTW token timestamps since early 2024 with
+  alignment-head presets for every model including `base.en`, but whisper.rn sets
+  `dtw_token_timestamps = false` on both platforms and never reads
+  `whisper_token_data` back. `patch-package` re-applies it on every `npm install`.
+  Android compiles whisper.rn from the bundled sources, so the patch just works.
+  iOS uses a prebuilt framework unless `RNWHISPER_BUILD_FROM_SOURCE=1` is set in
+  the environment at `pod install` time, which then compiles the same sources.
+  `p` is the token probability and is the low-confidence signal for the UI.
 - `.npmrc` sets `legacy-peer-deps`. Expo SDK 57 ships react 19.2.3 while expo-router
   pulls react-dom 19.3.0, whose react peer range is `^19.3.0`. React Native never
   loads react-dom, so the mismatch is inert. Remove the flag once Expo aligns the pins.

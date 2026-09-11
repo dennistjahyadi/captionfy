@@ -14,7 +14,8 @@
     "ios:release": "expo run:ios --configuration Release",
     "prebuild": "expo prebuild",
     "test": "jest",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "postinstall": "patch-package"
   },
   "jest": {
     "preset": "jest-expo",
@@ -48,6 +49,7 @@
     "@types/react": "~19.2.2",
     "jest": "^30.5.1",
     "jest-expo": "^57.0.5",
+    "patch-package": "^8.0.1",
     "typescript": "~6.0.3"
   }
 }
