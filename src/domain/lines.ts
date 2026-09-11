@@ -4,6 +4,7 @@
  * Pure TypeScript. No react-native imports belong in this directory.
  */
 import { endsSentence } from './text';
+import type { StyleProps } from './style';
 import type { Ms, Project, Word } from './types';
 
 /**
@@ -111,6 +112,20 @@ export function segmentLines(words: Word[], opts: Partial<SegmentLineOptions> = 
       visibleUntilMs: Math.min(nextStart, endMs + holdMs),
     };
   });
+}
+
+/**
+ * The units the viewer sees one at a time, as the style groups them.
+ *
+ * The layout, the emphasis picker and the transcript all have to agree on where
+ * the lines fall. A word emphasised against one grouping and drawn against
+ * another would land in the wrong line, so everything goes through here.
+ */
+export function displayUnits(
+  words: Word[],
+  style: Pick<StyleProps, 'maxWordsPerLine'>
+): CaptionLine[] {
+  return segmentLines(words, { maxWordsPerLine: style.maxWordsPerLine });
 }
 
 export type ActiveCaption = {

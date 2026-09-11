@@ -1,5 +1,5 @@
 import { measureMono, project, word } from '../__fixtures__/project';
-import { layoutCaptionFrame, POP_RISE_MS, type Canvas } from '../layout';
+import { layoutCaptionFrame, type Canvas } from '../layout';
 import { CAPTION_INSET, resolveStyle, TEXT_SIZE_RATIO, type StyleProps } from '../style';
 
 const canvas: Canvas = { width: 1080, height: 1920 };
@@ -142,7 +142,7 @@ describe('wrapping', () => {
 
   it('scales the outline with the type it shrank', () => {
     const frame = frameAt(500, { maxRows: 1 }, pair);
-    expect(frame.outline.width).toBeCloseTo(frame.fontSize * style().outlineRatio);
+    expect(frame.words[0].outline.width).toBeCloseTo(frame.fontSize * style().outlineRatio);
   });
 
   it('stops shrinking at the readable floor rather than vanishing', () => {
@@ -169,13 +169,9 @@ describe('highlight modes', () => {
     expect(frameAt(1000, { highlightMode: 'karaoke' }).words[1].fill).toBe(1);
   });
 
-  it('pop: eases the active word up to full size', () => {
-    const rising = frameAt(400 + POP_RISE_MS / 2, { highlightMode: 'pop', popScale: 1.2 });
-    const risen = frameAt(400 + POP_RISE_MS, { highlightMode: 'pop', popScale: 1.2 });
-    expect(rising.words[1].scale).toBeGreaterThan(1);
-    expect(rising.words[1].scale).toBeLessThan(1.2);
-    expect(risen.words[1].scale).toBeCloseTo(1.2);
-    expect(risen.words[0].scale).toBe(1);
+  it('fade: dims the words still to come', () => {
+    const frame = frameAt(500, { highlightMode: 'fade', upcomingOpacity: 0.45 });
+    expect(frame.words.map((w) => w.opacity)).toEqual([1, 1, 0.45]);
   });
 
   it('clean: marks nothing', () => {

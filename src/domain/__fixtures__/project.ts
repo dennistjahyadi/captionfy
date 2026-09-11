@@ -36,6 +36,7 @@ export function project(partial: Partial<Project> = {}): Project {
     status: 'ready',
     progress: { processedMs: 48_000, totalMs: 48_000 },
     lineFlags: [],
+    autoEmphasis: [],
     globalOffsetMs: 0,
     styleId: DEFAULT_STYLE_ID,
     styleOverrides: {},
@@ -54,10 +55,21 @@ export function ids(prefix = 'n'): IdFactory {
  * A monospace stand-in for a real font.
  *
  * Layout tests are about wrapping, position and state, none of which should
- * depend on the shape of a glyph. The real measurer comes from Skia.
+ * depend on the shape of a glyph. The real measurer comes from Skia. Italics are
+ * given a little extra width so a test can tell the two faces apart.
  */
-export const measureMono: MeasureText = (text, fontSize) => ({
-  width: text.length * fontSize * 0.5,
+export const measureMono: MeasureText = (text, fontSize, face) => ({
+  width: text.length * fontSize * (face.italic ? 0.55 : 0.5),
   ascent: fontSize * 0.8,
   descent: fontSize * 0.2,
 });
+
+/**
+ * A flat envelope at a chosen level, long enough to cover a fixture project.
+ *
+ * Tests about scoring rules rather than about loudness use this so every word
+ * sits exactly on the speech median and contributes zero loudness points.
+ */
+export function flatEnvelope(durationMs = 60_000, level = 0.1): Float32Array {
+  return new Float32Array(Math.ceil(durationMs / 10)).fill(level);
+}

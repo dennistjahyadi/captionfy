@@ -47,6 +47,13 @@ export interface Word {
    * word have to clear the same flag, and editing clears it through `origin`.
    */
   confirmed?: boolean;
+  /**
+   * The user's own answer to "should this word be big".
+   *
+   * Undefined means they have not said, and the automatic rule decides. An
+   * override is never overwritten by a recompute.
+   */
+  emphasis?: 'on' | 'off';
 }
 
 export type ProjectStatus = 'extracting' | 'transcribing' | 'ready' | 'exporting' | 'failed';
@@ -78,10 +85,24 @@ export interface Project {
    * without every pass accumulating rounding error into real word timings.
    */
   globalOffsetMs: Ms;
+  /**
+   * Words the automatic rule chose to emphasise, frozen once the transcript is
+   * ready and only ever re-picked around an edit.
+   *
+   * Frozen because a user correcting a typo in the last line would otherwise
+   * watch the big words move in the first line. Overrides are not in here; they
+   * live on the word.
+   */
+  autoEmphasis: string[];
   styleId: string;
   styleOverrides: Partial<StyleProps>;
-  /** Peaks precomputed once from the PCM that ASR already decoded. */
-  waveformPeaksUri?: string;
+  /**
+   * RMS energy per 10 ms frame, computed once from the PCM that ASR decoded.
+   *
+   * One computation, two uses: the emphasis rule reads how loudly each word was
+   * said, and the timing sheet draws its waveform from the same numbers.
+   */
+  energyEnvelopeUri?: string;
 }
 
 export interface DictionaryEntry {

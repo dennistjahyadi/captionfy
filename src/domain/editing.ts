@@ -110,9 +110,21 @@ export function mergeWords(words: Word[], ids: string[]): Word[] {
     origin: 'edited',
     breakAfter: run[run.length - 1].breakAfter,
     confirmed: undefined,
+    emphasis: mergedEmphasis(run),
   };
 
   return replaceRange(words, from, run.length, [merged]);
+}
+
+/**
+ * An explicit "make big" survives a merge; an explicit "keep normal" only
+ * survives if every piece agreed. Anything else hands the question back to the
+ * automatic rule, which is what a local recompute will answer.
+ */
+function mergedEmphasis(run: Word[]): Word['emphasis'] {
+  if (run.some((word) => word.emphasis === 'on')) return 'on';
+  if (run.every((word) => word.emphasis === 'off')) return 'off';
+  return undefined;
 }
 
 /** Removes a word. Its time is left as a gap rather than given to a neighbour. */
@@ -127,6 +139,19 @@ export function setBreakAfter(words: Word[], id: string, breakAfter: Word['break
   const index = words.findIndex((word) => word.id === id);
   if (index === -1) return words;
   return replaceRange(words, index, 1, [{ ...words[index], breakAfter }]);
+}
+
+/**
+ * The word sheet's "Make big" and "Make normal".
+ *
+ * `undefined` hands the word back to the automatic rule, which is how a user
+ * undoes an override rather than having to remember what the app had chosen.
+ */
+export function setEmphasis(words: Word[], id: string, emphasis: Word['emphasis']): Word[] {
+  const index = words.findIndex((word) => word.id === id);
+  if (index === -1) return words;
+  if (words[index].emphasis === emphasis) return words;
+  return replaceRange(words, index, 1, [{ ...words[index], emphasis }]);
 }
 
 /**
