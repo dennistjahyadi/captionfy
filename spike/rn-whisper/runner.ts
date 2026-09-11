@@ -12,7 +12,7 @@ import { initWhisper, initWhisperVad, type TranscribeOptions } from 'whisper.rn'
 import { extractPcm16, type ExtractedAudio } from '../../modules/audio-extract';
 import SpikeMetrics, { type DeviceProfile } from '../../modules/spike-metrics';
 import { packSpansIntoChunks, totalSpanMs, type Span } from '../../src/domain/spans';
-import { mergeTokensIntoWords, offsetWords, type Word } from '../../src/domain/words';
+import { mergeTokensIntoWords, offsetWords, type AsrWord } from '../../src/domain/words';
 import { ensureDownloaded, modelFile, VAD_MODEL, type ModelSpec } from './models';
 
 const SAMPLE_RATE = 16_000;
@@ -70,13 +70,13 @@ export type ModelRun = {
   reasonNoGpu: string;
   detectedLanguage: string;
   /** Words timed by whisper.cpp's heuristic token timestamps. What round 1 measured. */
-  words: Word[];
+  words: AsrWord[];
   /**
    * The same words timed by DTW over the decoder's cross-attention. Same
    * segmentation as `words`, index for index, because both come from the same
    * token text. Empty when DTW was unavailable.
    */
-  dtwWords: Word[];
+  dtwWords: AsrWord[];
   /** True when every token came back with a DTW timestamp. */
   dtw: boolean;
   transcript: string;
@@ -327,8 +327,8 @@ async function runModel(
       translate: false,
     };
 
-    const words: Word[] = [];
-    const dtwWords: Word[] = [];
+    const words: AsrWord[] = [];
+    const dtwWords: AsrWord[] = [];
     let dtwComplete = true;
     // Widened from the model's own 'en' | 'auto' because a detected language can
     // be any of whisper's ninety-nine.
