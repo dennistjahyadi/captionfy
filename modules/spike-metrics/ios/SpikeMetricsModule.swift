@@ -12,6 +12,12 @@ internal struct DeviceProfile: Record {
   @Field var totalRamMb: Int = 0
 }
 
+internal struct SourceInfo: Record {
+  @Field var name: String = ""
+  @Field var sizeBytes: Double = 0
+  @Field var readable: Bool = false
+}
+
 /// Throwaway Phase 0 instrumentation. Delete this module together with `spike/`
 /// once the Stage 0 accuracy question is answered.
 public class SpikeMetricsModule: Module {
@@ -45,6 +51,25 @@ public class SpikeMetricsModule: Module {
     /// as sampled rather than as a kernel-maintained watermark.
     Function("resetPeakRss") { () -> Bool in
       false
+    }
+
+    /// Name and size behind a picked URI, plus whether it can still be opened.
+    ///
+    /// The picker hands back a copy in a temporary directory whose last path
+    /// component is already the real filename, so unlike Android there is no
+    /// provider to ask. `readable` matters all the same: a remembered clip in a
+    /// temporary directory may have been swept away between runs.
+    AsyncFunction("describeSource") { (uri: String) -> SourceInfo in
+      var info = SourceInfo()
+      guard let url = URL(string: uri) else { return info }
+
+      info.name = url.lastPathComponent.removingPercentEncoding ?? url.lastPathComponent
+      guard url.isFileURL else { return info }
+
+      let attributes = try? FileManager.default.attributesOfItem(atPath: url.path)
+      info.sizeBytes = Double((attributes?[.size] as? NSNumber)?.int64Value ?? 0)
+      info.readable = FileManager.default.isReadableFile(atPath: url.path)
+      return info
     }
 
     /// Mirrors the Android `Caption` logcat tag so a release build can be read from

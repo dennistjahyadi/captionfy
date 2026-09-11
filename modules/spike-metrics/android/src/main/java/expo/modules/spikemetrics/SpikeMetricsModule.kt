@@ -2,7 +2,9 @@ package expo.modules.spikemetrics
 
 import android.app.ActivityManager
 import android.content.Context
+import android.net.Uri
 import android.os.Build
+import android.provider.OpenableColumns
 import expo.modules.kotlin.exception.Exceptions
 import expo.modules.kotlin.modules.Module
 import expo.modules.kotlin.modules.ModuleDefinition
@@ -18,6 +20,12 @@ class DeviceProfile : Record {
   @Field var abi: String = ""
   @Field var cpuCores: Int = 0
   @Field var totalRamMb: Int = 0
+}
+
+class SourceInfo : Record {
+  @Field var name: String = ""
+  @Field var sizeBytes: Double = 0.0
+  @Field var readable: Boolean = false
 }
 
 /**
@@ -78,6 +86,51 @@ class SpikeMetricsModule : Module() {
       } catch (_: Throwable) {
         false
       }
+    }
+
+    /**
+     * Real display name and size behind a picked `content://` URI, plus whether it
+     * can still be opened.
+     *
+     * A document URI carries a provider id, not a filename, so the picked clip
+     * would otherwise land in the CSV as something like `msf:1000000045`. Only the
+     * provider knows the name, and it only answers over the resolver. `readable`
+     * reports whether a remembered URI still works: SAF grants survive a restart,
+     * but not the file being deleted or the grant being revoked.
+     */
+    AsyncFunction("describeSource") { uri: String ->
+      val context = appContext.reactContext ?: throw Exceptions.ReactContextLost()
+      val parsed = Uri.parse(uri)
+      val info = SourceInfo()
+
+      if (parsed.scheme == "content") {
+        try {
+          context.contentResolver
+            .query(parsed, arrayOf(OpenableColumns.DISPLAY_NAME, OpenableColumns.SIZE), null, null, null)
+            ?.use { cursor ->
+              if (cursor.moveToFirst()) {
+                cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
+                  .takeIf { it >= 0 && !cursor.isNull(it) }
+                  ?.let { info.name = cursor.getString(it) }
+                cursor.getColumnIndex(OpenableColumns.SIZE)
+                  .takeIf { it >= 0 && !cursor.isNull(it) }
+                  ?.let { info.sizeBytes = cursor.getLong(it).toDouble() }
+              }
+            }
+          // A query can be answered out of a cache after the grant is gone, so
+          // readability is decided by actually opening the thing.
+          context.contentResolver.openInputStream(parsed)?.use { info.readable = true }
+        } catch (_: Throwable) {
+          info.readable = false
+        }
+        return@AsyncFunction info
+      }
+
+      val file = File(parsed.path ?: uri)
+      info.name = file.name
+      info.sizeBytes = file.length().toDouble()
+      info.readable = file.canRead()
+      info
     }
 
     /**
