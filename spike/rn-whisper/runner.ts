@@ -35,7 +35,30 @@ const MAX_SPAN_MS = 28_000;
 /** Spans this short carry no word and only cost a model warm-up. */
 const MIN_SPAN_MS = 120;
 
-export type ClipTag = 'clean-accented' | 'music-under-voice';
+/**
+ * How the clip sounds, chosen by the operator before a run.
+ *
+ * Analysis labels and nothing else. Nothing downstream of here reads the tag:
+ * every clip takes the identical path through extraction, VAD and whisper, which
+ * is the only way a music clip's word error rate compares with a clean one's.
+ */
+export const NOISE_TAGS = [
+  'clean-native',
+  'clean-accented',
+  'music-under-voice',
+  'street-noise',
+  'multi-speaker',
+  // v1 is English-only, so this tag does not reopen that decision. It is here to
+  // show the shape of the damage: a wrong phonetic guess with intact timing is
+  // something a user edits in one line, and a dropped span or a hallucination
+  // that wrecks the timestamps after it is something the UI has to flag.
+  'code-switch',
+] as const;
+
+export type NoiseTag = (typeof NOISE_TAGS)[number];
+
+/** Fixed for every round 2 run. A run that varies these is not comparable. */
+export const MAX_THREADS = 4;
 
 export type SpeechSpan = Span;
 
@@ -58,9 +81,13 @@ export type ModelRun = {
 export type ClipRun = {
   startedAt: string;
   clipName: string;
-  clipTag: ClipTag;
+  noiseTag: NoiseTag;
   device: DeviceProfile;
-  buildType: 'debug' | 'release';
+  /** `debug`, `release`, or the same prefixed with `emulator-`. Goes in the CSV. */
+  buildLabel: BuildLabel;
+  /** True when the run happened on an emulator, where timings mean nothing. */
+  isEmulator: boolean;
+  maxThreads: number;
   audio: ExtractedAudio;
   extractMs: number;
   vadEnabled: boolean;
@@ -78,7 +105,7 @@ export type ClipRun = {
 export type RunOptions = {
   videoUri: string;
   clipName: string;
-  clipTag: ClipTag;
+  noiseTag: NoiseTag;
   models: ModelSpec[];
   vadEnabled: boolean;
   /**
@@ -92,7 +119,32 @@ export type RunOptions = {
   onLog: (message: string) => void;
 };
 
-export const buildType: 'debug' | 'release' = __DEV__ ? 'debug' : 'release';
+export type BuildType = 'debug' | 'release';
+export type BuildLabel = BuildType | `emulator-${BuildType}`;
+
+export const buildType: BuildType = __DEV__ ? 'debug' : 'release';
+
+/**
+ * Names an emulator from what the device profile already reports, because
+ * `modules/` is off limits for the spike.
+ *
+ * Round 1 lost its timing data to this: the Android Studio image transcribed
+ * 5-10x faster than the Galaxy A54 and the rows looked no different afterwards.
+ * The image reports itself as `sdk_gphone64_arm64`; the older `generic`,
+ * `goldfish` and `ranchu` names and Genymotion's are here so a different image
+ * cannot quietly pass as a phone.
+ */
+const EMULATOR_MARKERS = ['sdk_gphone', 'sdk_google', 'emulator', 'android sdk built for', 'generic', 'goldfish', 'ranchu', 'genymotion', 'vbox'];
+
+export function isEmulator(device: DeviceProfile): boolean {
+  const haystack = `${device.model} ${device.soc} ${device.label}`.toLowerCase();
+  return EMULATOR_MARKERS.some((marker) => haystack.includes(marker));
+}
+
+/** What lands in the CSV `build` column, so emulator rows can be filtered out. */
+export function buildLabelFor(device: DeviceProfile): BuildLabel {
+  return isEmulator(device) ? `emulator-${buildType}` : buildType;
+}
 
 /**
  * whisper.rn only accelerates on Apple hardware. Asking for a GPU on Android
@@ -115,11 +167,16 @@ const VAD_OPTIONS = {
 export async function runClip(options: RunOptions): Promise<ClipRun> {
   const { onLog } = options;
   const device = SpikeMetrics.getDeviceProfile();
+  const emulator = isEmulator(device);
+  const buildLabel = buildLabelFor(device);
 
   onLog(`device: ${device.label}, ${device.cpuCores} cores, ${device.totalRamMb} MB RAM`);
-  onLog(`build: ${buildType}`);
+  onLog(`build: ${buildLabel}`);
   if (buildType === 'debug') {
     onLog('WARNING: debug build. Timings from this run are not reportable.');
+  }
+  if (emulator) {
+    onLog('WARNING: emulator. Timings from this run are not reportable.');
   }
 
   const extractStart = Date.now();
@@ -164,9 +221,11 @@ export async function runClip(options: RunOptions): Promise<ClipRun> {
   return {
     startedAt: new Date().toISOString(),
     clipName: options.clipName,
-    clipTag: options.clipTag,
+    noiseTag: options.noiseTag,
     device,
-    buildType,
+    buildLabel,
+    isEmulator: emulator,
+    maxThreads: MAX_THREADS,
     audio,
     extractMs,
     vadEnabled: options.vadEnabled,
@@ -193,7 +252,7 @@ async function detectSpeech(pcm: ArrayBuffer, onLog: (message: string) => void):
   const context = await initWhisperVad({
     filePath: modelFile(VAD_MODEL).uri,
     useGpu,
-    nThreads: 4,
+    nThreads: MAX_THREADS,
   });
 
   try {
@@ -247,7 +306,7 @@ async function runModel(
       language: spec.language,
       // whisper.rn defaults to 2 threads on a 4-core phone, which halves throughput
       // on every device we care about.
-      maxThreads: 4,
+      maxThreads: MAX_THREADS,
       // maxLen 1 with tokenTimestamps makes whisper emit one segment per token,
       // which is the only way to get word-level timing out of this binding.
       maxLen: 1,

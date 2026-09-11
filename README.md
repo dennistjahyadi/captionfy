@@ -7,6 +7,40 @@ no server. One React Native codebase for Android and iOS.
 the Stage 0 accuracy spike that decides whether on-device transcription is good
 enough on messy creator audio.
 
+## Scope: v1 is English-only
+
+This is a decision, not an open question. v1 transcribes English. Non-English
+words inside an English sentence are handled by the dictionary feature, not by the
+model. Video whose sentences are wholly in another language is out of scope.
+
+Three reasons, in the order they carry weight.
+
+**The measurement says so.** Round 1 ran multilingual `small-q5_1` against
+English-only `base.en-q8_0` and `small.en-q5_1` on the same accented clips.
+Multilingual was not a speed-for-accuracy trade. It lost on both: four times
+slower, and wrong on names where the English-only models were right, turning a
+first name into a different name and mangling a brand name past recognition. A
+multilingual `base`, the only multilingual model small enough to ship, would be
+worse still.
+
+**It matches who the product is for.** A creator in Southeast Asia making English
+content with a few Indonesian words in it is a user this can serve today. Those
+words are overwhelmingly brand names, people's names, and local terms that repeat,
+which is exactly what the dictionary is for. The user it cannot serve in v1 is the
+one whose sentences are wholly in Bahasa. That is a normal v1 boundary. CapCut's
+Bahasa captions are well below its English ones for the same reason.
+
+**It holds the scope.** Supporting Bahasa properly means a different model, a
+different word error rate threshold, a different test set, and possibly a different
+engine. That is a second product, not a feature.
+
+Round 2 still runs one `code-switch` clip. Not to reopen the decision, but to learn
+the shape of the failure, because two outcomes have very different consequences. A
+wrong phonetic guess at an Indonesian word with the timing still correct is
+acceptable: the user fixes one line and the karaoke stays in sync. A dropped span,
+or a hallucination that throws off every timestamp after it, has to surface in the
+UI as a low-confidence line. One clip decides whether that handling is needed.
+
 ## Layout
 
 ```
@@ -21,8 +55,10 @@ spike/rn-whisper/        Rig A. Throwaway. Not shipped.
 
 ### What Rig A does
 
-Pick a video, decode its audio once, run every candidate model over those exact
-bytes, write one CSV row per model.
+Pick a clip, decode its audio once, run every candidate model over those exact
+bytes, write one CSV row per model. Audio and video are the same to it: the file
+picker takes either, and `audio-extract` decodes whatever container the platform
+can open.
 
 Per clip: `extract -> VAD -> transcribe each speech span -> merge tokens into words`.
 Every span is transcribed on its own, so word timestamps come back relative to the
@@ -37,12 +73,15 @@ larger and slightly more accurate. The exact filename is recorded in every CSV r
 
 | Model in the rig | File | Approx. size | Role |
 | --- | --- | --- | --- |
-| `base.en-q8_0` | `ggml-base.en-q8_0.bin` | 82 MB | Low-end fallback candidate |
-| `small.en-q5_1` | `ggml-small.en-q5_1.bin` | 190 MB | English-only ceiling, comparison only |
-| `small-q5_1` | `ggml-small-q5_1.bin` | 190 MB | The candidate the pass/fail gate is about |
+| `base.en-q8_0` | `ggml-base.en-q8_0.bin` | 82 MB | The production candidate. The gate is about this. |
+| `small.en-q5_1` | `ggml-small.en-q5_1.bin` | 190 MB | Accuracy ceiling reference. Shows what `base` gives up. |
 | Silero VAD | `ggml-silero-v6.2.0.bin` | 3 MB | Gates every transcription |
 
 Models download to the app document directory on first use. None is bundled.
+
+Round 1 ran a third model, multilingual `small-q5_1`. It is gone. It was slower and
+less accurate than both English-only models on the same accented clips, and v1 is
+English-only anyway. See [Scope](#scope-v1-is-english-only).
 
 ### The test set
 
@@ -78,28 +117,47 @@ Beds from the [Free Music Archive](https://freemusicarchive.org) or
 [ccMixter](https://ccmixter.org) under a Creative Commons licence.
 
 **Real creator audio.** Neither layer above contains a phone mic, a room, traffic,
-a fast talker, or a speaker switching language mid-sentence. Those clips have to
-come from real creators. This is the layer the pass/fail gate actually rests on.
+a fast talker, or a speaker dropping a non-English word mid-sentence. Those clips
+have to come from real creators. This is the layer the pass/fail gate actually
+rests on, and it is where the one `code-switch` clip belongs.
 
-Push a built set and pick it with the audio button in the rig:
+Push a built set, or drag the files onto a running emulator, and open it with
+**Browse files** in the rig:
 
 ```bash
 adb push test-clips /sdcard/Download/
 ```
 
+Nothing copied onto a device this way is in MediaStore, so the gallery picker and
+the document picker's Recent view both come up empty. **Browse files** sidesteps
+that by opening straight on Downloads. Every clip opened this way lands in
+**Recent clips**, which is one tap on the next run; the grant survives a restart,
+so the list keeps working after the app is killed.
+
 ### Pass/fail
 
 The rig produces numbers; word error rate is hand-counted from the `transcript`
-column. The gate from the brief:
+column. The brief's gate was written around multilingual `small`, which is no
+longer in the run set, so it is restated here for `base.en-q8_0`. `small.en-q5_1`
+is a ceiling reference only and is never the thing that passes or fails.
 
-- Multilingual `small` under 10% WER on `clean-accented` **and** under 15% on
+- `base.en-q8_0` under 10% WER on `clean-accented` **and** under 15% on
   `music-under-voice` means proceed to Phase 1 with whisper.rn.
 - Music clips over 25% WER means stop and report.
-- Over 45 s or an out-of-memory for a 60 s clip on the slowest target phone means
-  ship `base` as the default with `small` opt-in. The CSV's `seconds_per_60s`
-  column is that number directly.
+- Over 45 s for a 60 s clip, or an out-of-memory, on the slowest target phone means
+  stop and report. The CSV's `seconds_per_60s` column is that number directly.
+  There is no larger model to fall back to now: `small.en-q5_1` is the reference,
+  and round 1 already showed it costs more than `base` for a gain the gate does not
+  need.
 - Word timestamps drifting past roughly 200 ms under music is a flag for a possible
-  forced-alignment pass. `rig-a-words.jsonl` carries every word boundary.
+  forced-alignment pass. The per-run `<clip>-<model>.words.json` files carry every
+  word boundary.
+- The `code-switch` clip has no threshold. It is read for the shape of the failure,
+  not scored. See [Scope](#scope-v1-is-english-only).
+
+Decide each threshold before reading the data. `small.en-q5_1` scoring better than
+`base.en-q8_0` is expected and is not by itself a reason to change the plan; the
+question is only whether `base` clears the gate.
 
 ### Running it
 
@@ -110,13 +168,16 @@ Plug the phone in, with USB debugging turned on, and run:
 
 ```bash
 npm install
-./install-on-phone.sh          # build, install, launch. --logs also tails the pipeline
+./run.sh                       # or: npm run phone
 ```
 
-The script finds the SDK, picks the handset over any running emulator, builds only
-that phone's architecture, and explains what to do when no device is found or the
+`run.sh` is the only script here. It builds, installs and launches, and two flags
+change what it does: `--emulator` picks the device, `--dev` picks the build. It
+finds the SDK, prefers a handset over any running emulator, builds only that
+device's architecture, and explains what to do when nothing is found or the
 signature does not match. `--fresh` wipes app data, which means downloading the
-models again. `--skip-build` installs the APK that is already built.
+models again. `--skip-build` installs the APK that is already built. `--logs`
+tails the pipeline afterwards. `./run.sh --help` lists the rest.
 
 The long way, if you want the steps separately:
 
@@ -134,7 +195,7 @@ The release APK bakes the JS bundle in, so every screen tweak costs a full rebui
 and reinstall. For UI work use the debug build instead, which pulls JS from Metro:
 
 ```bash
-./install-on-phone.sh --dev    # or: npm run dev
+./run.sh --dev                 # or: npm run dev
 ```
 
 That builds once, installs, and leaves Metro running. Save a change to
@@ -143,22 +204,25 @@ changes need the command again: anything under `modules/`, the plugin list in
 `app.json`, or a new dependency with native code.
 
 Both variants are signed with the same debug keystore and share a package name, so
-switching between `--dev` and the release install keeps the 465 MB of downloaded
+switching between `--dev` and the release install keeps the 275 MB of downloaded
 models in place. No `--fresh` needed.
 
 The banner reads `DEBUG BUILD` in red the whole time. That is the point: nothing
-measured in this mode is reportable. Re-run `./install-on-phone.sh` for numbers.
+measured in this mode is reportable. Re-run `./run.sh` for numbers.
 
 With no phone to hand, the same loop runs on an emulator beside the editor:
 
 ```bash
-./run-on-emulator.sh           # or: npm run emulator
+./run.sh --emulator            # or: npm run emulator
 ```
 
-It boots an AVD, waits for it, then hands the serial to `--dev` above, so there is
-one build path rather than two. It reuses an already running emulator and leaves it
-running afterwards, so a second run skips straight to the build. Pass an AVD name to
-pick one, or `--cold` to ignore a snapshot that boots to a black screen.
+That boots an AVD, waits for it, and carries on into the same build, install and
+Metro steps as `--dev`, which is why it is one script and not two. It reuses an
+already running emulator and leaves it running afterwards, so a second run skips
+straight to the build. Pass an AVD name to pick one, or `--cold` to ignore a
+snapshot that boots to a black screen. `--emulator` defaults to the debug build
+because an emulator cannot produce a reportable number either way; add `--release`
+to override that.
 
 Create the AVD in Android Studio under Device Manager. On Apple Silicon choose an
 `arm64-v8a` system image, which is also the architecture a real handset uses.
@@ -176,9 +240,9 @@ dominates build time. `arm64-v8a` covers every real handset and every emulator i
 on an Apple Silicon Mac; `x86_64` is kept only so an Intel machine or a cloud CI
 emulator can still build.
 
-Neither build path pays for both. `install-on-phone.sh` reads the connected device's
-own ABI and passes `-PreactNativeArchitectures` to Gradle for the debug build as
-well as the release one, so a run compiles whisper.cpp exactly once.
+Neither build path pays for both. `run.sh` reads the target device's own ABI and
+passes `-PreactNativeArchitectures` to Gradle for the debug build as well as the
+release one, so a run compiles whisper.cpp exactly once.
 
 Watch the pipeline:
 
@@ -191,17 +255,25 @@ builds cannot be read with `adb run-as` and JS `console.log` is not dependable o
 the bundle is minified. The rig also writes the files below and has a Share button.
 
 ```
-<app documents>/spike-results/rig-a.csv          one row per (clip, model)
-<app documents>/spike-results/rig-a-words.jsonl  word-level timings per run
+<app documents>/spike-results/rig-a.csv                    one row per (clip, model)
+<app documents>/spike-results/<clip>-<model>.words.json    word timings, one file per run
 ```
+
+The words file is an array of `{ word, t0, t1 }` in milliseconds from the start of
+the clip. Round 1 wrote a single shared `rig-a-words.jsonl` instead; one file per
+run replaced it so a clip can be opened on its own.
 
 ### Reading the CSV
 
 Columns worth knowing:
 
+Every column is documented in [spike/ROUND2.md](spike/ROUND2.md). The ones worth
+knowing before you open the file:
+
 | Column | Why it is there |
 | --- | --- |
-| `build` | `debug` rows are not reportable |
+| `build` | Only `release` rows are reportable. `debug` and `emulator-*` are not. |
+| `noise_tag` | Your label for the clip. Analysis only; nothing branches on it. |
 | `gpu` | Catches a silent fall back to CPU |
 | `seconds_per_60s` | The brief's 45 s budget, normalised |
 | `vad_fell_back` | VAD found no speech and fixed windows were used instead |
@@ -210,10 +282,14 @@ Columns worth knowing:
 | `peak_is_per_run` | `no` means the peak includes earlier models in the session |
 | `source_hz` / `source_channels` | Confirms the resampler and downmix actually ran |
 | `transcript` | Hand-count word error rate from this |
+| `notes` | Always empty. Yours, for the WER count you just made. |
 
-The VAD toggle on screen exists so a music clip can be measured with and without
-the gate. If music word error rate blows past 25%, that pair of rows says whether
-the gate is helping or eating the speech.
+Round 1 had on-screen toggles for the VAD gate and for language detection. Round 2
+holds both fixed and shows them as read-only, because a row run with different
+settings compares with nothing. If music word error rate blows past 25% and the
+suspicion is that the gate ate the speech, read `speech_seconds` against
+`clip_seconds` and `vad_fell_back` first; changing the setting is a separate
+experiment, run deliberately and noted.
 
 ### What actually costs time
 
@@ -230,9 +306,10 @@ passes into two.
 
 Auto-detecting the language runs a whole extra encoder pass per call, so a
 multilingual model with `language: 'auto'` costs twice what the same weights cost
-with the language fixed. The rig detects on the first chunk and reuses the answer.
-Turn that off with the screen toggle to measure a clip whose speaker switches
-language mid-sentence, where per-chunk detection may be worth paying for.
+with the language fixed. That is most of why multilingual `small` came in at four
+times the cost of `small.en` with identical weights and size. Round 2's two models
+are both English-only and pinned to `en`, so they never pay it, and `lang_mode`
+reads `detect-once` on every row.
 
 Read `chunks` and `lang_mode` together with `transcribe_ms`. Two runs of the same
 model over the same clip are only comparable when both match.

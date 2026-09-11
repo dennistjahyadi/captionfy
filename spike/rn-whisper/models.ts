@@ -7,13 +7,17 @@
  * scale, so it is marginally larger and marginally more accurate. q5_1 is used
  * here and the CSV records the exact filename, so nothing about the comparison is
  * ambiguous. `base` stays at q8_0 as specified.
+ *
+ * Round 2 runs two models. Multilingual `small-q5_1` is gone: on round 1's
+ * accented clip it scored worse than `base.en-q8_0` and took four times as long,
+ * so there is nothing left to learn from it.
  */
 import { Directory, File, Paths } from 'expo-file-system';
 
 const WHISPER_MODEL_HOST = 'https://huggingface.co/ggerganov/whisper.cpp/resolve/main';
 const VAD_MODEL_HOST = 'https://huggingface.co/ggml-org/whisper-vad/resolve/main';
 
-export type ModelId = 'base.en-q8_0' | 'small.en-q5_1' | 'small-q5_1';
+export type ModelId = 'base.en-q8_0' | 'small.en-q5_1';
 
 export type ModelSpec = {
   id: ModelId;
@@ -24,6 +28,8 @@ export type ModelSpec = {
   language: 'en' | 'auto';
   multilingual: boolean;
   note: string;
+  /** Cannot be deselected. Round 2 is about this model; the other is a reference. */
+  alwaysRun: boolean;
 };
 
 /** Run order matters: cheapest model first, so a device that OOMs still yields rows. */
@@ -35,7 +41,8 @@ export const MODELS: ModelSpec[] = [
     approxMb: 82,
     language: 'en',
     multilingual: false,
-    note: 'Low-end fallback candidate',
+    note: 'The production candidate. Runs on every clip.',
+    alwaysRun: true,
   },
   {
     id: 'small.en-q5_1',
@@ -44,16 +51,8 @@ export const MODELS: ModelSpec[] = [
     approxMb: 190,
     language: 'en',
     multilingual: false,
-    note: 'English-only ceiling, for comparison only. Not shippable: creators code-switch.',
-  },
-  {
-    id: 'small-q5_1',
-    fileName: 'ggml-small-q5_1.bin',
-    url: `${WHISPER_MODEL_HOST}/ggml-small-q5_1.bin`,
-    approxMb: 190,
-    language: 'auto',
-    multilingual: true,
-    note: 'The candidate the pass/fail gate is about',
+    note: 'Accuracy ceiling reference. Shows what base gives up, not a shipping candidate.',
+    alwaysRun: false,
   },
 ];
 

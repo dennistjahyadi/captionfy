@@ -1,54 +1,24 @@
 /**
  * Stage 0 result log. Throwaway.
  *
- * One row per (clip, model). The transcript rides in the last column so word error
- * rate can be hand-counted straight from the file, and the same rows go to the
- * native `Caption` log tag so a release build can be read over adb without the
- * file ever leaving the device.
+ * One row per (clip, model). The transcript rides in the second-to-last column so
+ * word error rate can be hand-counted straight from the file, with a free-text
+ * `notes` column after it, and the same rows go to the native `Caption` log tag so
+ * a release build can be read over adb without the file ever leaving the device.
+ *
+ * The row shape itself lives in `row.ts`, which has no native imports and is unit
+ * tested. This file only decides where the bytes go.
  */
 import { Directory, File, Paths } from 'expo-file-system';
 
 import SpikeMetrics from '../../modules/spike-metrics';
-import type { ClipRun, ModelRun } from './runner';
-
-const COLUMNS = [
-  'started_at',
-  'device',
-  'soc',
-  'os',
-  'cores',
-  'build',
-  'clip',
-  'tag',
-  'model',
-  'model_file',
-  'threads',
-  'gpu',
-  'clip_seconds',
-  'speech_seconds',
-  'vad_enabled',
-  'vad_fell_back',
-  'vad_spans',
-  'chunks',
-  'lang_mode',
-  'source_hz',
-  'source_channels',
-  'extract_ms',
-  'vad_ms',
-  'transcribe_ms',
-  'seconds_per_60s',
-  'realtime_factor',
-  'peak_rss_mb',
-  'peak_is_per_run',
-  'words',
-  'first_word_ms',
-  'last_word_ms',
-  'language',
-  'error',
-  'transcript',
-] as const;
+import { assertCsvShape, HEADER_LINE, toRow, toRowLine } from './row';
+import type { ClipRun } from './runner';
 
 export const CSV_FILE_NAME = 'rig-a.csv';
+
+// Fails at import time, which is app launch, rather than after a session of runs.
+assertCsvShape();
 
 export function resultsDirectory(): Directory {
   const directory = new Directory(Paths.document, 'spike-results');
@@ -61,93 +31,82 @@ export function csvFile(): File {
 }
 
 /** Appends one row per model and mirrors each to logcat. Returns the rows written. */
-export function appendRun(run: ClipRun): string[] {
-  const rows = run.models.map((model) => toRow(run, model));
-  const file = csvFile();
+export function appendRun(run: ClipRun, onLog?: (message: string) => void): string[] {
+  const rows = run.models.map((model) => toRowLine(toRow(run, model)));
+  const file = ensureCurrentCsv(onLog);
 
-  const header = file.exists ? '' : `${COLUMNS.join(',')}\n`;
-  if (!file.exists) file.create({ intermediates: true });
-  file.write(`${header}${rows.map((row) => `${row}\n`).join('')}`, { append: true });
+  file.write(`${rows.map((row) => `${row}\n`).join('')}`, { append: true });
 
-  SpikeMetrics.log(`CSV_HEADER ${COLUMNS.join(',')}`);
+  SpikeMetrics.log(`CSV_HEADER ${HEADER_LINE}`);
   rows.forEach((row) => SpikeMetrics.log(`CSV_ROW ${row}`));
 
   return rows;
 }
 
-function toRow(run: ClipRun, model: ModelRun): string {
-  const clipSeconds = run.audio.durationMs / 1000;
-  const transcribeSeconds = model.transcribeMs / 1000;
-  const firstWord = model.words[0];
-  const lastWord = model.words[model.words.length - 1];
+/**
+ * Returns a CSV whose header is the header this build writes.
+ *
+ * This is the round 1 bug. The header was only ever written when the file did not
+ * exist, so a CSV created by an older build kept its old header while newer,
+ * wider rows were appended under it, and every column past the drift point read
+ * as the wrong field. A file with a stale header is moved aside rather than
+ * appended to; the old rows are left exactly as they were.
+ */
+function ensureCurrentCsv(onLog?: (message: string) => void): File {
+  const file = csvFile();
 
-  return [
-    run.startedAt,
-    run.device.model,
-    run.device.soc,
-    run.device.osVersion,
-    run.device.cpuCores,
-    run.buildType,
-    run.clipName,
-    run.clipTag,
-    model.modelId,
-    model.modelFileName,
-    4,
-    model.gpu ? 'yes' : 'no',
-    clipSeconds.toFixed(2),
-    (run.speechMs / 1000).toFixed(2),
-    run.vadEnabled ? 'yes' : 'no',
-    run.vadFellBack ? 'yes' : 'no',
-    run.spans.length,
-    run.chunks.length,
-    run.detectLanguageOnce ? 'detect-once' : 'detect-per-chunk',
-    run.audio.sourceSampleRate,
-    run.audio.sourceChannelCount,
-    run.extractMs,
-    run.vadMs,
-    model.transcribeMs,
-    // The brief's budget is stated per 60 s of clip, so normalise to that.
-    clipSeconds > 0 ? ((transcribeSeconds * 60) / clipSeconds).toFixed(1) : '',
-    clipSeconds > 0 ? (transcribeSeconds / clipSeconds).toFixed(2) : '',
-    model.peakRssMb,
-    model.peakIsPerRun ? 'yes' : 'no',
-    model.words.length,
-    firstWord ? Math.round(firstWord.t0Ms) : '',
-    lastWord ? Math.round(lastWord.t1Ms) : '',
-    model.detectedLanguage,
-    model.error ?? '',
-    model.transcript,
-  ]
-    .map(escapeCell)
-    .join(',');
-}
+  if (file.exists) {
+    const firstLine = file.textSync().split('\n', 1)[0]?.trim() ?? '';
+    if (firstLine === HEADER_LINE) return file;
 
-function escapeCell(value: string | number): string {
-  const text = String(value);
-  if (!/[",\n\r]/.test(text)) return text;
-  return `"${text.replace(/"/g, '""')}"`;
+    const stamp = new Date().toISOString().replace(/[:.]/g, '-');
+    const archivedName = `rig-a-${stamp}.csv`;
+    file.rename(archivedName);
+    onLog?.(
+      `existing ${CSV_FILE_NAME} has a header from an older build; ` +
+        `moved to ${archivedName} and started a new file`
+    );
+  }
+
+  const fresh = csvFile();
+  fresh.create({ intermediates: true });
+  fresh.write(`${HEADER_LINE}\n`);
+  return fresh;
 }
 
 /**
- * Word-level timings, one JSON line per model run.
+ * Word-level timings, one file per model run, named `<clip>-<model>.words.json`.
  *
- * Separate from the CSV because checking whether timestamps drift under music
- * means reading every word boundary, and that does not belong in a column.
+ * Separate from the CSV because seeing whether timestamps drift under a music bed
+ * means reading every word boundary, and that does not belong in a column. One
+ * file per run rather than one shared log so a clip can be opened on its own.
+ *
+ * Returns the files written.
  */
-export function appendWords(run: ClipRun): void {
-  const file = new File(resultsDirectory(), 'rig-a-words.jsonl');
-  const lines = run.models.map((model) =>
-    JSON.stringify({
-      startedAt: run.startedAt,
-      clip: run.clipName,
-      tag: run.clipTag,
-      model: model.modelId,
-      device: run.device.model,
-      build: run.buildType,
-      words: model.words.map((word) => [word.text, Math.round(word.t0Ms), Math.round(word.t1Ms)]),
-    })
-  );
+export function writeWordFiles(run: ClipRun): File[] {
+  return run.models.map((model) => {
+    const file = new File(resultsDirectory(), wordFileName(run.clipName, model.modelId));
+    if (file.exists) file.delete();
+    file.create({ intermediates: true });
+    // `t0`/`t1` are milliseconds from the start of the clip, not of the chunk.
+    file.write(
+      JSON.stringify(
+        model.words.map((word) => ({
+          word: word.text,
+          t0: Math.round(word.t0Ms),
+          t1: Math.round(word.t1Ms),
+        }))
+      )
+    );
+    return file;
+  });
+}
 
-  if (!file.exists) file.create({ intermediates: true });
-  file.write(lines.map((line) => `${line}\n`).join(''), { append: true });
+/** `<clip>-<model>.words.json`, with anything a filesystem would object to removed. */
+export function wordFileName(clipName: string, modelId: string): string {
+  return `${safeName(clipName)}-${safeName(modelId)}.words.json`;
+}
+
+function safeName(value: string): string {
+  return value.trim().replace(/[^A-Za-z0-9._-]+/g, '_').replace(/^_+|_+$/g, '') || 'unnamed';
 }
