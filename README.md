@@ -3,9 +3,10 @@
 Offline, on-device auto-captions for short vertical video. No account, no upload,
 no server. One React Native codebase for Android and iOS.
 
-**Status: Phase 0.** Nothing here is the product yet. The only thing being built is
-the Stage 0 accuracy spike that decides whether on-device transcription is good
-enough on messy creator audio.
+**Status: Phase 1.** The product is being built a vertical slice at a time. See
+[CLAUDE.md](CLAUDE.md) for the stack, the invariants and the slice order. This
+file documents the Stage 0 accuracy spike that decided the model and the engine,
+and it stays because the rig is still how a model choice gets re-measured.
 
 ## Scope: v1 is English-only
 
