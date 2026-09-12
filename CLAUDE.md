@@ -39,7 +39,8 @@ speaker (the draw list reserves `layer` for it; build no segmentation now).
 
 1. Domain module and tests. **Done.**
 2. Home and Processing: whisper.rn, checkpointing, an Android foreground service
-   of type `mediaProcessing`.
+   of type `mediaProcessing`, falling back to `dataSync` below Android 15.
+   **Done, verified on an emulator; the A54 run is outstanding.**
 3. Editor read-only: Skia overlay from `layoutCaptionFrame`, tap to seek.
 4. Word sheet, edit, undo and redo, low-confidence chip.
 5. Timing sheet and shift-all.
@@ -76,6 +77,18 @@ UI hooks not built yet: a "Make big" / "Make normal" toggle in the word sheet
 with "Picked automatically" above it, and bold emphasised words in the transcript
 (slice 4); Editorial in the style picker, animating the user's own line with its
 real picks (slice 6).
+
+## Things Android taught us the hard way
+
+- `ServiceCompat.startForeground` masks the requested type against the ones its
+  androidx version knows, and hands the framework a zero for `mediaProcessing`.
+  The platform then refuses to start a typed service with no type and the app
+  dies on the main thread. Call `Service.startForeground` directly.
+- Never await a foreground-service call from the pipeline. One that did not
+  settle stopped a run between two chunks with every chunk already on disk.
+  The notification is a courtesy; the transcription is the product.
+- Android 15 gives a typed service a time budget and calls `onTimeout`. Ignore
+  it and the app is killed.
 
 ## Conventions
 

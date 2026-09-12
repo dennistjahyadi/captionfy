@@ -308,6 +308,18 @@ export function resolveStyle(styleId: string, overrides: Partial<StyleProps> = {
   };
 }
 
+/**
+ * The colour the user actually chose, whichever property carries it.
+ *
+ * Box highlight paints the accent behind dark text, so its accent is the box;
+ * every other preset paints it on the text. The chrome asks this question
+ * because the interface has no accent of its own: the only saturated colour in
+ * the app is the caption colour of the project you are in.
+ */
+export function accentColor(style: StyleProps): string {
+  return style.highlightMode === 'box' ? style.boxColor : style.highlightColor;
+}
+
 /** Left and right margins in canvas fractions, which alignment decides. */
 export function insetsFor(style: StyleProps): { left: number; right: number } {
   return style.align === 'left'

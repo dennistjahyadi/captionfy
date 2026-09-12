@@ -1,0 +1,88 @@
+/**
+ * What the free tier allows.
+ *
+ * Pure TypeScript, no platform imports.
+ *
+ * Invariant 5: whatever the limit is, the user sees it on Home before they pick
+ * a video, and the Export screen never introduces a new wall. Discovering a
+ * paywall after the work is done is the loudest complaint in this whole market.
+ *
+ * The policy is one object so the three candidates stay a one-line change.
+ */
+
+export type FreeTierPolicy =
+  | { kind: 'exports'; freeExports: number }
+  | { kind: 'watermark' }
+  | { kind: 'trial'; trialDays: number };
+
+/** The policy in force. Change this line, not the code that reads it. */
+export const FREE_TIER: FreeTierPolicy = { kind: 'exports', freeExports: 2 };
+
+export interface Entitlement {
+  /** True once the one-time purchase is restored or bought. */
+  unlocked: boolean;
+  /** Clean exports already taken on the free tier. */
+  exportsUsed: number;
+  /** ISO date of first launch, which a trial policy counts from. */
+  firstRunAt: string;
+}
+
+export const NEW_ENTITLEMENT: Entitlement = {
+  unlocked: false,
+  exportsUsed: 0,
+  firstRunAt: '',
+};
+
+export interface FreeTierStatus {
+  /** The line under the New video button. Empty once the user has unlocked. */
+  line: string;
+  /** True when the next export needs an unlock first. */
+  blocked: boolean;
+  /** True when the next export carries a watermark. */
+  watermark: boolean;
+}
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+export function freeTierStatus(
+  entitlement: Entitlement,
+  now: Date = new Date(),
+  policy: FreeTierPolicy = FREE_TIER
+): FreeTierStatus {
+  if (entitlement.unlocked) return { line: '', blocked: false, watermark: false };
+
+  if (policy.kind === 'watermark') {
+    return { line: 'Free exports carry a small watermark', blocked: false, watermark: true };
+  }
+
+  if (policy.kind === 'trial') {
+    const left = daysLeft(entitlement.firstRunAt, now, policy.trialDays);
+    if (left <= 0) return { line: 'Your trial has ended', blocked: true, watermark: false };
+    return {
+      line: left === 1 ? 'Last day of your trial' : `${left} days left in your trial`,
+      blocked: false,
+      watermark: false,
+    };
+  }
+
+  const left = Math.max(0, policy.freeExports - entitlement.exportsUsed);
+  if (left === 0) return { line: 'No free exports left', blocked: true, watermark: false };
+  return {
+    line: left === 1 ? '1 free export left' : `${left} free exports left`,
+    blocked: false,
+    watermark: false,
+  };
+}
+
+/** Records an export against the free tier. Unlocked users are never counted. */
+export function recordExport(entitlement: Entitlement): Entitlement {
+  if (entitlement.unlocked) return entitlement;
+  return { ...entitlement, exportsUsed: entitlement.exportsUsed + 1 };
+}
+
+function daysLeft(firstRunAt: string, now: Date, trialDays: number): number {
+  const started = Date.parse(firstRunAt);
+  if (Number.isNaN(started)) return trialDays;
+  const elapsed = Math.floor((now.getTime() - started) / DAY_MS);
+  return Math.max(0, trialDays - elapsed);
+}
