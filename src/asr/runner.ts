@@ -42,6 +42,7 @@ import {
   savePipeline,
   type PipelineState,
 } from '../project/store';
+import { adoptSource } from '../project/source';
 import { ensureAllModels } from './models';
 import {
   detectSpeech,
@@ -131,7 +132,14 @@ export function cancelRun(): void {
 
 /** Creates the project row first, so a crash during extraction loses nothing. */
 export function beginProject(sourceUri: string, durationMs: Ms): Project {
-  const project = createProject(sourceUri, durationMs);
+  const created = createProject(sourceUri, durationMs);
+
+  // Then the video itself, before any decoding: what the picker returned is a
+  // copy in a cache the system may clear, and a project that outlives its video
+  // has lost the user's work as surely as a crash would (invariant 3).
+  const project = { ...created, sourceUri: adoptSource(created.id, sourceUri) };
+  saveProject(project);
+
   startRun(project);
   return project;
 }

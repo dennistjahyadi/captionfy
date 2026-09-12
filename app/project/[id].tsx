@@ -11,6 +11,7 @@
  * it, which is what keeps the video view out of the render loop.
  */
 import { useEvent } from 'expo';
+import * as ImagePicker from 'expo-image-picker';
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useVideoPlayer, VideoView, type VideoPlayer } from 'expo-video';
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -31,12 +32,13 @@ import { CaptionOverlay } from '../../src/render/CaptionOverlay';
 import { createFrameSource, type FrameSource } from '../../src/render/frame';
 import { createMeasureText } from '../../src/render/measure';
 import { useCaptionFonts, type FontLookup } from '../../src/render/typefaces';
-import { loadProject, thumbnailFile } from '../../src/project/store';
-import { Label, QuietButton, Screen } from '../../src/ui/atoms';
+import { adoptSource, sourceExists } from '../../src/project/source';
+import { deleteProject, loadProject, saveProject, thumbnailFile } from '../../src/project/store';
+import { Label, PrimaryButton, QuietButton, Screen } from '../../src/ui/atoms';
 import { useClock, type Clock } from '../../src/ui/clock';
 import { useReducedMotion } from '../../src/ui/motion';
 import { formatClock } from '../../src/ui/time';
-import { color, MIN_TOUCH, radius, space } from '../../src/ui/theme';
+import { color, DEFAULT_ACCENT, MIN_TOUCH, radius, space } from '../../src/ui/theme';
 
 /**
  * Shows how many draw lists the overlay produced in the last second.
@@ -56,15 +58,31 @@ const STAGE_SHARE = 0.46;
 /** The scrubber redraws at this rate. The overlay gets the rest of the budget. */
 const SCRUB_INTERVAL_MS = 100;
 
+/**
+ * How far a replacement video's length may differ before the user is warned.
+ *
+ * The captions are timed to the clip they were made from, so a different take is
+ * a transcript that drifts further out of sync the longer it plays.
+ */
+const RELINK_TOLERANCE_MS = 1000;
+
 export default function Editor() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const insets = useSafeAreaInsets();
   const { width: windowWidth, height: windowHeight } = useWindowDimensions();
 
   const [project, setProject] = useState<Project | null>(() => (id ? loadProject(id) : null));
+  const [missing, setMissing] = useState(false);
+  const [relinking, setRelinking] = useState(false);
+
   useFocusEffect(
     useCallback(() => {
-      if (id) setProject(loadProject(id));
+      if (!id) return;
+      const stored = loadProject(id);
+      setProject(stored);
+      // Checked on every entry rather than once: the file can go away between
+      // one visit and the next, which is the whole reason this state exists.
+      setMissing(stored !== null && !sourceExists(stored));
     }, [id])
   );
 
@@ -78,6 +96,7 @@ export default function Editor() {
   // milliseconds (invariant 7).
   const clock = useClock(useCallback(() => Math.round(player.currentTime * 1000), [player]));
   const playing = useEvent(player, 'playingChange', { isPlaying: player.playing })?.isPlaying ?? false;
+  const status = useEvent(player, 'statusChange', { status: player.status })?.status ?? 'idle';
 
   const fonts = useCaptionFonts();
   const reducedMotion = useReducedMotion();
@@ -94,12 +113,114 @@ export default function Editor() {
     [player]
   );
 
+  /** Writes a new source onto the project and drops what described the old one. */
+  const useVideo = useCallback(
+    (pickedUri: string) => {
+      if (!project) return;
+
+      try {
+        const next: Project = { ...project, sourceUri: adoptSource(project.id, pickedUri) };
+        // The still on Home was taken from the video that is gone, and its shape
+        // is what the preview sizes itself from until the player knows better.
+        const thumb = thumbnailFile(project.id);
+        if (thumb.exists) thumb.delete();
+
+        saveProject(next);
+        setProject(next);
+        setMissing(!sourceExists(next));
+      } catch (error) {
+        Alert.alert('That video could not be used', describe(error));
+      }
+    },
+    [project]
+  );
+
+  /**
+   * Points the project at the video again.
+   *
+   * The transcript is the expensive part and it is still here, so a lost file is
+   * worth a second pick rather than a second transcription. The project keeps its
+   * own copy this time.
+   */
+  const chooseVideoAgain = useCallback(async () => {
+    if (!project) return;
+    setRelinking(true);
+
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['videos'],
+        allowsMultipleSelection: false,
+        quality: 1,
+      });
+      if (result.canceled) return;
+
+      const picked = result.assets[0];
+      const pickedMs = Math.round(picked.duration ?? 0);
+
+      // Asked, not awaited: an Android alert reports a dismissal as well as a
+      // button press, so a promise around it cannot tell "Use it anyway" from
+      // the dialog closing afterwards. The work happens in the button instead.
+      if (pickedMs > 0 && Math.abs(pickedMs - project.durationMs) > RELINK_TOLERANCE_MS) {
+        askAboutDifferentLength(project.durationMs, pickedMs, () => useVideo(picked.uri));
+        return;
+      }
+
+      useVideo(picked.uri);
+    } catch (error) {
+      Alert.alert('That video could not be opened', describe(error));
+    } finally {
+      setRelinking(false);
+    }
+  }, [project, useVideo]);
+
+  const confirmDelete = useCallback(() => {
+    if (!project) return;
+    Alert.alert('Delete this project?', 'The transcript goes with it. This cannot be undone.', [
+      { text: 'Keep', style: 'cancel' },
+      {
+        text: 'Delete',
+        style: 'destructive',
+        onPress: () => {
+          deleteProject(project.id);
+          router.replace('/');
+        },
+      },
+    ]);
+  }, [project]);
+
   if (!project || !source) {
     return (
       <Screen>
         <View style={[styles.empty, { paddingTop: insets.top + space.huge }]}>
           <Label variant="heading">That project is gone</Label>
           <QuietButton title="Back to Home" onPress={() => router.replace('/')} />
+        </View>
+      </Screen>
+    );
+  }
+
+  // A black rectangle and a play button that does nothing is the worst way to
+  // say this. The transcript is safe and the way back is one pick.
+  if (missing) {
+    return (
+      <Screen>
+        <View style={[styles.bar, { paddingTop: insets.top + space.sm }]}>
+          <QuietButton title="Back" onPress={() => router.replace('/')} />
+        </View>
+        <View style={styles.missing}>
+          <Label variant="title">Can’t find this video</Label>
+          <Label variant="body" tone="mute">
+            The file this project was made from is not on the phone any more. Your{' '}
+            {project.words.length} words are safe: pick the same video again and the captions come
+            back with it.
+          </Label>
+          <PrimaryButton
+            title="Choose the video again"
+            onPress={chooseVideoAgain}
+            accent={DEFAULT_ACCENT}
+            busy={relinking}
+          />
+          <QuietButton title="Delete project" tone="signal" onPress={confirmDelete} />
         </View>
       </Screen>
     );
@@ -162,7 +283,13 @@ export default function Editor() {
         <Scrubber clock={clock} durationMs={info.durationMs} accent={accent} onSeek={seekTo} />
       </View>
 
-      {SHOW_OVERLAY_FPS ? (
+      {/* A player that will not open the file has to say so. Silence here is a
+          play button that does nothing. */}
+      {status === 'error' ? (
+        <Label variant="micro" tone="signal" style={styles.fps}>
+          Couldn’t play this video on this phone. Try another file.
+        </Label>
+      ) : SHOW_OVERLAY_FPS ? (
         <Label variant="micro" tone="mute" style={styles.fps}>
           overlay {fps} fps
         </Label>
@@ -488,6 +615,30 @@ function useDrawCounter(report?: (fps: number) => void) {
   }, [report]);
 }
 
+/**
+ * Asks before accepting a replacement of a different length.
+ *
+ * A different take is not the same clip, and captions timed to the old one drift
+ * further out with every second. It is still the user's call: a re-encode or a
+ * trimmed second at the end is a length change they may well accept.
+ */
+function askAboutDifferentLength(projectMs: Ms, pickedMs: Ms, accept: () => void): void {
+  Alert.alert(
+    'That looks like a different video',
+    `The captions are timed to a ${formatClock(projectMs)} clip and this one is ${formatClock(
+      pickedMs
+    )}. They will not line up.`,
+    [
+      { text: 'Pick another', style: 'cancel' },
+      { text: 'Use it anyway', onPress: accept },
+    ]
+  );
+}
+
+function describe(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
 /** The largest box of `aspect` that fits, which is what `contentFit="contain"` draws. */
 function containRect(boxWidth: number, boxHeight: number, aspect: number) {
   const width = boxHeight * aspect;
@@ -536,4 +687,5 @@ const styles = StyleSheet.create({
   },
   chipActiveText: { color: '#111111' },
   empty: { flex: 1, alignItems: 'center', gap: space.lg },
+  missing: { flex: 1, paddingHorizontal: space.lg, paddingTop: space.xxl, gap: space.lg },
 });

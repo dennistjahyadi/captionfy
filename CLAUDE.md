@@ -79,6 +79,18 @@ Every slice runs as a release build on the Galaxy A54 before it is called done.
 - Emphasis takes an `EmphasisContext`, because the envelope the features come
   from is not in the project, only its path.
 
+## Persistence
+
+A project owns everything it needs: `project.json`, `pipeline.json`, `audio.pcm`,
+`envelope.f32`, `thumb.jpg`, and `source.<ext>`, the video itself.
+
+The video is copied in at pick time and the project never refers to anything
+outside its own directory. The picker does not hand back the file in the gallery,
+it hands back a copy in this app's cache, and a project pointing at that copy
+opens on a black rectangle the moment the system reclaims the space. When the
+video is missing anyway, the editor says so and offers to pick it again, because
+the transcript is the expensive part and it is still there.
+
 ## Rendering
 
 `src/render` is the only consumer of a draw list, and it decides nothing.
@@ -129,6 +141,15 @@ real picks (slice 6).
   well as listening, or the screen never learns the shape of the video.
 - A release build is not debuggable, so `adb shell run-as` cannot reach the app's
   own files. Seeding a fixture project into app storage needs the debug build.
+- `expo-image-picker` returns a copy it made in `cache/ImagePicker`, not the file
+  in the gallery. That copy does not last. A project that keeps the URI plays
+  until the cache is cleared and then opens black with a play button that does
+  nothing, which is how this was found. `adb shell pm trim-caches 4096G`
+  reproduces it on demand.
+- React Native's Android alert calls `options.onDismiss` when a button closes the
+  dialog, not only when the dialog is dismissed, so a promise wrapped around an
+  alert cannot tell the two apart and latches onto whichever fires first. Put the
+  work in the button's own callback and do not await an alert.
 
 ## Conventions
 
