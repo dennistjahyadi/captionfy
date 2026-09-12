@@ -1,14 +1,17 @@
 /**
- * Editor, read only.
+ * The editor.
  *
  * The video is the hero and it plays with sound. Over it sits the caption
  * overlay, drawn from `layoutCaptionFrame` and nothing else, so what is on the
  * preview is what the export will burn in (invariant 2). Under it, the
- * transcript follows the playhead and a tap on any word seeks to it.
+ * transcript follows the playhead, and a tap on any word loops that word and
+ * opens the sheet that can change it.
  *
- * The screen itself never re-renders while the video plays. One clock reads the
- * player once per frame and the three pieces that follow playback subscribe to
- * it, which is what keeps the video view out of the render loop.
+ * This file is two screens. `Editor` finds the project and deals with a video
+ * that is not there; `Workspace` is the editing surface, and it only exists once
+ * there is something to play. Nothing above the pieces that subscribe to the
+ * clock re-renders while the video plays, which is what keeps the video view out
+ * of the render loop.
  */
 import { useEvent } from 'expo';
 import * as ImagePicker from 'expo-image-picker';
@@ -27,18 +30,38 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { accentColor, type CaptionLine, type Ms, type Project, type Word } from '../../src/domain';
+import {
+  accentColor,
+  confirmWord,
+  createIdFactory,
+  deleteWord,
+  editWordsText,
+  isLowConfidence,
+  lowConfidenceCount,
+  mergeWords,
+  nextLowConfidenceWordId,
+  sameHeardWordIds,
+  setBreakAfter,
+  setEmphasis,
+  type CaptionLine,
+  type Ms,
+  type Project,
+  type Word,
+} from '../../src/domain';
+import { WordSheet, type WordFacts, type WordSheetActions } from '../../src/editor/WordSheet';
+import { useProjectEditor, type ProjectEditor } from '../../src/editor/useProjectEditor';
 import { CaptionOverlay } from '../../src/render/CaptionOverlay';
 import { createFrameSource, type FrameSource } from '../../src/render/frame';
 import { createMeasureText } from '../../src/render/measure';
 import { useCaptionFonts, type FontLookup } from '../../src/render/typefaces';
 import { adoptSource, sourceExists } from '../../src/project/source';
+import { loadSettings, markCoachCardSeen } from '../../src/project/settings';
 import { deleteProject, loadProject, saveProject, thumbnailFile } from '../../src/project/store';
 import { Label, PrimaryButton, QuietButton, Screen } from '../../src/ui/atoms';
 import { useClock, type Clock } from '../../src/ui/clock';
 import { useReducedMotion } from '../../src/ui/motion';
 import { formatClock } from '../../src/ui/time';
-import { color, DEFAULT_ACCENT, MIN_TOUCH, radius, space } from '../../src/ui/theme';
+import { color, DEFAULT_ACCENT, font, MIN_TOUCH, radius, space } from '../../src/ui/theme';
 
 /**
  * Shows how many draw lists the overlay produced in the last second.
@@ -66,10 +89,19 @@ const SCRUB_INTERVAL_MS = 100;
  */
 const RELINK_TOLERANCE_MS = 1000;
 
+/**
+ * The run-up and run-out around a word being checked.
+ *
+ * A word played from its own first millisecond is hard to hear and impossible to
+ * judge. Three hundred milliseconds either side is enough context to tell
+ * whether the engine heard it right.
+ */
+const LOOP_PRE_ROLL_MS = 300;
+const LOOP_POST_ROLL_MS = 300;
+
 export default function Editor() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const insets = useSafeAreaInsets();
-  const { width: windowWidth, height: windowHeight } = useWindowDimensions();
 
   const [project, setProject] = useState<Project | null>(() => (id ? loadProject(id) : null));
   const [missing, setMissing] = useState(false);
@@ -84,33 +116,6 @@ export default function Editor() {
       // one visit and the next, which is the whole reason this state exists.
       setMissing(stored !== null && !sourceExists(stored));
     }, [id])
-  );
-
-  const player = useVideoPlayer(project?.sourceUri ?? null, (instance) => {
-    instance.loop = true;
-    instance.muted = false;
-  });
-
-  // One read per display frame, shared by the overlay, the scrubber and the
-  // transcript. `currentTime` is seconds; everything above this line is integer
-  // milliseconds (invariant 7).
-  const clock = useClock(useCallback(() => Math.round(player.currentTime * 1000), [player]));
-  const playing = useEvent(player, 'playingChange', { isPlaying: player.playing })?.isPlaying ?? false;
-  const status = useEvent(player, 'statusChange', { status: player.status })?.status ?? 'idle';
-
-  const fonts = useCaptionFonts();
-  const reducedMotion = useReducedMotion();
-  const source = useMemo(() => (project ? createFrameSource(project) : null), [project]);
-  const info = useSourceInfo(player, project);
-  const [fps, setFps] = useState(0);
-
-  const stage = containRect(windowWidth, Math.round(windowHeight * STAGE_SHARE), info.aspect);
-
-  const seekTo = useCallback(
-    (tMs: Ms) => {
-      player.currentTime = Math.max(0, tMs) / 1000;
-    },
-    [player]
   );
 
   /** Writes a new source onto the project and drops what described the old one. */
@@ -188,7 +193,7 @@ export default function Editor() {
     ]);
   }, [project]);
 
-  if (!project || !source) {
+  if (!project) {
     return (
       <Screen>
         <View style={[styles.empty, { paddingTop: insets.top + space.huge }]}>
@@ -225,6 +230,94 @@ export default function Editor() {
       </Screen>
     );
   }
+
+  // Keyed on the source so a relink rebuilds the player and everything under it.
+  return <Workspace key={project.sourceUri} stored={project} />;
+}
+
+function Workspace({ stored }: { stored: Project }) {
+  const insets = useSafeAreaInsets();
+  const { width: windowWidth, height: windowHeight } = useWindowDimensions();
+
+  const editor = useProjectEditor(stored);
+  const project = editor.project;
+
+  const player = useVideoPlayer(project.sourceUri, (instance) => {
+    instance.loop = true;
+    instance.muted = false;
+  });
+
+  // One read per display frame, shared by the overlay, the scrubber, the
+  // transcript and the loop. `currentTime` is seconds; everything above this
+  // line is integer milliseconds (invariant 7).
+  const clock = useClock(useCallback(() => Math.round(player.currentTime * 1000), [player]));
+  const playing = useEvent(player, 'playingChange', { isPlaying: player.playing })?.isPlaying ?? false;
+  const status = useEvent(player, 'statusChange', { status: player.status })?.status ?? 'idle';
+
+  const fonts = useCaptionFonts();
+  const reducedMotion = useReducedMotion();
+  const source = useMemo(() => createFrameSource(project), [project]);
+  const info = useSourceInfo(player, stored);
+  const [fps, setFps] = useState(0);
+
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const selectedIndex = selectedId ? project.words.findIndex((word) => word.id === selectedId) : -1;
+  const selected = selectedIndex === -1 ? null : project.words[selectedIndex];
+
+  const stage = containRect(windowWidth, Math.round(windowHeight * STAGE_SHARE), info.aspect);
+  const toCheck = lowConfidenceCount(project);
+
+  // Ids for words an edit has to invent. One factory per visit to the editor,
+  // prefixed with the time, so a split can never hand out an id a previous
+  // session already used in this project.
+  const newId = useMemo(() => createIdFactory(`e${Date.now().toString(36)}x`), [project.id]);
+
+  const seekTo = useCallback(
+    (tMs: Ms) => {
+      player.currentTime = Math.max(0, tMs) / 1000;
+    },
+    [player]
+  );
+
+  const loop = useRef<{ startMs: Ms; endMs: Ms } | null>(null);
+
+  useEffect(
+    () =>
+      clock.subscribe((tMs) => {
+        const window = loop.current;
+        // Only the far edge re-seeks. Reacting to the near edge as well would
+        // fight the seek that has just been asked for and has not landed yet.
+        if (window && tMs > window.endMs) seekTo(window.startMs);
+      }),
+    [clock, seekTo]
+  );
+
+  /** Loops a word and opens its sheet. The two always happen together. */
+  const openWord = useCallback(
+    (word: Word) => {
+      const at = source.seekTimeFor(word);
+      loop.current = {
+        startMs: Math.max(0, at - LOOP_PRE_ROLL_MS),
+        endMs: at + (word.end - word.start) + LOOP_POST_ROLL_MS,
+      };
+      seekTo(loop.current.startMs);
+      player.play();
+      setSelectedId(word.id);
+    },
+    [player, seekTo, source]
+  );
+
+  const closeWord = useCallback(() => {
+    loop.current = null;
+    setSelectedId(null);
+  }, []);
+
+  /** The chip walks forward through the words the engine was unsure about. */
+  const checkNext = useCallback(() => {
+    const next = nextLowConfidenceWordId(project, selectedId ?? undefined);
+    const word = next ? project.words.find((entry) => entry.id === next) : undefined;
+    if (word) openWord(word);
+  }, [openWord, project, selectedId]);
 
   const accent = accentColor(source.style);
 
@@ -280,7 +373,45 @@ export default function Editor() {
           <Label variant="heading">{playing ? '॥' : '▶'}</Label>
         </Pressable>
 
-        <Scrubber clock={clock} durationMs={info.durationMs} accent={accent} onSeek={seekTo} />
+        <Scrubber
+          clock={clock}
+          durationMs={info.durationMs}
+          accent={accent}
+          onSeek={(tMs) => {
+            // Scrubbing by hand is the end of the loop: the user has said where
+            // they want to be.
+            loop.current = null;
+            seekTo(tMs);
+          }}
+        />
+      </View>
+
+      <View style={styles.toolbar}>
+        {toCheck > 0 ? (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={`${toCheck} words to check`}
+            onPress={checkNext}
+            style={({ pressed }) => [styles.chip, { borderColor: accent, opacity: pressed ? 0.6 : 1 }]}
+          >
+            <Label variant="label">{toCheck} to check</Label>
+          </Pressable>
+        ) : null}
+
+        <View style={styles.toolbarRight}>
+          <StepButton
+            label="↶"
+            accessibilityLabel={editor.undoLabel ? `Undo ${editor.undoLabel}` : 'Undo'}
+            disabled={!editor.canUndo}
+            onPress={editor.undo}
+          />
+          <StepButton
+            label="↷"
+            accessibilityLabel={editor.redoLabel ? `Redo ${editor.redoLabel}` : 'Redo'}
+            disabled={!editor.canRedo}
+            onPress={editor.redo}
+          />
+        </View>
       </View>
 
       {/* A player that will not open the file has to say so. Silence here is a
@@ -299,9 +430,129 @@ export default function Editor() {
         source={source}
         clock={clock}
         accent={accent}
-        onPickWord={(word) => seekTo(source.seekTimeFor(word))}
+        selectedId={selectedId}
+        onPickWord={openWord}
       />
+
+      {selected ? (
+        <WordSheet
+          word={selected}
+          accent={accent}
+          facts={factsFor(project, selected, selectedIndex)}
+          actions={actionsFor(editor, selected, selectedIndex, newId, closeWord)}
+          onClose={closeWord}
+        />
+      ) : (
+        <CoachCard toCheck={toCheck} onShowMe={checkNext} />
+      )}
     </Screen>
+  );
+}
+
+/** What the sheet says about the word, worked out where the project is. */
+function factsFor(project: Project, word: Word, index: number): WordFacts {
+  return {
+    lowConfidence: isLowConfidence(word),
+    emphasised: word.emphasis === 'on' || (word.emphasis !== 'off' && project.autoEmphasis.includes(word.id)),
+    emphasisAutomatic: word.emphasis === undefined,
+    fromDictionary: word.origin === 'dictionary',
+    sameHeardCount: sameHeardWordIds(project.words, word.id).length,
+    hasNext: index >= 0 && index < project.words.length - 1,
+  };
+}
+
+/**
+ * What each action on the sheet means.
+ *
+ * Every one of them is a domain function and one undo step. Invariant 1 is the
+ * reason the text actions are here and the timing actions are not: nothing on
+ * this sheet may move a word's start or end.
+ */
+function actionsFor(
+  editor: ProjectEditor,
+  word: Word,
+  index: number,
+  newId: () => string,
+  onRemoved: () => void
+): WordSheetActions {
+  const project = editor.project;
+
+  return {
+    setText(text, alsoTheSameHeard) {
+      const ids = alsoTheSameHeard
+        ? [word.id, ...sameHeardWordIds(project.words, word.id)]
+        : [word.id];
+      editor.edit(
+        ids.length > 1 ? `Fix ${ids.length} words` : 'Edit word',
+        (words) => editWordsText(words, ids, text, newId),
+        ids
+      );
+    },
+
+    joinWithNext() {
+      const next = project.words[index + 1];
+      if (!next) return;
+      editor.edit('Join words', (words) => mergeWords(words, [word.id, next.id]), [word.id]);
+    },
+
+    setEmphasis(on) {
+      editor.edit(
+        on ? 'Make big' : 'Make normal',
+        (words) => setEmphasis(words, word.id, on ? 'on' : 'off'),
+        [word.id]
+      );
+    },
+
+    confirm() {
+      editor.edit('Looks right', (words) => confirmWord(words, word.id), [word.id]);
+    },
+
+    toggleLineBreak() {
+      const breakAfter = word.breakAfter === 'line' ? 'auto' : 'line';
+      editor.edit('Line break', (words) => setBreakAfter(words, word.id, breakAfter), [word.id]);
+    },
+
+    remove() {
+      editor.edit('Delete word', (words) => deleteWord(words, word.id), [word.id]);
+      onRemoved();
+    },
+  };
+}
+
+/**
+ * The one coach card.
+ *
+ * Shown on the first project that has anything to check and never again, because
+ * a dotted underline is not self-explanatory the first time and is obvious the
+ * second. Not shown at all if the engine was sure about everything: a tip about
+ * words to check, on a transcript with none, teaches the wrong thing.
+ */
+function CoachCard({ toCheck, onShowMe }: { toCheck: number; onShowMe: () => void }) {
+  const [show, setShow] = useState(() => toCheck > 0 && !loadSettings().coachCardSeen);
+
+  const dismiss = useCallback(() => {
+    setShow(false);
+    markCoachCardSeen();
+  }, []);
+
+  if (!show || toCheck === 0) return null;
+
+  return (
+    <Pressable accessibilityRole="button" style={styles.coach} onPress={dismiss}>
+      <Label variant="body">
+        Dotted words are ones the engine wasn’t sure about. Tap one to fix it.
+      </Label>
+      <Pressable
+        accessibilityRole="button"
+        onPress={() => {
+          dismiss();
+          onShowMe();
+        }}
+        style={styles.coachAction}
+      >
+        <Label variant="label">Show me</Label>
+      </Pressable>
+    </Pressable>
   );
 }
 
@@ -434,11 +685,13 @@ const Transcript = memo(function Transcript({
   source,
   clock,
   accent,
+  selectedId,
   onPickWord,
 }: {
   source: FrameSource;
   clock: Clock;
   accent: string;
+  selectedId: string | null;
   onPickWord: (word: Word) => void;
 }) {
   const [activeId, setActiveId] = useState<string | null>(null);
@@ -483,6 +736,8 @@ const Transcript = memo(function Transcript({
           key={unit.words[0].id}
           unit={unit}
           activeId={activeId !== null && unitOfWord.get(activeId) === unit.index ? activeId : null}
+          selectedId={selectedId}
+          emphasisIds={source.emphasisIds}
           accent={accent}
           onPickWord={onPickWord}
           onTop={(y) => {
@@ -497,12 +752,16 @@ const Transcript = memo(function Transcript({
 const UnitRow = memo(function UnitRow({
   unit,
   activeId,
+  selectedId,
+  emphasisIds,
   accent,
   onPickWord,
   onTop,
 }: {
   unit: CaptionLine;
   activeId: string | null;
+  selectedId: string | null;
+  emphasisIds: ReadonlySet<string>;
   accent: string;
   onPickWord: (word: Word) => void;
   onTop: (y: number) => void;
@@ -511,26 +770,70 @@ const UnitRow = memo(function UnitRow({
     <View style={styles.unit} onLayout={(event) => onTop(event.nativeEvent.layout.y)}>
       {unit.words.map((word) => {
         const active = word.id === activeId;
+        // Invariant 6: the dotted underline is a transcript mark. It is not in
+        // the draw list, so it cannot reach the preview or the export.
+        const unsure = isLowConfidence(word);
+
         return (
           <Pressable
             key={word.id}
             accessibilityRole="button"
+            accessibilityLabel={unsure ? `${word.text}, not sure about this one` : word.text}
             onPress={() => onPickWord(word)}
             style={({ pressed }) => [
-              styles.chip,
+              styles.chipWord,
               active && { backgroundColor: accent },
+              !active && word.id === selectedId && { borderColor: accent },
               pressed && !active && { backgroundColor: color.line },
             ]}
           >
-            <Label variant="body" style={active ? styles.chipActiveText : undefined}>
-              {word.text}
-            </Label>
+            <View style={[styles.wordUnderline, unsure && styles.unsure]}>
+              <Label
+                variant="body"
+                style={[
+                  emphasisIds.has(word.id) && styles.emphasised,
+                  active && styles.onAccent,
+                ]}
+              >
+                {word.text}
+              </Label>
+            </View>
+            {word.origin === 'dictionary' ? (
+              <View style={[styles.dictionaryMark, { backgroundColor: accent }]} />
+            ) : null}
           </Pressable>
         );
       })}
     </View>
   );
 });
+
+function StepButton({
+  label,
+  accessibilityLabel,
+  disabled,
+  onPress,
+}: {
+  label: string;
+  accessibilityLabel: string;
+  disabled: boolean;
+  onPress: () => void;
+}) {
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={accessibilityLabel}
+      accessibilityState={{ disabled }}
+      disabled={disabled}
+      onPress={onPress}
+      style={({ pressed }) => [styles.step, { opacity: disabled ? 0.3 : pressed ? 0.6 : 1 }]}
+    >
+      <Label variant="heading" tone={disabled ? 'mute' : 'paper'}>
+        {label}
+      </Label>
+    </Pressable>
+  );
+}
 
 /**
  * The video's shape and length, from the most trustworthy source available.
@@ -673,19 +976,68 @@ const styles = StyleSheet.create({
   trackTouch: { height: MIN_TOUCH, justifyContent: 'center' },
   track: { height: 4, borderRadius: radius.pill, backgroundColor: color.line, overflow: 'hidden' },
   trackFill: { height: '100%' },
+  toolbar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: space.lg,
+    paddingTop: space.sm,
+    minHeight: MIN_TOUCH,
+  },
+  chip: {
+    minHeight: MIN_TOUCH,
+    justifyContent: 'center',
+    paddingHorizontal: space.md,
+    borderRadius: radius.pill,
+    borderWidth: 1,
+  },
+  toolbarRight: { flexDirection: 'row', gap: space.sm, marginLeft: 'auto' },
+  step: {
+    width: MIN_TOUCH,
+    height: MIN_TOUCH,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   fps: { paddingHorizontal: space.lg },
   transcript: { flex: 1, marginTop: space.sm },
   transcriptBody: { paddingHorizontal: space.lg, paddingBottom: space.huge, gap: space.xs },
   transcriptEmpty: { flex: 1, paddingHorizontal: space.lg, paddingTop: space.xl },
   unit: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center' },
-  chip: {
+  chipWord: {
     paddingHorizontal: space.sm,
     paddingVertical: space.xs,
     borderRadius: radius.control,
+    borderWidth: 1,
+    borderColor: 'transparent',
     minHeight: MIN_TOUCH,
     justifyContent: 'center',
   },
-  chipActiveText: { color: '#111111' },
+  wordUnderline: { borderBottomWidth: 0, borderColor: color.mute },
+  /** Dotted, neutral, and only here: low confidence never reaches the video. */
+  unsure: { borderBottomWidth: 2, borderStyle: 'dotted' },
+  emphasised: { fontFamily: font.bold },
+  onAccent: { color: '#111111' },
+  dictionaryMark: {
+    position: 'absolute',
+    top: space.xs,
+    right: space.xs,
+    width: 4,
+    height: 4,
+    borderRadius: radius.pill,
+  },
+  coach: {
+    position: 'absolute',
+    left: space.lg,
+    right: space.lg,
+    bottom: space.xl,
+    backgroundColor: color.surface,
+    borderWidth: 1,
+    borderColor: color.line,
+    borderRadius: radius.sheet,
+    padding: space.lg,
+    gap: space.sm,
+  },
+  coachAction: { minHeight: MIN_TOUCH, justifyContent: 'center' },
   empty: { flex: 1, alignItems: 'center', gap: space.lg },
   missing: { flex: 1, paddingHorizontal: space.lg, paddingTop: space.xxl, gap: space.lg },
 });

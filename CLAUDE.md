@@ -58,6 +58,12 @@ speaker (the draw list reserves `layer` for it; build no segmentation now).
    preview canvas is the video's own rectangle, which needs a rotated phone
    recording to confirm.
 4. Word sheet, edit, undo and redo, low-confidence chip.
+   **Done, verified on an Android 16 emulator only. Not yet run on the A54.**
+   Checked on a real 173-word transcript: the chip walks the flagged words, an
+   edit clears the flag and the count, "Fix 1 more like this" corrected both
+   mishearings as one step, undo put both back, an override moved the big word
+   inside its own line and nowhere else, and every change survived leaving the
+   editor and coming back.
 5. Timing sheet and shift-all.
 6. Style sheet with the four presets.
 7. Export, with a preview-versus-export frame comparison.
@@ -78,6 +84,12 @@ Every slice runs as a release build on the Galaxy A54 before it is called done.
   returns the units the viewer sees one at a time.
 - Emphasis takes an `EmphasisContext`, because the envelope the features come
   from is not in the project, only its path.
+- The word sheet shows the actions that exist. Timing joins it in slice 5 and
+  Dictionary in slice 8, rather than sitting there disabled in the meantime.
+- Delete is a plain action at the foot of the sheet, not inside an overflow. One
+  item is not a menu, and undo is in the toolbar for every action equally.
+- Sheet actions are labels without icons, because no icon set has been chosen and
+  a hand-drawn one per action would be four inconsistent glyphs.
 
 ## Persistence
 
@@ -110,6 +122,25 @@ One clock reads the player once per display frame and the overlay, the scrubber
 and the transcript subscribe to it. Nothing above them re-renders, which is what
 keeps the video view out of the render loop.
 
+## Editing
+
+Every change to a project goes through `useProjectEditor.edit`, which is what
+keeps undo, the local emphasis recompute and the save policy in one file instead
+of in every screen. Undo is snapshots, not inverse operations: an edit already
+returns a whole new project sharing the words it did not touch, so keeping the
+old value costs pointers, while inverting a merge or a split is a chance to
+restore something subtly different. Depth is capped at 100.
+
+Writes are debounced by 500 ms and flushed when the app leaves the foreground or
+the screen unmounts.
+
+`timingDrift` runs on every text edit, on the phone, against the real
+transcript: with the word count unchanged nothing may move at all, which is
+invariant 1 exactly, and when a split, merge or delete has changed the count what
+is checked instead is that no time was invented outside the span that was there.
+A failure says so and refuses to write. Unit tests prove the same rules against
+fixtures; this is the copy that runs on the user's own words.
+
 ## Emphasis
 
 Emphasis is data, picked in `emphasis.ts` from how the word was said: loudness
@@ -119,10 +150,9 @@ object. Stopwords and unverified low-confidence words are barred outright.
 `autoEmphasis` is frozen at `ready` and re-picked only in the edited display unit
 and one either side. Each preset decides how an emphasised word looks.
 
-UI hooks not built yet: a "Make big" / "Make normal" toggle in the word sheet
-with "Picked automatically" above it, and bold emphasised words in the transcript
-(slice 4); Editorial in the style picker, animating the user's own line with its
-real picks (slice 6).
+The word sheet carries the toggle and says which way the word was decided.
+Emphasised words are bold in the transcript. Still to come: Editorial in the
+style picker, animating the user's own line with its real picks (slice 6).
 
 ## Things Android taught us the hard way
 
