@@ -53,10 +53,10 @@ speaker (the draw list reserves `layer` for it; build no segmentation now).
    and then stops it with "does not have any types" for reasons unknown.
 3. Editor read-only: Skia overlay from `layoutCaptionFrame`, tap to seek.
    **Done, verified on an Android 16 emulator only. Not yet run on the A54.**
-   The overlay held 61 fps in a release build there. Two open points are in the
-   slice 3 report: the box highlight crowds the words either side of it, and the
-   preview canvas is the video's own rectangle, which needs a rotated phone
-   recording to confirm.
+   The overlay held 61 fps in a release build there and produced no redraws at
+   all while paused. The canvas following the video's own rectangle was checked
+   on a 568×320 clip; a rotated phone recording, where the track dimensions and
+   the upright ones disagree, is still unproven.
 4. Word sheet, edit, undo and redo, low-confidence chip.
    **Done, verified on an Android 16 emulator only. Not yet run on the A54.**
    Checked on a real 173-word transcript: the chip walks the flagged words, an
@@ -71,6 +71,40 @@ speaker (the draw list reserves `layer` for it; build no segmentation now).
 9. First launch and Unlock. Ask about free-tier policy before starting this.
 
 Every slice runs as a release build on the Galaxy A54 before it is called done.
+
+## Known issues, none of them fixed yet
+
+Found while accepting slices 3 and 4, all on an Android 16 emulator. Small, real,
+and worth carrying forward rather than rediscovering.
+
+- **The box highlight crowds its neighbours.** `BOX_PAD.x` is 0.22 em each side,
+  which is wider than a space, so the box reaches the first glyph of the next
+  word. The default preset is the one affected. Two fixes: a smaller pad, or a
+  wider word gap in box mode. The gap has to be uniform across the line or words
+  would shift as the highlight travels, which is worse. Yours to pick.
+- **The delete confirmation does not name the project.** Two rows of the same
+  length and word count look identical in the dialog, and one of them is the
+  user's real work. It should say which.
+- **Home writes "1 words".** A project with one word reads "1 words · ready".
+- **`SHOW_OVERLAY_FPS` in the editor is still true**, which is why the fps line
+  shows under the scrubber. Deliberate: the A54 run needs a number to read. Turn
+  it off once slices 3 and 4 are accepted there.
+- **The picker's duration can be wrong.** One project stored 53 s for a clip the
+  player reported as 60 s, and `project.durationMs` comes from
+  `asset.duration`. It seeds the progress bar and the relink warning today, and
+  slice 7 needs real numbers, so Export should read length, resolution and frame
+  rate from the source rather than trusting the picker.
+- **Slices 3 and 4 have not run on the A54.** Every verification in them is from
+  an emulator, which means no reportable timings and nothing said about the real
+  phone's frame rate.
+- **iOS has never been built.** Not once, in any slice. Nothing is known about
+  the Skia overlay, the fonts, the player or the pause-on-background rule there.
+- **A junk project sits on the emulator**, "0:53 · 1 word" with colour bars, left
+  from testing. Harmless, and yours to delete.
+
+The model decision in the build prompt now has its number: the release APK is
+62 MB with no model, so bundling `base.en-q8_0` lands near 120 MB, inside the
+150 MB line.
 
 ## Deviations from the UI spec, all accepted
 
