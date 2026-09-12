@@ -10,7 +10,6 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { useVideoPlayer, VideoView } from 'expo-video';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
-  Alert,
   AppState,
   Pressable,
   ScrollView,
@@ -63,10 +62,9 @@ export default function Processing() {
   const project = run?.project ?? stored;
 
   useEffect(() => {
-    if (run?.stage === 'ready') {
-      // Straight into the editor when it exists. No "Done!" interstitial.
-      Alert.alert('Transcribed', `${run.project.words.length} words are ready to edit.`);
-    }
+    // Straight into the editor. No "Done!" interstitial, and `replace` so that
+    // going back from the editor lands on Home rather than on a finished bar.
+    if (run?.stage === 'ready') router.replace(`/project/${run.project.id}`);
   }, [run?.stage]);
 
   if (!project) {

@@ -61,7 +61,7 @@ export default function Home() {
 
   function open(project: Project) {
     if (project.status === 'ready') {
-      Alert.alert('Editor lands next', 'This project is transcribed and waiting for the editor.');
+      router.push(`/project/${project.id}`);
       return;
     }
     router.push(`/processing/${project.id}`);

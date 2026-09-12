@@ -7,8 +7,15 @@ no server. README.md carries the Stage 0 spike; this file carries the product.
 
 Expo dev client, New Architecture. whisper.rn 0.7.4 (patched, see `patches/`)
 with Silero VAD. Native Expo Modules for audio extraction and burn-in.
-react-native-skia for the overlay, react-native-iap for the one-time unlock, EAS
-Build. Fonts: Be Vietnam Pro and Spectral, both OFL, in `assets/fonts/`.
+react-native-skia 2.6 for the overlay, react-native-iap for the one-time unlock,
+EAS Build. Fonts: Be Vietnam Pro and Spectral, both OFL, in `assets/fonts/`.
+
+Skia 2.x requires react-native-reanimated, which in turn requires
+react-native-worklets. Both are installed for that reason alone; nothing in the
+app animates through them, because the caption animation is computed inside
+`layoutCaptionFrame` where the export can run it too. `babel-preset-expo` adds
+the worklets plugin on its own once the package is present, so there is still no
+`babel.config.js`.
 
 ## Scope
 
@@ -45,6 +52,11 @@ speaker (the draw list reserves `layer` for it; build no segmentation now).
    only Android 15+ hardware to hand was an emulator, which starts the service
    and then stops it with "does not have any types" for reasons unknown.
 3. Editor read-only: Skia overlay from `layoutCaptionFrame`, tap to seek.
+   **Done, verified on an Android 16 emulator only. Not yet run on the A54.**
+   The overlay held 61 fps in a release build there. Two open points are in the
+   slice 3 report: the box highlight crowds the words either side of it, and the
+   preview canvas is the video's own rectangle, which needs a rotated phone
+   recording to confirm.
 4. Word sheet, edit, undo and redo, low-confidence chip.
 5. Timing sheet and shift-all.
 6. Style sheet with the four presets.
@@ -66,6 +78,25 @@ Every slice runs as a release build on the Galaxy A54 before it is called done.
   returns the units the viewer sees one at a time.
 - Emphasis takes an `EmphasisContext`, because the envelope the features come
   from is not in the project, only its path.
+
+## Rendering
+
+`src/render` is the only consumer of a draw list, and it decides nothing.
+`faces.ts` maps a `FaceSpec` onto one of the five bundled files, `typefaces.ts`
+loads them into Skia under those exact names so a match is a lookup and not a
+guess about embedded weight metadata, `measure.ts` builds the one measurer
+(memoised, and a cached measurement equals a cold one), `frame.ts` segments a
+project once and hands every frame to the same layout, and `CaptionOverlay.tsx`
+draws what it is given. The burn-in will build its own measurer over the same
+faces at export resolution, which is how invariant 2 survives the bridge.
+
+The preview canvas is the video's own rectangle inside the stage, not the stage,
+because every ratio in the layout is a fraction of the canvas and the export
+renders into the frame rather than into the letterbox.
+
+One clock reads the player once per display frame and the overlay, the scrubber
+and the transcript subscribe to it. Nothing above them re-renders, which is what
+keeps the video view out of the render loop.
 
 ## Emphasis
 
@@ -92,6 +123,12 @@ real picks (slice 6).
   The notification is a courtesy; the transcription is the product.
 - Android 15 gives a typed service a time budget and calls `onTimeout`. Ignore
   it and the app is killed.
+- `expo-video` loads a source handed to `useVideoPlayer` before an effect on the
+  same render gets to subscribe, and `sourceLoad` does not replay for a listener
+  that arrives late. Read `player.videoTrack` and `player.duration` directly as
+  well as listening, or the screen never learns the shape of the video.
+- A release build is not debuggable, so `adb shell run-as` cannot reach the app's
+  own files. Seeding a fixture project into app storage needs the debug build.
 
 ## Conventions
 
