@@ -91,6 +91,18 @@ export interface StyleProps {
   emphasis: EmphasisStyle;
 }
 
+/**
+ * A preset with the user's changes on top.
+ *
+ * `emphasis` is partial where `StyleProps` has it whole, because the style sheet
+ * changes one thing about the big word — usually its colour — and storing the
+ * other nine properties alongside it would freeze that preset's emphasis at
+ * whatever it was on the day the user picked a colour.
+ */
+export type StyleOverrides = Partial<Omit<StyleProps, 'emphasis'>> & {
+  emphasis?: Partial<EmphasisStyle>;
+};
+
 /** Font size as a fraction of canvas height, so preview and export agree at any size. */
 export const TEXT_SIZE_RATIO: Record<TextSize, number> = { S: 0.036, M: 0.046, L: 0.058 };
 
@@ -111,12 +123,47 @@ export const CAPTION_INSET = { x: 0.08, railRight: 0.2, top: 0.12, upperMiddle: 
 /**
  * Platform chrome, as fractions of the canvas, for the safe-zone overlay only.
  * Nothing in the layout reads these.
+ *
+ * There is no primary source to cite. TikTok and Meta both publish safe zones as
+ * downloadable templates rather than numbers, and both say outright that the zone
+ * moves with caption length, interactive add-ons and text direction, so no fixed
+ * fraction can be correct for every post. These are the consensus of the
+ * third-party guides that measured the current apps, which disagree with each
+ * other by three to eight points; they were checked in September 2026 and are
+ * rounded outward, towards covering more rather than less.
+ *
+ * They are drawn as a warning, not enforced: a caption is allowed to sit wherever
+ * the user puts it.
  */
 export const PLATFORM_SAFE_ZONES = {
   tiktok: { top: 0.1, bottom: 0.22, left: 0.04, right: 0.24 },
   reels: { top: 0.11, bottom: 0.2, left: 0.04, right: 0.18 },
   shorts: { top: 0.09, bottom: 0.18, left: 0.04, right: 0.16 },
 } as const;
+
+export interface SafeZone {
+  top: number;
+  bottom: number;
+  left: number;
+  right: number;
+}
+
+/**
+ * The one rectangle that is clear on all three platforms.
+ *
+ * The overlay draws a union rather than three rectangles because a creator posts
+ * the same clip to all three and has no use for knowing which of them would have
+ * covered the word. The widest inset on each side wins.
+ */
+export function safeZoneUnion(): SafeZone {
+  const zones = Object.values(PLATFORM_SAFE_ZONES);
+  return {
+    top: Math.max(...zones.map((zone) => zone.top)),
+    bottom: Math.max(...zones.map((zone) => zone.bottom)),
+    left: Math.max(...zones.map((zone) => zone.left)),
+    right: Math.max(...zones.map((zone) => zone.right)),
+  };
+}
 
 /** Bundled families. The renderer maps a family and weight onto a loaded face. */
 export const SANS_FAMILY = 'Be Vietnam Pro';
@@ -290,7 +337,7 @@ export function presetById(styleId: string): StyleProps {
 }
 
 /** A preset plus the user's overrides. The one way a style reaches the layout. */
-export function resolveStyle(styleId: string, overrides: Partial<StyleProps> = {}): StyleProps {
+export function resolveStyle(styleId: string, overrides: StyleOverrides = {}): StyleProps {
   const base = presetById(styleId);
   const merged = { ...base, ...overrides, emphasis: { ...base.emphasis, ...overrides.emphasis } };
 
@@ -311,13 +358,99 @@ export function resolveStyle(styleId: string, overrides: Partial<StyleProps> = {
 /**
  * The colour the user actually chose, whichever property carries it.
  *
- * Box highlight paints the accent behind dark text, so its accent is the box;
- * every other preset paints it on the text. The chrome asks this question
- * because the interface has no accent of its own: the only saturated colour in
- * the app is the caption colour of the project you are in.
+ * Every preset paints the caption colour somewhere different: box highlight puts
+ * it behind dark text, karaoke fills the spoken word with it, and the two presets
+ * that mark nothing as it is spoken have only the big word to put it on. The
+ * chrome asks this question because the interface has no accent of its own: the
+ * only saturated colour in the app is the caption colour of the project you are
+ * in.
  */
 export function accentColor(style: StyleProps): string {
-  return style.highlightMode === 'box' ? style.boxColor : style.highlightColor;
+  if (style.highlightMode === 'box') return style.boxColor;
+  if (style.highlightMode === 'karaoke') return style.highlightColor;
+  return style.emphasis.color;
+}
+
+/**
+ * What picking a colour changes, which is not the same property in every preset.
+ *
+ * One swatch, one visible result, whatever preset is selected: the box fill in
+ * box highlight, the fill and the words already said in karaoke, and the big word
+ * in the two presets that mark nothing as it is spoken. The big word takes the
+ * colour in every case, so switching preset after picking a colour keeps it.
+ *
+ * Returned as overrides rather than applied, so the caller is the one thing that
+ * writes to a project, and so a preset switch merges them the same way.
+ */
+export function highlightColorOverrides(style: StyleProps, color: string): StyleOverrides {
+  const emphasis = { color };
+
+  if (style.highlightMode === 'box') return { boxColor: color, emphasis };
+  if (style.highlightMode === 'karaoke') {
+    return { highlightColor: color, spokenColor: color, emphasis };
+  }
+  return { emphasis };
+}
+
+/**
+ * What the user chose, as opposed to what their preset happened to come with.
+ *
+ * Undefined means "whatever this preset says". The distinction is the whole
+ * reason this type exists: a preset is a set of defaults, so switching to Clean
+ * subtitle has to give you Clean's small white type, while a colour you picked
+ * yourself has to follow you from preset to preset. Only a value that differs
+ * from the preset it was set on is a choice.
+ */
+export interface StyleChoices {
+  /** Whatever `accentColor` would report: the one colour the picker offers. */
+  color?: string;
+  textSize?: TextSize;
+  position?: CaptionPosition;
+  maxWordsPerLine?: number;
+}
+
+/** Reads the choices back out of a project's stored overrides. */
+export function styleChoices(styleId: string, overrides: StyleOverrides = {}): StyleChoices {
+  const preset = presetById(styleId);
+  const style = resolveStyle(styleId, overrides);
+
+  return {
+    color: chosen(accentColor(style), accentColor(preset)),
+    textSize: chosen(style.textSize, preset.textSize),
+    position: chosen(style.position, preset.position),
+    maxWordsPerLine: chosen(style.maxWordsPerLine, preset.maxWordsPerLine),
+  };
+}
+
+/**
+ * The overrides that put those choices onto a preset, this preset.
+ *
+ * The colour goes wherever this preset paints it, which is why the sheet stores
+ * a colour and not a property name: the same red is a box fill in one preset and
+ * a pull-quote in another.
+ */
+export function styleOverridesFor(styleId: string, choices: StyleChoices): StyleOverrides {
+  const preset = presetById(styleId);
+  const overrides: StyleOverrides = {};
+
+  if (choices.textSize !== undefined && choices.textSize !== preset.textSize) {
+    overrides.textSize = choices.textSize;
+  }
+  if (choices.position !== undefined && choices.position !== preset.position) {
+    overrides.position = choices.position;
+  }
+  if (choices.maxWordsPerLine !== undefined && choices.maxWordsPerLine !== preset.maxWordsPerLine) {
+    overrides.maxWordsPerLine = choices.maxWordsPerLine;
+  }
+  if (choices.color !== undefined && choices.color !== accentColor(preset)) {
+    Object.assign(overrides, highlightColorOverrides(preset, choices.color));
+  }
+
+  return overrides;
+}
+
+function chosen<T>(value: T, presetValue: T): T | undefined {
+  return value === presetValue ? undefined : value;
 }
 
 /** Left and right margins in canvas fractions, which alignment decides. */

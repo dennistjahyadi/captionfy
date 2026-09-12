@@ -41,16 +41,21 @@ import {
   mergeWords,
   nextLowConfidenceWordId,
   sameHeardWordIds,
+  safeZoneUnion,
   setBreakAfter,
   setEmphasis,
   shiftAll,
+  styleOverridesFor,
   type CaptionLine,
+  type MeasureText,
   type Ms,
   type Project,
+  type StyleChoices,
   type Word,
 } from '../../src/domain';
 import { Sheet } from '../../src/editor/Sheet';
 import { ShiftSheet } from '../../src/editor/ShiftSheet';
+import { StylePicker } from '../../src/editor/StylePicker';
 import { TimingSheet } from '../../src/editor/TimingSheet';
 import { WordSheet, type WordFacts, type WordSheetActions } from '../../src/editor/WordSheet';
 import { useProjectEditor, type ProjectEditor } from '../../src/editor/useProjectEditor';
@@ -59,7 +64,7 @@ import { createFrameSource, type FrameSource } from '../../src/render/frame';
 import { createMeasureText } from '../../src/render/measure';
 import { useCaptionFonts, type FontLookup } from '../../src/render/typefaces';
 import { adoptSource, sourceExists } from '../../src/project/source';
-import { loadSettings, markCoachCardSeen } from '../../src/project/settings';
+import { loadSettings, markCoachCardSeen, rememberStyle } from '../../src/project/settings';
 import { deleteProject, loadProject, saveProject, thumbnailFile } from '../../src/project/store';
 import { Label, PrimaryButton, QuietButton, Screen } from '../../src/ui/atoms';
 import { useClock, type Clock } from '../../src/ui/clock';
@@ -85,6 +90,15 @@ const DEFAULT_ASPECT = 9 / 16;
 
 /** The share of the screen the video gets. The rest is the transcript. */
 const STAGE_SHARE = 0.46;
+
+/**
+ * What it shrinks to while the style sheet is open.
+ *
+ * That sheet is the tall one, and the thing it is for sits in the lower third of
+ * the frame. A preview with the captions behind the sheet would be asking the
+ * user to choose a look they cannot see.
+ */
+const STAGE_SHARE_STYLING = 0.3;
 
 /** The scrubber redraws at this rate. The overlay gets the rest of the budget. */
 const SCRUB_INTERVAL_MS = 100;
@@ -267,6 +281,10 @@ function Workspace({ stored }: { stored: Project }) {
   const status = useEvent(player, 'statusChange', { status: player.status })?.status ?? 'idle';
 
   const fonts = useCaptionFonts();
+  // One measurer for the screen, not one per canvas: the preview and the four
+  // style tiles have to agree about the width of a word, and two measurers would
+  // be two layouts (invariant 2).
+  const measure = useMemo(() => (fonts ? createMeasureText(fonts) : null), [fonts]);
   const reducedMotion = useReducedMotion();
   const info = useSourceInfo(player, stored);
   const [fps, setFps] = useState(0);
@@ -286,12 +304,14 @@ function Workspace({ stored }: { stored: Project }) {
   const [preview, setPreview] = useState<Project | null>(null);
   const [timingId, setTimingId] = useState<string | null>(null);
   const [shiftLine, setShiftLine] = useState<{ startMs: Ms; endMs: Ms } | null>(null);
+  const [styling, setStyling] = useState(false);
 
   const shown = preview ?? project;
   const source = useMemo(() => createFrameSource(shown), [shown]);
   const timingWord = timingId ? (project.words.find((word) => word.id === timingId) ?? null) : null;
 
-  const stage = containRect(windowWidth, Math.round(windowHeight * STAGE_SHARE), info.aspect);
+  const stageHeight = Math.round(windowHeight * (styling ? STAGE_SHARE_STYLING : STAGE_SHARE));
+  const stage = containRect(windowWidth, stageHeight, info.aspect);
   const toCheck = lowConfidenceCount(project);
 
   // Ids for words an edit has to invent. One factory per visit to the editor,
@@ -457,6 +477,45 @@ function Workspace({ stored }: { stored: Project }) {
     stopLoop();
   }, [stopLoop]);
 
+  /**
+   * Opens the style sheet on the line that is on screen, and loops it.
+   *
+   * Four presets side by side are only comparable on the same words, and the
+   * words the user was looking at are the ones they want to see in each.
+   */
+  const openStyle = useCallback(() => {
+    const line = source.lineAt(now.current) ?? source.units[0];
+    if (line) loopSpan(line.startMs + offsetMs, line.endMs + offsetMs);
+    setStyling(true);
+  }, [loopSpan, offsetMs, source]);
+
+  /**
+   * A style change: live, and not an undo step.
+   *
+   * Applied through `restyle`, which puts it on every snapshot in the history as
+   * well as on the present, so undoing a word edit later cannot take the look
+   * back with it.
+   */
+  const onStyleChange = useCallback(
+    (styleId: string, choices: StyleChoices) => {
+      editor.restyle((current) => ({
+        ...current,
+        styleId,
+        styleOverrides: styleOverridesFor(styleId, choices),
+      }));
+    },
+    [editor]
+  );
+
+  const closeStyle = useCallback(() => {
+    setStyling(false);
+    stopLoop();
+    // Remembered on the way out rather than on every tap: what the user settled
+    // on is the style the next project should start in, not everything they
+    // looked at on the way there.
+    rememberStyle(project.styleId, project.styleOverrides);
+  }, [project.styleId, project.styleOverrides, stopLoop]);
+
   const accent = accentColor(source.style);
 
   return (
@@ -478,7 +537,7 @@ function Workspace({ stored }: { stored: Project }) {
         accessibilityRole="button"
         accessibilityLabel={playing ? 'Pause' : 'Play'}
         onPress={() => (playing ? player.pause() : player.play())}
-        style={[styles.stage, { height: Math.round(windowHeight * STAGE_SHARE) }]}
+        style={[styles.stage, { height: stageHeight }]}
       >
         <View style={{ width: stage.width, height: stage.height }}>
           <VideoView
@@ -487,17 +546,22 @@ function Workspace({ stored }: { stored: Project }) {
             contentFit="contain"
             nativeControls={false}
           />
-          {fonts ? (
+          {fonts && measure ? (
             <CaptionLayer
               source={source}
               clock={clock}
               fonts={fonts}
+              measure={measure}
               width={stage.width}
               height={stage.height}
               reducedMotion={reducedMotion}
               onFps={SHOW_OVERLAY_FPS ? setFps : undefined}
             />
           ) : null}
+
+          {/* Only while the style sheet is open. A permanent overlay would be a
+              set of crop marks on somebody's video. */}
+          {styling ? <SafeZone /> : null}
         </View>
       </Pressable>
 
@@ -535,6 +599,17 @@ function Workspace({ stored }: { stored: Project }) {
             <Label variant="label">{toCheck} to check</Label>
           </Pressable>
         ) : null}
+
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Style"
+          onPress={openStyle}
+          style={({ pressed }) => [styles.chip, { opacity: pressed ? 0.6 : 1 }]}
+        >
+          <Label variant="label" tone="mute">
+            Style
+          </Label>
+        </Pressable>
 
         {/* A plain chip rather than the spec's overflow menu: Rename and Delete
             join it in a later slice, and one item is not a menu. */}
@@ -589,8 +664,12 @@ function Workspace({ stored }: { stored: Project }) {
           hands the word back to it, so cancelling lands where it was opened from.
           They share a `Sheet` because unmounting one Modal in the same commit
           that mounts another leaves Android showing neither. */}
-      {timingWord || selected || shiftLine ? (
-        <Sheet onClose={timingWord ? closeTiming : selected ? closeWord : closeShift}>
+      {timingWord || selected || shiftLine || styling ? (
+        <Sheet
+          onClose={
+            timingWord ? closeTiming : selected ? closeWord : shiftLine ? closeShift : closeStyle
+          }
+        >
           {timingWord ? (
             <TimingSheet
               word={timingWord}
@@ -611,7 +690,7 @@ function Workspace({ stored }: { stored: Project }) {
               actions={actionsFor(editor, selected, selectedIndex, newId, closeWord, setTimingId)}
               onClose={closeWord}
             />
-          ) : (
+          ) : shiftLine ? (
             <ShiftSheet
               project={project}
               accent={accent}
@@ -619,7 +698,18 @@ function Workspace({ stored }: { stored: Project }) {
               onApply={applyShift}
               onClose={closeShift}
             />
-          )}
+          ) : fonts && measure ? (
+            <StylePicker
+              project={project}
+              aspect={info.aspect}
+              fonts={fonts}
+              measure={measure}
+              clock={clock}
+              reducedMotion={reducedMotion}
+              onChange={onStyleChange}
+              onClose={closeStyle}
+            />
+          ) : null}
         </Sheet>
       ) : (
         <CoachCard toCheck={toCheck} onShowMe={checkNext} />
@@ -751,6 +841,7 @@ const CaptionLayer = memo(function CaptionLayer({
   source,
   clock,
   fonts,
+  measure,
   width,
   height,
   reducedMotion,
@@ -759,6 +850,7 @@ const CaptionLayer = memo(function CaptionLayer({
   source: FrameSource;
   clock: Clock;
   fonts: FontLookup;
+  measure: MeasureText;
   width: number;
   height: number;
   reducedMotion: boolean;
@@ -767,7 +859,6 @@ const CaptionLayer = memo(function CaptionLayer({
   const [tMs, setTMs] = useState(0);
   useEffect(() => clock.subscribe(setTMs), [clock]);
 
-  const measure = useMemo(() => createMeasureText(fonts), [fonts]);
   const canvas = useMemo(() => ({ width, height }), [width, height]);
   const frame = source.frameAt(tMs, canvas, measure, { reducedMotion });
 
@@ -775,6 +866,33 @@ const CaptionLayer = memo(function CaptionLayer({
 
   return <CaptionOverlay frame={frame} width={width} height={height} fonts={fonts} />;
 });
+
+/**
+ * What all three platforms leave uncovered, dashed over the preview.
+ *
+ * Fractions of the frame, so it lands in the same place on the export, and drawn
+ * over the video rather than over the stage: the letterbox is not part of
+ * anybody's post. A warning and not a rule — a caption is allowed to sit outside
+ * it, and some of them should.
+ */
+function SafeZone() {
+  const zone = safeZoneUnion();
+
+  return (
+    <View
+      pointerEvents="none"
+      style={[
+        styles.safeZone,
+        {
+          top: `${zone.top * 100}%`,
+          bottom: `${zone.bottom * 100}%`,
+          left: `${zone.left * 100}%`,
+          right: `${zone.right * 100}%`,
+        },
+      ]}
+    />
+  );
+}
 
 /** Tap or drag anywhere on the track to seek. */
 const Scrubber = memo(function Scrubber({
@@ -1143,6 +1261,13 @@ const styles = StyleSheet.create({
     paddingBottom: space.sm,
   },
   stage: { backgroundColor: '#000000', alignItems: 'center', justifyContent: 'center' },
+  safeZone: {
+    position: 'absolute',
+    borderWidth: 1,
+    borderStyle: 'dashed',
+    borderColor: color.signal,
+    borderRadius: radius.control,
+  },
   controls: {
     flexDirection: 'row',
     alignItems: 'center',

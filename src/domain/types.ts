@@ -8,7 +8,7 @@
  * seconds; both convert at their own boundary and nothing inside the domain ever
  * sees a fractional time.
  */
-import type { StyleProps } from './style';
+import type { StyleOverrides } from './style';
 
 /** Integer milliseconds. */
 export type Ms = number;
@@ -95,7 +95,7 @@ export interface Project {
    */
   autoEmphasis: string[];
   styleId: string;
-  styleOverrides: Partial<StyleProps>;
+  styleOverrides: StyleOverrides;
   /**
    * RMS energy per 10 ms frame, computed once from the PCM that ASR decoded.
    *

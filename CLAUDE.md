@@ -72,6 +72,11 @@ speaker (the draw list reserves `layer` for it; build no segmentation now).
    because the first word starts there. The first build of the sheet could not
    move anything at all, which is the deviation below.
 6. Style sheet with the four presets.
+   **Done, verified on an Android 16 emulator only. Not yet run on the A54.**
+   All four tiles animate the same line through the one layout, a picked colour
+   lands on whatever each preset paints and follows a preset switch, size,
+   position and words per line apply live, and the look survived leaving the
+   editor and coming back. Undo of a word edit left the style alone.
 7. Export, with a preview-versus-export frame comparison.
 8. Dictionary.
 9. First launch and Unlock. Ask about free-tier policy before starting this.
@@ -82,11 +87,13 @@ Every slice runs as a release build on the Galaxy A54 before it is called done.
 
 Two are left, and neither can be closed from this machine.
 
-- **Slices 3 and 4 have not run on the A54.** Every verification in them is from
+- **Slices 3 to 6 have not run on the A54.** Every verification in them is from
   an Android 16 emulator, which means no reportable timings and nothing said
   about the real phone's frame rate. The overlay's counter is still wired behind
   `SHOW_OVERLAY_FPS` in the editor: switch it on, build a release APK, and the
-  number appears under the scrubber.
+  number appears under the scrubber. Slice 6 adds four more Skia canvases to the
+  screen while the style sheet is open, throttled to 20 a second, and that is the
+  thing worth reading the counter for on the phone.
 - **iOS has never been built.** Not once, in any slice. Nothing is known about
   the Skia overlay, the fonts, the player or the pause-on-background rule there.
 
@@ -129,6 +136,25 @@ The model decision in the build prompt now has its number: the release APK is
 - Shift-all is a chip in the toolbar rather than the spec's overflow menu, for
   the same reason Delete is not in one. Rename and Delete join it in a later
   slice and an overflow can arrive with them.
+- The style sheet's preview is the editor's own stage rather than a second copy
+  inside the sheet. One video view, one overlay, one layout; the stage gives up
+  height while that sheet is open so the captions are not behind it.
+- The style sheet stores **choices**, not properties: a colour, a size, a
+  position, a words-per-line, each only when it differs from the preset it was
+  set on. That is what lets a colour follow the user from preset to preset while
+  Clean subtitle still looks like Clean subtitle. `styleChoices` reads them back
+  out of a project and `styleOverridesFor` puts them onto a preset.
+- One colour control, not one per preset property. The swatch paints the box in
+  Box highlight, the fill and the spoken words in Karaoke, and the big word in
+  the two presets that mark nothing as it is spoken — and the big word in all
+  four, so switching preset keeps it. `accentColor` reports the same colour back,
+  which is why the chrome turns with it.
+- A colour picked in Clean subtitle does colour its big word. A preset that
+  answered a swatch with no visible change would read as broken.
+- The custom colour is a hue strip and not a full picker: a washed-out caption is
+  an unreadable one, so saturation and lightness are fixed and the swatches carry
+  white. Dragging on it changes the colour rather than scrolling the sheet, as
+  any slider does.
 - Box mode spaces every word by the box's own padding on top of a space, so the
   words sit a little wider apart than in the other presets. The box is padded
   past its own word and a space is narrower than that padding, so the choice was
@@ -142,7 +168,9 @@ The model decision in the build prompt now has its number: the release APK is
 ## Persistence
 
 A project owns everything it needs: `project.json`, `pipeline.json`, `audio.pcm`,
-`envelope.f32`, `thumb.jpg`, and `source.<ext>`, the video itself.
+`envelope.f32`, `thumb.jpg`, and `source.<ext>`, the video itself. `settings.json`
+sits outside them all and holds what is true of the app rather than of a clip: the
+coach card, and the style the next project starts in.
 
 The video is copied in at pick time and the project never refers to anything
 outside its own directory. The picker does not hand back the file in the gallery,
@@ -168,17 +196,34 @@ renders into the frame rather than into the letterbox.
 
 One clock reads the player once per display frame and the overlay, the scrubber
 and the transcript subscribe to it. Nothing above them re-renders, which is what
-keeps the video view out of the render loop.
+keeps the video view out of the render loop. The style sheet's four tiles
+subscribe to the same clock at a twentieth of a second, because a thumbnail does
+not need sixty frames and the preview does.
+
+A style tile is a window, not a thumbnail: the canvas is the whole frame at tile
+width and the tile shows the band the caption is in. Laying out into a short
+canvas would put a lower third a third of the way up a letterbox and show a size
+the export will never produce.
+
+Settings carry a style too, written when the style sheet closes and read by
+`createProject`. A creator has a look, not a look per clip.
 
 ## Editing
 
 Every change to a project goes through `useProjectEditor`, which is what keeps
 undo, the local emphasis recompute and the save policy in one file instead of in
-every screen. Three doors, because three things may move: `edit` for text, where
-no time may change; `editTiming` for the timing sheet, where the named words'
-times may change and nothing else may; `editProject` for shift-all, which moves
-the offset and may not touch a word at all. Each checks its own rule on the real
-transcript before it writes. Undo is snapshots, not inverse operations: an edit already
+every screen. Four doors, because four things may move: `edit` for text, where no
+time may change; `editTiming` for the timing sheet, where the named words' times
+may change and nothing else may; `editProject` for shift-all, which moves the
+offset and may not touch a word at all; and `restyle`, which is not an undo step
+at all. Each of the first three checks its own rule on the real transcript before
+it writes.
+
+`restyle` applies the change to every snapshot in the history as well as to the
+present. A style is a property of the project rather than something that happened
+to it, so undoing a word edit must not hand back the preset the user had already
+abandoned. The style the user settles on is also written to `settings.json` when
+the sheet closes, and a new project starts there. Undo is snapshots, not inverse operations: an edit already
 returns a whole new project sharing the words it did not touch, so keeping the
 old value costs pointers, while inverting a merge or a split is a chance to
 restore something subtly different. Depth is capped at 100.
@@ -213,8 +258,8 @@ object. Stopwords and unverified low-confidence words are barred outright.
 and one either side. Each preset decides how an emphasised word looks.
 
 The word sheet carries the toggle and says which way the word was decided.
-Emphasised words are bold in the transcript. Still to come: Editorial in the
-style picker, animating the user's own line with its real picks (slice 6).
+Emphasised words are bold in the transcript, and the style sheet's Editorial tile
+animates the user's own line with its real picks.
 
 ## Things Android taught us the hard way
 
@@ -240,6 +285,10 @@ style picker, animating the user's own line with its real picks (slice 6).
   reproduces it on demand.
 - Unmounting one `Modal` in the same commit that mounts another leaves Android
   showing neither, with no error anywhere. One sheet whose contents change.
+- A `PanResponder` built in a `useMemo` keeps the callbacks of the render that
+  built it. The hue strip applied its colour to whichever preset had been
+  selected when the sheet opened, silently undoing the one chosen since. Every
+  value a responder reads goes through a ref.
 - `StyleSheet.absoluteFillObject` is not in this React Native's types. Spell the
   four edges out.
 - React Native's Android alert calls `options.onDismiss` when a button closes the

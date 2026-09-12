@@ -12,8 +12,8 @@
  */
 import { Directory, File, Paths } from 'expo-file-system';
 
-import { DEFAULT_STYLE_ID } from '../domain';
 import type { Ms, Project, ProjectStatus } from '../domain';
+import { loadSettings } from './settings';
 
 /** Bumped when the on-disk shape changes in a way an old file cannot satisfy. */
 export const PROJECT_FORMAT = 1;
@@ -71,6 +71,10 @@ export function newProjectId(): string {
  * crash during extraction loses a few seconds rather than the user's place.
  */
 export function createProject(sourceUri: string, durationMs: Ms): Project {
+  // The look the user settled on last time. A creator has a style, not a style
+  // per clip, so a new project starts where the last one ended up.
+  const settings = loadSettings();
+
   const project: Project = {
     id: newProjectId(),
     sourceUri,
@@ -82,8 +86,8 @@ export function createProject(sourceUri: string, durationMs: Ms): Project {
     lineFlags: [],
     autoEmphasis: [],
     globalOffsetMs: 0,
-    styleId: DEFAULT_STYLE_ID,
-    styleOverrides: {},
+    styleId: settings.styleId,
+    styleOverrides: settings.styleOverrides,
   };
 
   saveProject(project);

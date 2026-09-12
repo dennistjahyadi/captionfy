@@ -66,6 +66,15 @@ export interface ProjectEditor {
    * settling into real word timings.
    */
   editProject(label: string, change: (project: Project) => Project): void;
+  /**
+   * Changes how the captions look, everywhere in the timeline at once.
+   *
+   * Not an undo step, and applied to every snapshot undo could return to: a
+   * style is a property of the project rather than a thing that happened to it,
+   * and undoing a word edit that also changed the look back to the preset the
+   * user had abandoned would be the app arguing with them.
+   */
+  restyle(change: (project: Project) => Project): void;
   /** The clip's energy envelope, read once, for the timing sheet's waveform. */
   envelope(): Float32Array | null;
   undo(): void;
@@ -160,6 +169,24 @@ export function useProjectEditor(
     [replace]
   );
 
+  const restyle = useCallback<ProjectEditor['restyle']>(
+    (change) => {
+      const current = latest.current;
+      const present = change(current.present);
+      if (present === current.present) return;
+
+      setHistory({
+        past: current.past.map((step) => ({ ...step, project: change(step.project) })),
+        present,
+        future: current.future.map((step) => ({ ...step, project: change(step.project) })),
+      });
+      // Written at once rather than debounced: a style change is one deliberate
+      // tap, not a stream of keystrokes.
+      save(present, true);
+    },
+    [save]
+  );
+
   return {
     project: history.present,
     canUndo: canUndo(history),
@@ -169,6 +196,7 @@ export function useProjectEditor(
     edit,
     editTiming,
     editProject,
+    restyle,
     envelope,
     // Undo and redo are deliberate, so they are written at once rather than
     // debounced behind whatever the user does next.
