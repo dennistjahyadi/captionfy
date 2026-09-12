@@ -4,6 +4,7 @@ import {
   ENVELOPE_FRAME_MS,
   envelopeDurationMs,
   meanEnergy,
+  spanLevel,
   peaksForRange,
   SILENCE_FLOOR_DB,
   speechMedian,
@@ -70,13 +71,61 @@ describe('computeEnvelope', () => {
   });
 });
 
+describe('spanLevel', () => {
+  it('ignores the quiet edges a loose word boundary drags in', () => {
+    // 100 ms of silence, 300 ms of speech, 100 ms of silence: a word span as
+    // whisper tends to report one.
+    const envelope = computeEnvelope(
+      new Float32Array([...burst(0, 100), ...burst(0.4, 300), ...burst(0, 100)]),
+      RATE
+    );
+    expect(meanEnergy(envelope, 0, 500)).toBeLessThan(rmsOf(0.4) * 0.7);
+    expect(spanLevel(envelope, 0, 500)).toBeCloseTo(rmsOf(0.4), 2);
+  });
+
+  it('still reads the sound when silence is the majority of the span', () => {
+    // What a slow speaker's word spans look like: 200 ms of sound in 700 ms.
+    const envelope = computeEnvelope(
+      new Float32Array([...burst(0, 250), ...burst(0.4, 200), ...burst(0, 250)]),
+      RATE
+    );
+    expect(spanLevel(envelope, 0, 700)).toBeCloseTo(rmsOf(0.4), 2);
+  });
+
+  it('is not swayed by one loud frame', () => {
+    const envelope = computeEnvelope(
+      new Float32Array([...burst(0.2, 390), ...burst(1, 10)]),
+      RATE
+    );
+    expect(spanLevel(envelope, 0, 400)).toBeCloseTo(rmsOf(0.2), 2);
+  });
+});
+
 describe('speechMedian', () => {
+  it('weighs a long word the same as a short one', () => {
+    const envelope = computeEnvelope(
+      new Float32Array([...burst(0.1, 2000), ...burst(0.5, 100), ...burst(0.9, 100)]),
+      RATE
+    );
+    const spans = [
+      { start: 20, end: 1980 },
+      { start: 2020, end: 2080 },
+      { start: 2120, end: 2180 },
+    ];
+    // Pooling frames would hand the answer to the two-second word. Reducing each
+    // span first puts the reference on the middle word, where it belongs.
+    expect(speechMedian(envelope, spans)).toBeCloseTo(rmsOf(0.5), 2);
+  });
+});
+
+describe('speechMedian, spans and silence', () => {
   it('ignores everything outside the spans, so a silent intro cannot skew it', () => {
-    const pcm = new Float32Array([...burst(0, 400), ...burst(0.4, 400)]);
+    // A long music-free intro and one spoken phrase.
+    const pcm = new Float32Array([...burst(0, 1200), ...burst(0.4, 400)]);
     const envelope = computeEnvelope(pcm, RATE);
-    expect(speechMedian(envelope, [{ start: 420, end: 780 }])).toBeCloseTo(rmsOf(0.4), 2);
-    // Taking the whole clip instead would halve it.
-    expect(speechMedian(envelope, [{ start: 0, end: 800 }])).toBeLessThan(rmsOf(0.4) / 2 + 0.01);
+    expect(speechMedian(envelope, [{ start: 1220, end: 1580 }])).toBeCloseTo(rmsOf(0.4), 2);
+    // Handed the whole clip as one span, it reads the silence the intro is made of.
+    expect(speechMedian(envelope, [{ start: 0, end: 1600 }])).toBe(0);
   });
 
   it('is zero when no span holds a frame', () => {

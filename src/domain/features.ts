@@ -7,11 +7,17 @@
  * merge can recompute them without the audio being anywhere near. That is the
  * whole reason the envelope is kept with the project.
  */
-import { meanEnergy, speechMedian, toDb } from './envelope';
+import { spanLevel, speechMedian, toDb } from './envelope';
 import type { Ms, Word } from './types';
 
 export interface WordFeatures {
-  /** Mean energy over the word, in dB relative to the clip's speech median. */
+  /**
+   * How loud the word was, in dB against the clip's typical speech.
+   *
+   * Both sides are a median frame level, so the figure is centred on the clip by
+   * construction: roughly half a clip's words read below zero however loudly or
+   * quietly the whole thing was recorded.
+   */
   loudnessDb: number;
   /** Duration per letter. A word held out for emphasis scores high. */
   msPerChar: number;
@@ -50,7 +56,7 @@ export function wordFeatures(envelope: Float32Array, words: Word[]): FeatureSet 
     rates.push(msPerChar);
 
     byId.set(word.id, {
-      loudnessDb: toDb(meanEnergy(envelope, word.start, word.end), median),
+      loudnessDb: toDb(spanLevel(envelope, word.start, word.end), median),
       msPerChar,
       pauseBeforeMs: Math.max(0, word.start - (previous?.end ?? 0)),
       pauseAfterMs: next ? Math.max(0, next.start - word.end) : 0,

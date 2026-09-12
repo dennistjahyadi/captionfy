@@ -41,6 +41,9 @@ export const STOPWORDS: ReadonlySet<string> = new Set([
   'um', 'uh', 'erm', 'ah', 'oh', 'eh', 'hmm', 'mhm', 'yeah', 'yep', 'okay', 'ok',
   'like', 'just', 'really', 'actually', 'basically', 'literally', 'honestly', 'anyway',
   'well', 'right', 'sure', 'kinda', 'sorta', 'stuff', 'thing', 'things',
+  // Hedges. "Maybe" won a pick on three of the four Stage 0 clips, purely on
+  // being held and said loudly, and it is never what a sentence is about.
+  'maybe', 'perhaps', 'probably', 'guess',
   // Quantity words with no figure in them
   'very', 'much', 'many', 'more', 'most', 'less', 'least', 'few', 'lot', 'lots',
   'here', 'there', 'now', 'not', 'only', 'even', 'still', 'already', 'always', 'never',

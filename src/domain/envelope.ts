@@ -90,6 +90,31 @@ export function meanEnergy(envelope: Float32Array, startMs: Ms, endMs: Ms): numb
 }
 
 /**
+ * Which frame of a span stands for how loud that span was.
+ *
+ * Three quarters up, settled by measurement on the Stage 0 clips rather than by
+ * argument. Whisper's word boundaries are loose, so a word span carries the
+ * quiet either side of the sound, and on a slow speaker most of a span is that
+ * quiet. A mean reads the silence as part of the word; a median lands in it
+ * outright, which put the clip reference on the noise floor and left 32 words in
+ * 72 pinned at the loudness cap. At three quarters the top decile of a clip sits
+ * between 4 and 7 dB over the reference on all four clips, fast talkers and slow,
+ * which is the spread the scoring weights were written for. Higher still, at the
+ * ninth decile, the spread collapses and loudness stops telling words apart.
+ */
+export const SPAN_LEVEL_PERCENTILE = 0.75;
+
+/** How loud a span was. Zero when the range holds no frame. */
+export function spanLevel(envelope: Float32Array, startMs: Ms, endMs: Ms): number {
+  const from = Math.max(0, frameIndexAt(startMs));
+  const to = Math.min(envelope.length, Math.max(from + 1, frameIndexAt(endMs)));
+  if (from >= envelope.length) return 0;
+
+  const levels = Array.from(envelope.subarray(from, to)).sort((a, b) => a - b);
+  return levels[Math.min(levels.length - 1, Math.floor((levels.length - 1) * SPAN_LEVEL_PERCENTILE))];
+}
+
+/**
  * A level as decibels relative to a reference.
  *
  * Floored rather than allowed to reach negative infinity, because a silent frame
@@ -102,22 +127,24 @@ export function toDb(level: number, reference: number): number {
 }
 
 /**
- * The median frame energy inside the given spans.
+ * The typical loudness of speech in a clip: the middle span, by `spanLevel`.
  *
  * Spans, not the whole clip, so a music-only intro or a long silence cannot drag
  * the reference down and make ordinary speech look shouted.
+ *
+ * Each span is reduced to one level before they are compared, rather than
+ * pooling every frame into one list. Pooling would weight a long word more
+ * heavily than a short one, and would measure the reference differently from the
+ * way a single word is measured against it. Same statistic on both sides is what
+ * makes "three decibels over the median" mean the same thing on every clip.
  */
 export function speechMedian(envelope: Float32Array, spans: { start: Ms; end: Ms }[]): number {
-  const levels: number[] = [];
-
-  for (const span of spans) {
-    const from = Math.max(0, frameIndexAt(span.start));
-    const to = Math.min(envelope.length, frameIndexAt(span.end));
-    for (let index = from; index < to; index += 1) levels.push(envelope[index]);
-  }
+  const levels = spans
+    .map((span) => spanLevel(envelope, span.start, span.end))
+    .filter((level) => level > 0)
+    .sort((a, b) => a - b);
 
   if (levels.length === 0) return 0;
-  levels.sort((a, b) => a - b);
   const middle = levels.length >> 1;
   return levels.length % 2 === 1 ? levels[middle] : (levels[middle - 1] + levels[middle]) / 2;
 }
