@@ -65,6 +65,12 @@ speaker (the draw list reserves `layer` for it; build no segmentation now).
    inside its own line and nowhere else, and every change survived leaving the
    editor and coming back.
 5. Timing sheet and shift-all.
+   **Done, verified on an Android 16 emulator only. Not yet run on the A54.**
+   On a real 173-word transcript: the steppers, both handles and a whole-word
+   drag all moved the word and no other, Apply survived leaving the editor and
+   coming back, Cancel and undo both put it back, and shift-all held at −150 ms
+   because the first word starts there. The first build of the sheet could not
+   move anything at all, which is the deviation below.
 6. Style sheet with the four presets.
 7. Export, with a preview-versus-export frame comparison.
 8. Dictionary.
@@ -111,6 +117,18 @@ The model decision in the build prompt now has its number: the release APK is
   item is not a menu, and undo is in the toolbar for every action equally.
 - Sheet actions are labels without icons, because no icon set has been chosen and
   a hand-drawn one per action would be four inconsistent glyphs.
+- **An edge a word shares with its neighbour is a boundary, and moving it moves
+  both words.** The engine hands back one boundary between one word and the next,
+  so on a real transcript every handle was already against a wall and the first
+  build of the timing sheet could not move anything at all. A shared edge now
+  carries the neighbour with it, as far as the neighbour's own `MIN_WORD_MS`. A
+  handle at a gap still stops dead: the silence is not the neighbour's to give
+  away. `nudgeWord` owns this; `setWordTiming` stays the unlinked primitive.
+- Shift-all works in totals, not increments: the readout is where the captions
+  are, so opening it a second time says what the first visit decided.
+- Shift-all is a chip in the toolbar rather than the spec's overflow menu, for
+  the same reason Delete is not in one. Rename and Delete join it in a later
+  slice and an overflow can arrive with them.
 - Box mode spaces every word by the box's own padding on top of a space, so the
   words sit a little wider apart than in the other presets. The box is padded
   past its own word and a space is narrower than that padding, so the choice was
@@ -154,9 +172,13 @@ keeps the video view out of the render loop.
 
 ## Editing
 
-Every change to a project goes through `useProjectEditor.edit`, which is what
-keeps undo, the local emphasis recompute and the save policy in one file instead
-of in every screen. Undo is snapshots, not inverse operations: an edit already
+Every change to a project goes through `useProjectEditor`, which is what keeps
+undo, the local emphasis recompute and the save policy in one file instead of in
+every screen. Three doors, because three things may move: `edit` for text, where
+no time may change; `editTiming` for the timing sheet, where the named words'
+times may change and nothing else may; `editProject` for shift-all, which moves
+the offset and may not touch a word at all. Each checks its own rule on the real
+transcript before it writes. Undo is snapshots, not inverse operations: an edit already
 returns a whole new project sharing the words it did not touch, so keeping the
 old value costs pointers, while inverting a merge or a split is a chance to
 restore something subtly different. Depth is capped at 100.
@@ -168,8 +190,18 @@ the screen unmounts.
 transcript: with the word count unchanged nothing may move at all, which is
 invariant 1 exactly, and when a split, merge or delete has changed the count what
 is checked instead is that no time was invented outside the span that was there.
-A failure says so and refuses to write. Unit tests prove the same rules against
-fixtures; this is the copy that runs on the user's own words.
+A failure says so and refuses to write. `timingSpill` is its mirror on the timing
+path, where time is allowed to move: the same words in the same order, no text
+touched, nothing moved that was not named, and no overlap the action itself
+introduced. Unit tests prove the same rules against fixtures; these are the
+copies that run on the user's own words.
+
+The editor's sheets share one `Sheet`, and its contents change rather than the
+modal being swapped: unmounting one Android `Modal` in the same commit that
+mounts another shows neither. A sheet's draft is a whole preview `Project` held
+by the editor screen, so the overlay, the transcript and the loop all see what is
+about to be applied without any of them learning what a draft is, and one visit
+to a sheet is one undo step however many times a handle moved.
 
 ## Emphasis
 
@@ -206,6 +238,10 @@ style picker, animating the user's own line with its real picks (slice 6).
   until the cache is cleared and then opens black with a play button that does
   nothing, which is how this was found. `adb shell pm trim-caches 4096G`
   reproduces it on demand.
+- Unmounting one `Modal` in the same commit that mounts another leaves Android
+  showing neither, with no error anywhere. One sheet whose contents change.
+- `StyleSheet.absoluteFillObject` is not in this React Native's types. Spell the
+  four edges out.
 - React Native's Android alert calls `options.onDismiss` when a button closes the
   dialog, not only when the dialog is dismissed, so a promise wrapped around an
   alert cannot tell the two apart and latches onto whichever fires first. Put the

@@ -34,6 +34,8 @@ export interface FrameSource {
   frameAt(tMs: Ms, canvas: Canvas, measure: MeasureText, opts?: LayoutOptions): CaptionFrame;
   /** The word under the playhead, for the transcript's highlight. */
   wordAt(tMs: Ms): Word | null;
+  /** The unit on screen at `tMs`, which is what shift-all loops. */
+  lineAt(tMs: Ms): CaptionLine | null;
   /** Player time to seek to so `word` is the one being spoken. */
   seekTimeFor(word: Word): Ms;
 }
@@ -58,6 +60,10 @@ export function createFrameSource(project: Project): FrameSource {
 
     wordAt(tMs) {
       return activeWordInLines(units, tMs, offset).word;
+    },
+
+    lineAt(tMs) {
+      return activeWordInLines(units, tMs, offset).line;
     },
 
     // Captions move with the offset, the video does not, so seeking to a word

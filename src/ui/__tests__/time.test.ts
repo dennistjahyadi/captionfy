@@ -1,4 +1,4 @@
-import { formatClock, formatPrecise } from '../time';
+import { formatClock, formatOffset, formatPrecise } from '../time';
 
 describe('formatClock', () => {
   it('pads the seconds and counts minutes', () => {
@@ -22,5 +22,13 @@ describe('formatPrecise', () => {
     expect(formatPrecise(12_400)).toBe('0:12.40');
     expect(formatPrecise(13_050)).toBe('0:13.05');
     expect(formatPrecise(0)).toBe('0:00.00');
+  });
+});
+
+describe('formatOffset', () => {
+  it('always says which way, and says nothing about a shift of nothing', () => {
+    expect(formatOffset(150)).toBe('+150 ms');
+    expect(formatOffset(-150)).toBe('−150 ms');
+    expect(formatOffset(0)).toBe('0 ms');
   });
 });

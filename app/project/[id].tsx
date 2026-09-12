@@ -43,11 +43,15 @@ import {
   sameHeardWordIds,
   setBreakAfter,
   setEmphasis,
+  shiftAll,
   type CaptionLine,
   type Ms,
   type Project,
   type Word,
 } from '../../src/domain';
+import { Sheet } from '../../src/editor/Sheet';
+import { ShiftSheet } from '../../src/editor/ShiftSheet';
+import { TimingSheet } from '../../src/editor/TimingSheet';
 import { WordSheet, type WordFacts, type WordSheetActions } from '../../src/editor/WordSheet';
 import { useProjectEditor, type ProjectEditor } from '../../src/editor/useProjectEditor';
 import { CaptionOverlay } from '../../src/render/CaptionOverlay';
@@ -264,13 +268,28 @@ function Workspace({ stored }: { stored: Project }) {
 
   const fonts = useCaptionFonts();
   const reducedMotion = useReducedMotion();
-  const source = useMemo(() => createFrameSource(project), [project]);
   const info = useSourceInfo(player, stored);
   const [fps, setFps] = useState(0);
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const selectedIndex = selectedId ? project.words.findIndex((word) => word.id === selectedId) : -1;
   const selected = selectedIndex === -1 ? null : project.words[selectedIndex];
+
+  /**
+   * What a sheet is proposing, before it is applied.
+   *
+   * A timing draft and a shift draft are both whole projects, so the preview is
+   * the same object the editor would have produced and the overlay, the
+   * transcript and the loop all see the change without any of them learning what
+   * a draft is. Nothing here is written to disk: cancelling drops it.
+   */
+  const [preview, setPreview] = useState<Project | null>(null);
+  const [timingId, setTimingId] = useState<string | null>(null);
+  const [shiftLine, setShiftLine] = useState<{ startMs: Ms; endMs: Ms } | null>(null);
+
+  const shown = preview ?? project;
+  const source = useMemo(() => createFrameSource(shown), [shown]);
+  const timingWord = timingId ? (project.words.find((word) => word.id === timingId) ?? null) : null;
 
   const stage = containRect(windowWidth, Math.round(windowHeight * STAGE_SHARE), info.aspect);
   const toCheck = lowConfidenceCount(project);
@@ -288,10 +307,13 @@ function Workspace({ stored }: { stored: Project }) {
   );
 
   const loop = useRef<{ startMs: Ms; endMs: Ms } | null>(null);
+  /** The last clock reading, for the sheets that need to know where we are. */
+  const now = useRef(0);
 
   useEffect(
     () =>
       clock.subscribe((tMs) => {
+        now.current = tMs;
         const window = loop.current;
         // Only the far edge re-seeks. Reacting to the near edge as well would
         // fight the seek that has just been asked for and has not landed yet.
@@ -300,25 +322,43 @@ function Workspace({ stored }: { stored: Project }) {
     [clock, seekTo]
   );
 
-  /** Loops a word and opens its sheet. The two always happen together. */
-  const openWord = useCallback(
-    (word: Word) => {
-      const at = source.seekTimeFor(word);
+  /**
+   * Plays a span over and over, with the run-up and run-out around it.
+   *
+   * Every editing surface listens to what it is about to change, so every one of
+   * them comes through here and the pre-roll is the same wherever you are.
+   */
+  const loopSpan = useCallback(
+    (startMs: Ms, endMs: Ms) => {
       loop.current = {
-        startMs: Math.max(0, at - LOOP_PRE_ROLL_MS),
-        endMs: at + (word.end - word.start) + LOOP_POST_ROLL_MS,
+        startMs: Math.max(0, startMs - LOOP_PRE_ROLL_MS),
+        endMs: endMs + LOOP_POST_ROLL_MS,
       };
       seekTo(loop.current.startMs);
       player.play();
+    },
+    [player, seekTo]
+  );
+
+  const stopLoop = useCallback(() => {
+    loop.current = null;
+  }, []);
+
+  const offsetMs = project.globalOffsetMs;
+
+  /** Loops a word and opens its sheet. The two always happen together. */
+  const openWord = useCallback(
+    (word: Word) => {
+      loopSpan(word.start + offsetMs, word.end + offsetMs);
       setSelectedId(word.id);
     },
-    [player, seekTo, source]
+    [loopSpan, offsetMs]
   );
 
   const closeWord = useCallback(() => {
-    loop.current = null;
+    stopLoop();
     setSelectedId(null);
-  }, []);
+  }, [stopLoop]);
 
   /** The chip walks forward through the words the engine was unsure about. */
   const checkNext = useCallback(() => {
@@ -326,6 +366,96 @@ function Workspace({ stored }: { stored: Project }) {
     const word = next ? project.words.find((entry) => entry.id === next) : undefined;
     if (word) openWord(word);
   }, [openWord, project, selectedId]);
+
+  /**
+   * A timing draft: preview it, and play it if the sheet is listening.
+   *
+   * The draft is never written. What is on the video while the sheet is open is
+   * the same draw list the export would make of it, which is the only way to tell
+   * whether a boundary is right.
+   */
+  const onTimingChange = useCallback(
+    (words: Word[], looping: boolean) => {
+      setPreview({ ...project, words });
+
+      const drafted = words.find((word) => word.id === timingId);
+      if (!drafted) return;
+      if (looping) loopSpan(drafted.start + offsetMs, drafted.end + offsetMs);
+      else stopLoop();
+    },
+    [loopSpan, offsetMs, project, stopLoop, timingId]
+  );
+
+  /**
+   * Commits the draft as one undo step.
+   *
+   * The draft is taken whole rather than rebuilt from two numbers, because a
+   * handle on a shared edge moved the neighbour as well and applying only the
+   * word's own times would clamp the boundary straight back. What may have moved
+   * is the word and the two either side of it, and `editTiming` refuses anything
+   * that reached further.
+   */
+  const applyTiming = useCallback(
+    (words: Word[]) => {
+      const index = project.words.findIndex((word) => word.id === timingId);
+      if (index === -1) return;
+
+      const moving = [project.words[index - 1], project.words[index], project.words[index + 1]]
+        .filter((word): word is Word => word !== undefined)
+        .map((word) => word.id);
+
+      editor.editTiming('Timing', () => words, moving);
+      setPreview(null);
+      setTimingId(null);
+    },
+    [editor, project.words, timingId]
+  );
+
+  /** Backing out of the timing sheet drops the draft and listens to the word again. */
+  const closeTiming = useCallback(() => {
+    setPreview(null);
+    setTimingId(null);
+    if (timingWord) loopSpan(timingWord.start + offsetMs, timingWord.end + offsetMs);
+  }, [loopSpan, offsetMs, timingWord]);
+
+  /**
+   * Opens shift-all on the line that is on screen.
+   *
+   * An offset is judged against a line you can hear, not against a number, and
+   * the line under the playhead is the one the user was looking at when they
+   * decided the captions were late.
+   */
+  const openShift = useCallback(() => {
+    const line = source.lineAt(now.current) ?? source.units[0];
+    if (!line) return;
+    setShiftLine({ startMs: line.startMs, endMs: line.endMs });
+  }, [source]);
+
+  const onShiftChange = useCallback(
+    (nextOffsetMs: Ms) => {
+      setPreview({ ...project, globalOffsetMs: nextOffsetMs });
+      if (shiftLine) loopSpan(shiftLine.startMs + nextOffsetMs, shiftLine.endMs + nextOffsetMs);
+    },
+    [loopSpan, project, shiftLine]
+  );
+
+  const applyShift = useCallback(
+    (nextOffsetMs: Ms) => {
+      editor.editProject('Shift captions', (current) =>
+        shiftAll(current, nextOffsetMs - current.globalOffsetMs)
+      );
+      setPreview(null);
+      setShiftLine(null);
+      stopLoop();
+    },
+    [editor, stopLoop]
+  );
+
+  const closeShift = useCallback(() => {
+    setPreview(null);
+    setShiftLine(null);
+    stopLoop();
+  }, [stopLoop]);
 
   const accent = accentColor(source.style);
 
@@ -406,6 +536,19 @@ function Workspace({ stored }: { stored: Project }) {
           </Pressable>
         ) : null}
 
+        {/* A plain chip rather than the spec's overflow menu: Rename and Delete
+            join it in a later slice, and one item is not a menu. */}
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Shift all captions"
+          onPress={openShift}
+          style={({ pressed }) => [styles.chip, { opacity: pressed ? 0.6 : 1 }]}
+        >
+          <Label variant="label" tone="mute">
+            Shift all
+          </Label>
+        </Pressable>
+
         <View style={styles.toolbarRight}>
           <StepButton
             label="↶"
@@ -442,14 +585,42 @@ function Workspace({ stored }: { stored: Project }) {
         onPickWord={openWord}
       />
 
-      {selected ? (
-        <WordSheet
-          word={selected}
-          accent={accent}
-          facts={factsFor(project, selected, selectedIndex)}
-          actions={actionsFor(editor, selected, selectedIndex, newId, closeWord)}
-          onClose={closeWord}
-        />
+      {/* One sheet, whose contents change. Timing opens over the word sheet and
+          hands the word back to it, so cancelling lands where it was opened from.
+          They share a `Sheet` because unmounting one Modal in the same commit
+          that mounts another leaves Android showing neither. */}
+      {timingWord || selected || shiftLine ? (
+        <Sheet onClose={timingWord ? closeTiming : selected ? closeWord : closeShift}>
+          {timingWord ? (
+            <TimingSheet
+              word={timingWord}
+              words={project.words}
+              envelope={editor.envelope()}
+              offsetMs={offsetMs}
+              accent={accent}
+              clock={clock}
+              onChange={onTimingChange}
+              onApply={applyTiming}
+              onClose={closeTiming}
+            />
+          ) : selected ? (
+            <WordSheet
+              word={selected}
+              accent={accent}
+              facts={factsFor(project, selected, selectedIndex)}
+              actions={actionsFor(editor, selected, selectedIndex, newId, closeWord, setTimingId)}
+              onClose={closeWord}
+            />
+          ) : (
+            <ShiftSheet
+              project={project}
+              accent={accent}
+              onChange={onShiftChange}
+              onApply={applyShift}
+              onClose={closeShift}
+            />
+          )}
+        </Sheet>
       ) : (
         <CoachCard toCheck={toCheck} onShowMe={checkNext} />
       )}
@@ -473,19 +644,24 @@ function factsFor(project: Project, word: Word, index: number): WordFacts {
  * What each action on the sheet means.
  *
  * Every one of them is a domain function and one undo step. Invariant 1 is the
- * reason the text actions are here and the timing actions are not: nothing on
- * this sheet may move a word's start or end.
+ * reason none of them moves a word's start or end: the one action here that can
+ * is Timing, and all it does is open the sheet that owns that question.
  */
 function actionsFor(
   editor: ProjectEditor,
   word: Word,
   index: number,
   newId: () => string,
-  onRemoved: () => void
+  onRemoved: () => void,
+  onTiming: (id: string) => void
 ): WordSheetActions {
   const project = editor.project;
 
   return {
+    openTiming() {
+      onTiming(word.id);
+    },
+
     setText(text, alsoTheSameHeard) {
       const ids = alsoTheSameHeard
         ? [word.id, ...sameHeardWordIds(project.words, word.id)]

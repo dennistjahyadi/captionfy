@@ -46,3 +46,68 @@ export function timingDrift(before: Word[], after: Word[]): string | null {
   if (to > wasTo) return `the last word now ends at ${to}, after ${wasTo}`;
   return null;
 }
+
+/**
+ * Describes how a timing action reached past the words it named, or null.
+ *
+ * The mirror of `timingDrift`, for the one kind of action that is allowed to move
+ * time. What has to be proved here is not that nothing moved but that only what
+ * was asked for moved: the same words in the same order, none of their text
+ * touched, no word the action was not aimed at shifted, and no caption left
+ * running into its neighbour. A handle that quietly pushed the next word along is
+ * a mistake the user finds three lines later, by which time they have no idea
+ * what caused it.
+ */
+export function timingSpill(before: Word[], after: Word[], moving: string[]): string | null {
+  if (before === after) return null;
+  if (before.length !== after.length) {
+    return `the word count changed from ${before.length} to ${after.length}`;
+  }
+
+  const allowed = new Set(moving);
+
+  for (let index = 0; index < after.length; index += 1) {
+    const was = before[index];
+    const now = after[index];
+
+    if (was.id !== now.id) return `word ${index + 1} is a different word`;
+    if (was.text !== now.text) return `"${was.text}" became "${now.text}"`;
+
+    if (!allowed.has(now.id)) {
+      if (was.start !== now.start || was.end !== now.end) {
+        return `"${now.text}" moved from ${was.start}–${was.end} to ${now.start}–${now.end}`;
+      }
+      continue;
+    }
+
+    if (now.end <= now.start) return `"${now.text}" has no length left`;
+
+    const collision = introducedOverlap(before, after, index, index - 1)
+      ?? introducedOverlap(before, after, index, index + 1);
+    if (collision) return collision;
+  }
+
+  return null;
+}
+
+/**
+ * An overlap this action created, as opposed to one it inherited.
+ *
+ * The engine's own word boundaries occasionally touch or cross, and refusing a
+ * nudge because of something that was already in the transcript would leave the
+ * user unable to fix the very thing they opened the sheet for.
+ */
+function introducedOverlap(
+  before: Word[],
+  after: Word[],
+  index: number,
+  otherIndex: number
+): string | null {
+  if (otherIndex < 0 || otherIndex >= after.length) return null;
+
+  const [left, right] = index < otherIndex ? [index, otherIndex] : [otherIndex, index];
+  if (after[left].end <= after[right].start) return null;
+  if (before[left].end > before[right].start) return null;
+
+  return `"${after[left].text}" now runs into "${after[right].text}"`;
+}

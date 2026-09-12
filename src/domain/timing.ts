@@ -18,6 +18,15 @@ import type { Ms, Project, Word } from './types';
  */
 export const MIN_WORD_MS = 80;
 
+/**
+ * How far one tap of a stepper moves an edge.
+ *
+ * Fifty milliseconds is about the smallest shift that is audible against a
+ * loop and about the largest that cannot ruin a word in one tap, so the same
+ * number serves the timing sheet's steppers and shift-all's.
+ */
+export const NUDGE_STEP_MS = 50;
+
 export type NudgeEdge = 'start' | 'end' | 'both';
 
 type Bounds = {
@@ -39,13 +48,26 @@ function boundsFor(words: Word[], index: number): Bounds {
   return { lower, upper, minimum };
 }
 
+/** The shortest a word may be made: never under the floor, never over its length. */
+function shortest(word: Word): Ms {
+  return Math.min(MIN_WORD_MS, word.end - word.start);
+}
+
 /**
  * Moves one edge of a word, or the whole word, by `deltaMs`.
  *
- * Clamping is silent but visible: the caller gets back a word that stopped where
- * it collided, which is what makes a handle in the timing sheet stick against the
- * neighbour instead of the neighbour quietly giving way. Dragging one edge never
- * pushes the other, so the handle stops at the minimum duration too.
+ * An edge the word shares with its neighbour is a boundary, not a wall, and
+ * moving it moves the neighbour with it. Nearly every edge is one: whisper hands
+ * back a single boundary between one word and the next, so a handle that refused
+ * to move a neighbour would refuse to move at all, which is exactly what the
+ * first build of the timing sheet did on a real transcript. What a shared edge
+ * cannot do is shorten the neighbour past `MIN_WORD_MS` or push it out of
+ * existence.
+ *
+ * Where there is a gap, nothing is shared and nothing is pushed: the handle stops
+ * dead in the silence, because the silence is not the neighbour's to give away.
+ * Clamping stays silent but visible either way — the caller gets back a word that
+ * stopped where it collided, and the handle in the sheet stops with it.
  */
 export function nudgeWord(words: Word[], id: string, edge: NudgeEdge, deltaMs: Ms): Word[] {
   const index = words.findIndex((word) => word.id === id);
@@ -53,32 +75,48 @@ export function nudgeWord(words: Word[], id: string, edge: NudgeEdge, deltaMs: M
 
   const word = words[index];
   const delta = Math.round(deltaMs);
-  const { lower, upper, minimum } = boundsFor(words, index);
+  const previous = words[index - 1];
+  const next = words[index + 1];
+
+  const sharesStart = previous !== undefined && previous.end === word.start;
+  const sharesEnd = next !== undefined && next.start === word.end;
+
+  // How far the edges may travel: into the neighbour when the edge is shared,
+  // only as far as the neighbour when it is not.
+  const floor = sharesStart ? previous.start + shortest(previous) : (previous?.end ?? 0);
+  const ceiling = sharesEnd ? next.end - shortest(next) : (next?.start ?? Number.POSITIVE_INFINITY);
+  const minimum = Math.min(MIN_WORD_MS, Math.max(ceiling - floor, 0));
+
+  let start = word.start;
+  let end = word.end;
 
   if (edge === 'start') {
-    return setWordTiming(words, id, Math.min(word.start + delta, word.end - minimum), word.end);
+    start = clamp(word.start + delta, floor, Math.max(floor, end - minimum));
+  } else if (edge === 'end') {
+    end = clamp(word.end + delta, start + minimum, Math.max(start + minimum, ceiling));
+  } else {
+    // Moving the whole word keeps its duration, so it slides until one side runs
+    // out of room rather than being squeezed against it.
+    const duration = end - start;
+    start = clamp(word.start + delta, floor, Math.max(floor, ceiling - duration));
+    end = start + duration;
   }
 
-  if (edge === 'end') {
-    return setWordTiming(words, id, word.start, Math.max(word.end + delta, word.start + minimum));
-  }
+  if (start === word.start && end === word.end) return words;
 
-  // Moving the whole word keeps its duration, so it slides until one side hits a
-  // neighbour rather than being squeezed against it.
-  const duration = word.end - word.start;
-  // A word already wider than the gap it sits in cannot move; pinning the start
-  // is the one answer that never produces a negative duration.
-  const start = clamp(word.start + delta, lower, Math.max(lower, upper - duration));
-
-  return replaceAt(words, index, { ...word, start, end: start + duration });
+  const moved = words.slice();
+  moved[index] = { ...word, start, end };
+  if (sharesStart && start !== word.start) moved[index - 1] = { ...previous, end: start };
+  if (sharesEnd && end !== word.end) moved[index + 1] = { ...next, start: end };
+  return moved;
 }
 
 /**
- * Sets both edges at once, under the same clamping as `nudgeWord`.
+ * Sets both edges at once, without moving anything else.
  *
- * When the requested span is shorter than the minimum, the start holds and the
- * end is pushed out. The timing sheet's Apply is the only caller that sets both
- * edges from arbitrary values, and there the user is dragging the start.
+ * The unlinked primitive: unlike `nudgeWord` this never touches a neighbour, so a
+ * shared edge stops against it. When the requested span is shorter than the
+ * minimum the start holds and the end is pushed out.
  */
 export function setWordTiming(words: Word[], id: string, start: Ms, end: Ms): Word[] {
   const index = words.findIndex((word) => word.id === id);

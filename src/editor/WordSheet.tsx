@@ -10,19 +10,12 @@
  * keyboard just for being opened buries its own actions under it.
  */
 import { useEffect, useRef, useState } from 'react';
-import {
-  KeyboardAvoidingView,
-  Modal,
-  Platform,
-  Pressable,
-  StyleSheet,
-  TextInput,
-  View,
-} from 'react-native';
+import { StyleSheet, TextInput, View } from 'react-native';
 
 import type { Word } from '../domain';
 import { Label } from '../ui/atoms';
-import { color, font, MIN_TOUCH, radius, space, type } from '../ui/theme';
+import { color, font, space, type } from '../ui/theme';
+import { SheetAction } from './Sheet';
 
 /** What the editor has worked out about this word. */
 export interface WordFacts {
@@ -46,6 +39,8 @@ export interface WordSheetActions {
   confirm(): void;
   toggleLineBreak(): void;
   remove(): void;
+  /** Hands this word to the timing sheet. The only door to it. */
+  openTiming(): void;
 }
 
 export function WordSheet({
@@ -76,110 +71,103 @@ export function WordSheet({
   const changed = trimmed !== '' && trimmed !== word.text;
 
   return (
-    <Modal visible transparent animationType="slide" onRequestClose={onClose}>
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel="Close"
-        style={styles.backdrop}
-        onPress={onClose}
-      />
+    <>
+      <View style={styles.header}>
+        <View style={styles.headerText}>
+          {editing ? (
+            <TextInput
+              ref={field}
+              value={draft}
+              onChangeText={setDraft}
+              autoFocus
+              autoCapitalize="none"
+              autoCorrect={false}
+              selectTextOnFocus
+              returnKeyType="done"
+              onSubmitEditing={() => commit(false)}
+              style={styles.field}
+              placeholderTextColor={color.mute}
+            />
+          ) : (
+            <Label variant="title" numberOfLines={2}>
+              {word.text}
+            </Label>
+          )}
+          <Subline facts={facts} />
+        </View>
 
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        style={styles.dock}
-      >
-        <View style={styles.sheet}>
-          <View style={styles.header}>
-            <View style={styles.headerText}>
-              {editing ? (
-                <TextInput
-                  ref={field}
-                  value={draft}
-                  onChangeText={setDraft}
-                  autoFocus
-                  autoCapitalize="none"
-                  autoCorrect={false}
-                  selectTextOnFocus
-                  returnKeyType="done"
-                  onSubmitEditing={() => commit(false)}
-                  style={styles.field}
-                  placeholderTextColor={color.mute}
-                />
-              ) : (
-                <Label variant="title" numberOfLines={2}>
-                  {word.text}
-                </Label>
-              )}
-              <Subline facts={facts} />
-            </View>
+        <SheetAction
+          label={editing ? 'Save' : 'Done'}
+          onPress={() => (editing ? commit(false) : onClose())}
+          tone={editing && changed ? 'accent' : 'quiet'}
+          accent={accent}
+        />
+      </View>
 
-            <Action
-              label={editing ? 'Save' : 'Done'}
-              onPress={() => (editing ? commit(false) : onClose())}
-              tone={editing && changed ? 'accent' : 'quiet'}
+      {editing ? (
+        <View style={styles.editRow}>
+          {/* Correcting one mishearing usually means correcting all of them,
+              and it is one undo step either way. */}
+          {facts.sameHeardCount > 0 && changed ? (
+            <SheetAction
+              label={`Fix ${facts.sameHeardCount} more like this`}
+              onPress={() => commit(true)}
+              tone="quiet"
+              accent={accent}
+            />
+          ) : null}
+          <Label variant="micro" tone="mute">
+            A space splits the word in two.
+          </Label>
+        </View>
+      ) : (
+        <>
+          <View style={styles.row}>
+            <SheetAction label="Edit" onPress={() => setEditing(true)} tone="tile" accent={accent} />
+            <SheetAction
+              label="Timing"
+              accessibilityLabel={`Timing for ${word.text}`}
+              onPress={actions.openTiming}
+              tone="tile"
+              accent={accent}
+            />
+            <SheetAction
+              label={facts.emphasised ? 'Make normal' : 'Make big'}
+              onPress={() => actions.setEmphasis(!facts.emphasised)}
+              tone="tile"
               accent={accent}
             />
           </View>
 
-          {editing ? (
-            <View style={styles.editRow}>
-              {/* Correcting one mishearing usually means correcting all of them,
-                  and it is one undo step either way. */}
-              {facts.sameHeardCount > 0 && changed ? (
-                <Action
-                  label={`Fix ${facts.sameHeardCount} more like this`}
-                  onPress={() => commit(true)}
-                  tone="quiet"
-                  accent={accent}
-                />
-              ) : null}
-              <Label variant="micro" tone="mute">
-                A space splits the word in two.
-              </Label>
-            </View>
-          ) : (
-            <>
-              <View style={styles.row}>
-                <Action label="Edit" onPress={() => setEditing(true)} tone="tile" accent={accent} />
-                <Action
-                  label={facts.emphasised ? 'Make normal' : 'Make big'}
-                  onPress={() => actions.setEmphasis(!facts.emphasised)}
-                  tone="tile"
-                  accent={accent}
-                />
-              </View>
+          <View style={styles.row}>
+            {facts.lowConfidence ? (
+              <SheetAction
+                label="Looks right"
+                onPress={actions.confirm}
+                tone="tile"
+                accent={accent}
+              />
+            ) : null}
+            <SheetAction
+              label={word.breakAfter === 'line' ? 'No line break' : 'Line break'}
+              onPress={actions.toggleLineBreak}
+              tone="tile"
+              accent={accent}
+            />
+            {facts.hasNext ? (
+              <SheetAction
+                label="Join with next"
+                onPress={actions.joinWithNext}
+                tone="tile"
+                accent={accent}
+              />
+            ) : null}
+          </View>
 
-              <View style={styles.row}>
-                {facts.lowConfidence ? (
-                  <Action
-                    label="Looks right"
-                    onPress={actions.confirm}
-                    tone="tile"
-                    accent={accent}
-                  />
-                ) : null}
-                <Action
-                  label={word.breakAfter === 'line' ? 'No line break' : 'Line break'}
-                  onPress={actions.toggleLineBreak}
-                  tone="tile"
-                  accent={accent}
-                />
-                {facts.hasNext ? (
-                  <Action
-                    label="Join with next"
-                    onPress={actions.joinWithNext}
-                    tone="tile"
-                    accent={accent}
-                  />
-                ) : null}
-              </View>
-
-              <Action label="Delete word" onPress={actions.remove} tone="danger" accent={accent} />
-            </>
-          )}
-        </View>
-      </KeyboardAvoidingView>
-    </Modal>
+          <SheetAction label="Delete word" onPress={actions.remove} tone="danger" accent={accent} />
+        </>
+      )}
+    </>
   );
 
   function commit(alsoTheSameHeard: boolean) {
@@ -208,52 +196,7 @@ function Subline({ facts }: { facts: WordFacts }) {
   );
 }
 
-function Action({
-  label,
-  onPress,
-  tone,
-  accent,
-}: {
-  label: string;
-  onPress: () => void;
-  tone: 'tile' | 'quiet' | 'accent' | 'danger';
-  accent: string;
-}) {
-  return (
-    <Pressable
-      accessibilityRole="button"
-      onPress={onPress}
-      style={({ pressed }) => [
-        styles.action,
-        tone === 'tile' && styles.tile,
-        tone === 'accent' && { backgroundColor: accent, borderColor: accent },
-        { opacity: pressed ? 0.6 : 1 },
-      ]}
-    >
-      <Label
-        variant="label"
-        tone={tone === 'danger' ? 'signal' : 'paper'}
-        style={tone === 'accent' ? styles.onAccent : undefined}
-      >
-        {label}
-      </Label>
-    </Pressable>
-  );
-}
-
 const styles = StyleSheet.create({
-  backdrop: { flex: 1, backgroundColor: '#00000099' },
-  dock: { justifyContent: 'flex-end' },
-  sheet: {
-    backgroundColor: color.surface,
-    borderTopLeftRadius: radius.sheet,
-    borderTopRightRadius: radius.sheet,
-    borderTopWidth: 1,
-    borderColor: color.line,
-    padding: space.lg,
-    paddingBottom: space.xxl,
-    gap: space.md,
-  },
   header: { flexDirection: 'row', alignItems: 'flex-start', gap: space.md },
   headerText: { flex: 1, gap: space.xs },
   field: {
@@ -266,17 +209,4 @@ const styles = StyleSheet.create({
   },
   editRow: { gap: space.sm, alignItems: 'flex-start' },
   row: { flexDirection: 'row', gap: space.sm },
-  action: {
-    minHeight: MIN_TOUCH,
-    borderRadius: radius.control,
-    paddingHorizontal: space.md,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  tile: {
-    flex: 1,
-    borderWidth: 1,
-    borderColor: color.line,
-  },
-  onAccent: { color: '#111111' },
 });

@@ -22,6 +22,7 @@ import {
   redo,
   redoLabel,
   timingDrift,
+  timingSpill,
   undo,
   undoLabel,
   wordFeatures,
@@ -49,6 +50,24 @@ export interface ProjectEditor {
    * typo in the last line cannot move the big word in the first.
    */
   edit(label: string, change: (words: Word[]) => Word[], touched: string[]): void;
+  /**
+   * One undoable step that is allowed to move time.
+   *
+   * `moving` is the words whose start and end may change. Everything else about
+   * every word, including the text of the ones that moved, has to come out the
+   * other side untouched.
+   */
+  editTiming(label: string, change: (words: Word[]) => Word[], moving: string[]): void;
+  /**
+   * One undoable step against the project rather than its words.
+   *
+   * Shift-all is the only caller: the offset is a property of the project, which
+   * is exactly what lets it be walked back and forth without rounding error
+   * settling into real word timings.
+   */
+  editProject(label: string, change: (project: Project) => Project): void;
+  /** The clip's energy envelope, read once, for the timing sheet's waveform. */
+  envelope(): Float32Array | null;
   undo(): void;
   redo(): void;
 }
@@ -98,6 +117,49 @@ export function useProjectEditor(
     [dictionary, envelope, replace]
   );
 
+  const editTiming = useCallback<ProjectEditor['editTiming']>(
+    (label, change, moving) => {
+      const current = latest.current;
+      const words = change(current.present.words);
+      if (words === current.present.words) return;
+
+      // The mirror of the check in `edit`, for the one kind of action that may
+      // move time. What is proved here is that it moved only what it named: no
+      // other word shifted, no text came through this path, and no caption was
+      // left running into its neighbour.
+      const spill = timingSpill(current.present.words, words, moving);
+      if (spill) {
+        Alert.alert('That timing change reached too far', `${label}: ${spill}. It was not applied.`);
+        return;
+      }
+
+      // Emphasis is not re-picked. A word said loudly is said loudly whatever its
+      // boundaries are, and a recompute here would move a big word two lines away
+      // while the user was listening to a handle.
+      replace(commit(current, { ...current.present, words }, label), false);
+    },
+    [replace]
+  );
+
+  const editProject = useCallback<ProjectEditor['editProject']>(
+    (label, change) => {
+      const current = latest.current;
+      const next = change(current.present);
+      if (next === current.present) return;
+
+      // Nothing that goes through this path has any business touching a word.
+      // Shift-all moving a single word time would be invariant 1 broken by the
+      // one action in the app that never needs to.
+      if (next.words !== current.present.words) {
+        Alert.alert('That change touched the words', `${label} moves the offset only. It was not applied.`);
+        return;
+      }
+
+      replace(commit(current, next, label), false);
+    },
+    [replace]
+  );
+
   return {
     project: history.present,
     canUndo: canUndo(history),
@@ -105,6 +167,9 @@ export function useProjectEditor(
     undoLabel: undoLabel(history),
     redoLabel: redoLabel(history),
     edit,
+    editTiming,
+    editProject,
+    envelope,
     // Undo and redo are deliberate, so they are written at once rather than
     // debounced behind whatever the user does next.
     undo: useCallback(() => replace(undo(latest.current), true), [replace]),

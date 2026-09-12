@@ -68,6 +68,83 @@ describe('nudgeWord', () => {
   });
 });
 
+/**
+ * What the engine actually produces: one boundary between one word and the next,
+ * with no silence in between. Every test above this uses a gapped transcript,
+ * which is the case a handle stops dead in.
+ */
+describe('nudgeWord on a transcript with no gaps, which is every real one', () => {
+  const joined = [
+    word({ id: 'w1', text: 'This', start: 0, end: 400 }),
+    word({ id: 'w2', text: 'is', start: 400, end: 970 }),
+    word({ id: 'w3', text: 'my', start: 970, end: 1200 }),
+  ];
+
+  it('moves the boundary, and the neighbour with it', () => {
+    const moved = nudgeWord(joined, 'w2', 'start', -50);
+
+    expect(at(moved, 'w2')).toMatchObject({ start: 350, end: 970 });
+    expect(at(moved, 'w1')).toMatchObject({ start: 0, end: 350 });
+    expect(at(moved, 'w3')).toBe(joined[2]);
+  });
+
+  it('moves the far boundary the same way', () => {
+    const moved = nudgeWord(joined, 'w2', 'end', 100);
+
+    expect(at(moved, 'w2').end).toBe(1070);
+    expect(at(moved, 'w3')).toMatchObject({ start: 1070, end: 1200 });
+  });
+
+  it('never shortens the neighbour past the minimum', () => {
+    const moved = nudgeWord(joined, 'w2', 'start', -5000);
+
+    expect(at(moved, 'w1')).toMatchObject({ start: 0, end: MIN_WORD_MS });
+    expect(at(moved, 'w2').start).toBe(MIN_WORD_MS);
+  });
+
+  it('leaves a neighbour that is already shorter than the minimum alone', () => {
+    const tight = [
+      word({ id: 'a', text: 'a', start: 0, end: 50 }),
+      word({ id: 'b', text: 'b', start: 50, end: 600 }),
+    ];
+
+    expect(nudgeWord(tight, 'b', 'start', -50)).toBe(tight);
+  });
+
+  it('carries both neighbours when the whole word moves', () => {
+    const moved = nudgeWord(joined, 'w2', 'both', 60);
+
+    expect(at(moved, 'w1').end).toBe(460);
+    expect(at(moved, 'w2')).toMatchObject({ start: 460, end: 1030 });
+    expect(at(moved, 'w3').start).toBe(1030);
+  });
+
+  it('stops the whole word against what the neighbours can give', () => {
+    const moved = nudgeWord(joined, 'w2', 'both', 5000);
+
+    // w3 keeps its minimum, so the boundary stops at 1200 − 80.
+    expect(at(moved, 'w2').end).toBe(1120);
+    expect(at(moved, 'w2').end - at(moved, 'w2').start).toBe(570);
+    expect(at(moved, 'w3')).toMatchObject({ start: 1120, end: 1200 });
+  });
+
+  it('still stops dead against a neighbour it does not touch', () => {
+    const mixed = [
+      word({ id: 'w1', text: 'This', start: 0, end: 400 }),
+      word({ id: 'w2', text: 'is', start: 600, end: 970 }),
+    ];
+    const moved = nudgeWord(mixed, 'w2', 'start', -5000);
+
+    expect(at(moved, 'w2').start).toBe(400);
+    expect(at(moved, 'w1')).toBe(mixed[0]);
+  });
+
+  it('holds the first word at zero and the last word open', () => {
+    expect(at(nudgeWord(joined, 'w1', 'start', -500), 'w1').start).toBe(0);
+    expect(at(nudgeWord(joined, 'w3', 'end', 500), 'w3').end).toBe(1700);
+  });
+});
+
 describe('setWordTiming', () => {
   it('clamps both edges into the gap', () => {
     expect(at(setWordTiming(three, 'w2', -100, 9000), 'w2')).toMatchObject({ start: 500, end: 1100 });

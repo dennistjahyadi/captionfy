@@ -7,8 +7,8 @@ import {
   setEmphasis,
   splitWord,
 } from '../editing';
-import { timingDrift } from '../invariants';
-import { nudgeWord } from '../timing';
+import { timingDrift, timingSpill } from '../invariants';
+import { nudgeWord, setWordTiming } from '../timing';
 import { evenWords, ids, word } from '../__fixtures__/project';
 
 const words = evenWords(['So', 'today', 'I', 'tried', 'KitVerify']);
@@ -75,5 +75,75 @@ describe('timingDrift', () => {
   it('has nothing to say about an empty transcript', () => {
     expect(timingDrift([], words)).toBeNull();
     expect(timingDrift(words, [])).toBeNull();
+  });
+});
+
+describe('timingSpill', () => {
+  const spaced = evenWords(['So', 'today', 'I', 'tried', 'KitVerify'], 300, 100);
+
+  it('passes every move the timing sheet can make to the word it is about', () => {
+    expect(timingSpill(spaced, nudgeWord(spaced, 'w2', 'start', -50), ['w2'])).toBeNull();
+    expect(timingSpill(spaced, nudgeWord(spaced, 'w2', 'end', 50), ['w2'])).toBeNull();
+    expect(timingSpill(spaced, nudgeWord(spaced, 'w2', 'both', -80), ['w2'])).toBeNull();
+    expect(timingSpill(spaced, setWordTiming(spaced, 'w2', 420, 690), ['w2'])).toBeNull();
+  });
+
+  it('passes a move that clamped against a neighbour rather than pushing it', () => {
+    const squeezed = nudgeWord(spaced, 'w2', 'start', -5000);
+
+    expect(squeezed[1].start).toBe(spaced[0].end);
+    expect(timingSpill(spaced, squeezed, ['w2'])).toBeNull();
+  });
+
+  it('catches a word the action was not aimed at', () => {
+    const pushed = spaced.map((entry) =>
+      entry.id === 'w3' ? { ...entry, start: entry.start - 40 } : entry
+    );
+
+    expect(timingSpill(spaced, pushed, ['w2'])).toBe('"I" moved from 800–1100 to 760–1100');
+  });
+
+  it('catches text arriving through the timing path', () => {
+    const retyped = spaced.map((entry) =>
+      entry.id === 'w2' ? { ...entry, text: 'tomorrow' } : entry
+    );
+
+    expect(timingSpill(spaced, retyped, ['w2'])).toBe('"today" became "tomorrow"');
+  });
+
+  it('catches a word count that changed, which no timing action may do', () => {
+    expect(timingSpill(spaced, spaced.slice(1), ['w2'])).toBe('the word count changed from 5 to 4');
+  });
+
+  it('catches an overlap the action introduced', () => {
+    const overrun = spaced.map((entry) =>
+      entry.id === 'w2' ? { ...entry, end: entry.end + 300 } : entry
+    );
+
+    expect(timingSpill(spaced, overrun, ['w2'])).toBe('"today" now runs into "I"');
+  });
+
+  it('leaves an overlap that was already in the transcript alone', () => {
+    const crossed = [
+      word({ id: 'w1', text: 'So', start: 0, end: 500 }),
+      word({ id: 'w2', text: 'today', start: 400, end: 900 }),
+    ];
+    const nudged = crossed.map((entry) =>
+      entry.id === 'w2' ? { ...entry, end: entry.end + 50 } : entry
+    );
+
+    expect(timingSpill(crossed, nudged, ['w2'])).toBeNull();
+  });
+
+  it('catches a word squeezed out of existence', () => {
+    const flattened = spaced.map((entry) =>
+      entry.id === 'w2' ? { ...entry, end: entry.start } : entry
+    );
+
+    expect(timingSpill(spaced, flattened, ['w2'])).toBe('"today" has no length left');
+  });
+
+  it('has nothing to say about an action that changed nothing', () => {
+    expect(timingSpill(spaced, spaced, ['w2'])).toBeNull();
   });
 });

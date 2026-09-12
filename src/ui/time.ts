@@ -18,3 +18,16 @@ export function formatPrecise(ms: Ms): string {
   const hundredths = Math.max(0, Math.floor(ms / 10)) % 100;
   return `${formatClock(ms)}.${String(hundredths).padStart(2, '0')}`;
 }
+
+/**
+ * `+150 ms`, `−150 ms`, `0 ms`, for a shift rather than a point in time.
+ *
+ * The sign is always there on a non-zero value, because the whole question the
+ * user is answering is which way the captions moved. A true minus sign and not a
+ * hyphen: at this size the hyphen reads as part of the number.
+ */
+export function formatOffset(ms: Ms): string {
+  const rounded = Math.round(ms);
+  if (rounded === 0) return '0 ms';
+  return `${rounded > 0 ? '+' : '−'}${Math.abs(rounded)} ms`;
+}
