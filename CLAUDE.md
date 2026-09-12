@@ -40,7 +40,10 @@ speaker (the draw list reserves `layer` for it; build no segmentation now).
 1. Domain module and tests. **Done.**
 2. Home and Processing: whisper.rn, checkpointing, an Android foreground service
    of type `mediaProcessing`, falling back to `dataSync` below Android 15.
-   **Done, verified on an emulator; the A54 run is outstanding.**
+   **Done. Both acceptance tests pass on the A54.** The service runs there as
+   `types=00000001`, the `dataSync` branch. `mediaProcessing` is unverified: the
+   only Android 15+ hardware to hand was an emulator, which starts the service
+   and then stops it with "does not have any types" for reasons unknown.
 3. Editor read-only: Skia overlay from `layoutCaptionFrame`, tap to seek.
 4. Word sheet, edit, undo and redo, low-confidence chip.
 5. Timing sheet and shift-all.
