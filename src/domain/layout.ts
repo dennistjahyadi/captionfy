@@ -400,13 +400,14 @@ function wrapRows(
   const items = words.map((word, index) =>
     makeItem(word, index, index === emphasisIndex, style, base, measure, baseFace, emphasisFace)
   );
+  const gap = boxGapFor(style, items);
 
   const rows: RowItem[][] = [];
   let current: RowItem[] = [];
   let width = 0;
 
   for (const item of items) {
-    const space = measure(' ', item.fontSize, item.face).width;
+    const space = measure(' ', item.fontSize, item.face).width + gap;
     const added = current.length === 0 ? item.width : width + space + item.width;
 
     if (current.length > 0 && added > available) {
@@ -421,7 +422,7 @@ function wrapRows(
   }
   if (current.length > 0) rows.push(current);
 
-  return rows.map((row) => finishRow(row, measure));
+  return rows.map((row) => finishRow(row, measure, gap));
 }
 
 function buildRow(
@@ -442,7 +443,25 @@ function buildRow(
     return makeItem(word, absolute, emphasised, style, base, measure, baseFace, emphasisFace, forced);
   });
 
-  return finishRow(items, measure);
+  return finishRow(items, measure, boxGapFor(style, items));
+}
+
+/**
+ * Extra space between every word in box mode, so the box behind the word being
+ * spoken cannot reach its neighbour's first letter.
+ *
+ * The box is padded past its own word, and a space is narrower than that
+ * padding, so without this the highlight sits on the letter next to it. The gap
+ * goes between every pair of words rather than around the active one, because a
+ * gap that appeared only where the highlight is would shove the rest of the line
+ * sideways on every word. Uniform and slightly airy beats correct and jumping.
+ *
+ * Sized from the largest word on the line, since that is the largest box.
+ */
+function boxGapFor(style: StyleProps, items: RowItem[]): number {
+  if (style.highlightMode !== 'box' || items.length === 0) return 0;
+  const largest = items.reduce((most, item) => Math.max(most, item.fontSize), 0);
+  return largest * BOX_PAD.x * 2;
 }
 
 function makeItem(
@@ -463,15 +482,15 @@ function makeItem(
 }
 
 /** A row's height, baseline and gaps come from the largest thing on it. */
-function finishRow(items: RowItem[], measure: MeasureText): Row {
+function finishRow(items: RowItem[], measure: MeasureText, gap = 0): Row {
   const tallest = items.reduce(
     (largest, item) => (item.fontSize > largest.fontSize ? item : largest),
     items[0]
   );
   const metrics = measure(' ', tallest.fontSize, tallest.face);
-  const spaceMetrics = measure(' ', items[0].fontSize, items[0].face);
+  const spaceWidth = measure(' ', items[0].fontSize, items[0].face).width + gap;
   const width =
-    items.reduce((total, item) => total + item.width, 0) + spaceMetrics.width * (items.length - 1);
+    items.reduce((total, item) => total + item.width, 0) + spaceWidth * (items.length - 1);
 
   return {
     items,
@@ -479,7 +498,7 @@ function finishRow(items: RowItem[], measure: MeasureText): Row {
     height: tallest.fontSize * LINE_HEIGHT_RATIO,
     ascent: metrics.ascent,
     descent: metrics.descent,
-    spaceWidth: spaceMetrics.width,
+    spaceWidth,
   };
 }
 
@@ -491,7 +510,10 @@ function rowWidth(
   face: FaceSpec
 ): number {
   if (words.length === 0) return 0;
-  const space = measure(' ', base, face).width;
+  // The same gap the rows will be built with, or the shrink decision would be
+  // made against a narrower line than the one that gets drawn.
+  const space =
+    measure(' ', base, face).width + (style.highlightMode === 'box' ? base * BOX_PAD.x * 2 : 0);
   return (
     words.reduce((total, word) => total + measure(display(word, style), base, face).width, 0) +
     space * (words.length - 1)

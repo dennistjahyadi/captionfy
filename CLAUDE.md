@@ -72,35 +72,22 @@ speaker (the draw list reserves `layer` for it; build no segmentation now).
 
 Every slice runs as a release build on the Galaxy A54 before it is called done.
 
-## Known issues, none of them fixed yet
+## Known issues
 
-Found while accepting slices 3 and 4, all on an Android 16 emulator. Small, real,
-and worth carrying forward rather than rediscovering.
+Two are left, and neither can be closed from this machine.
 
-- **The box highlight crowds its neighbours.** `BOX_PAD.x` is 0.22 em each side,
-  which is wider than a space, so the box reaches the first glyph of the next
-  word. The default preset is the one affected. Two fixes: a smaller pad, or a
-  wider word gap in box mode. The gap has to be uniform across the line or words
-  would shift as the highlight travels, which is worse. Yours to pick.
-- **The delete confirmation does not name the project.** Two rows of the same
-  length and word count look identical in the dialog, and one of them is the
-  user's real work. It should say which.
-- **Home writes "1 words".** A project with one word reads "1 words · ready".
-- **`SHOW_OVERLAY_FPS` in the editor is still true**, which is why the fps line
-  shows under the scrubber. Deliberate: the A54 run needs a number to read. Turn
-  it off once slices 3 and 4 are accepted there.
-- **The picker's duration can be wrong.** One project stored 53 s for a clip the
-  player reported as 60 s, and `project.durationMs` comes from
-  `asset.duration`. It seeds the progress bar and the relink warning today, and
-  slice 7 needs real numbers, so Export should read length, resolution and frame
-  rate from the source rather than trusting the picker.
 - **Slices 3 and 4 have not run on the A54.** Every verification in them is from
-  an emulator, which means no reportable timings and nothing said about the real
-  phone's frame rate.
+  an Android 16 emulator, which means no reportable timings and nothing said
+  about the real phone's frame rate. The overlay's counter is still wired behind
+  `SHOW_OVERLAY_FPS` in the editor: switch it on, build a release APK, and the
+  number appears under the scrubber.
 - **iOS has never been built.** Not once, in any slice. Nothing is known about
   the Skia overlay, the fonts, the player or the pause-on-background rule there.
-- **A junk project sits on the emulator**, "0:53 · 1 word" with colour bars, left
-  from testing. Harmless, and yours to delete.
+
+Closed after slice 4, all found while accepting slices 3 and 4: the box highlight
+crowding its neighbours, a delete dialog that did not name what it was deleting,
+"1 words" on Home, the fps readout shipping switched on, and a picker duration
+that disagreed with the file by seven seconds.
 
 The model decision in the build prompt now has its number: the release APK is
 62 MB with no model, so bundling `base.en-q8_0` lands near 120 MB, inside the
@@ -124,6 +111,15 @@ The model decision in the build prompt now has its number: the release APK is
   item is not a menu, and undo is in the toolbar for every action equally.
 - Sheet actions are labels without icons, because no icon set has been chosen and
   a hand-drawn one per action would be four inconsistent glyphs.
+- Box mode spaces every word by the box's own padding on top of a space, so the
+  words sit a little wider apart than in the other presets. The box is padded
+  past its own word and a space is narrower than that padding, so the choice was
+  an airier line or a highlight sitting on the next word's first letter. The gap
+  is uniform rather than only around the active word: a gap that moved with the
+  highlight would shove the line sideways on every word.
+- `project.durationMs` starts as the picker's claim and is replaced by the
+  decoded audio's own length once the PCM exists, because the picker has been
+  seen to be seven seconds out on a sixty second clip.
 
 ## Persistence
 

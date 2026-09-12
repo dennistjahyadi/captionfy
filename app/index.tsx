@@ -18,6 +18,7 @@ import { loadEntitlement } from '../src/policy/entitlement-store';
 import { deleteProject, listProjects, loadPipeline, thumbnailFile } from '../src/project/store';
 import { makeThumbnail } from '../src/project/thumbnail';
 import { Label, PrimaryButton, Screen } from '../src/ui/atoms';
+import { describeProject, plural } from '../src/ui/describe';
 import { color, DEFAULT_ACCENT, radius, space } from '../src/ui/theme';
 
 export default function Home() {
@@ -68,17 +69,23 @@ export default function Home() {
   }
 
   function confirmDelete(project: Project) {
-    Alert.alert('Delete this project?', 'The video on your phone is not touched.', [
-      { text: 'Keep', style: 'cancel' },
-      {
-        text: 'Delete',
-        style: 'destructive',
-        onPress: () => {
-          deleteProject(project.id);
-          setProjects(listProjects());
+    // Named, because two clips of the same length with the same number of words
+    // look identical in a dialog and only one of them is the one being deleted.
+    Alert.alert(
+      'Delete this project?',
+      `${describeProject(project)}\n\nThe transcript goes with it. The video on your phone is not touched.`,
+      [
+        { text: 'Keep', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: () => {
+            deleteProject(project.id);
+            setProjects(listProjects());
+          },
         },
-      },
-    ]);
+      ]
+    );
   }
 
   return (
@@ -174,7 +181,7 @@ function StatusLine({ project, accent }: { project: Project; accent: string }) {
   if (project.status === 'ready') {
     return (
       <Label variant="label" tone="mute">
-        {project.words.length} words · ready
+        {plural(project.words.length, 'word')} · ready
       </Label>
     );
   }

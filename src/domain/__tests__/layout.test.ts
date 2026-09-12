@@ -160,6 +160,42 @@ describe('highlight modes', () => {
     expect(box.width).toBeGreaterThan(frame.words[1].width);
   });
 
+  it('box: never lets the box touch the word either side of it', () => {
+    // The box is padded past its own word, and a space is narrower than that
+    // padding, so the words are spaced to hold it.
+    for (const at of [200, 500, 1100]) {
+      const frame = frameAt(at, { highlightMode: 'box' });
+      const active = frame.words.findIndex((entry) => entry.box !== undefined);
+      const box = frame.words[active].box!;
+      const before = frame.words[active - 1];
+      const after = frame.words[active + 1];
+
+      if (before && before.y === frame.words[active].y) {
+        expect(box.x).toBeGreaterThanOrEqual(before.x + before.width);
+      }
+      if (after && after.y === frame.words[active].y) {
+        expect(box.x + box.width).toBeLessThanOrEqual(after.x);
+      }
+    }
+  });
+
+  it('box: spaces every word the same, so none of them move as the box travels', () => {
+    const positions = [200, 500, 1100].map((at) =>
+      frameAt(at, { highlightMode: 'box' }).words.map((entry) => entry.x)
+    );
+
+    expect(positions[1]).toEqual(positions[0]);
+    expect(positions[2]).toEqual(positions[0]);
+  });
+
+  it('box: widens the line rather than the gap around one word', () => {
+    const boxed = frameAt(500, { highlightMode: 'box' });
+    const clean = frameAt(500, { highlightMode: 'none' });
+
+    const gapOf = (frame: typeof boxed) => frame.words[1].x - (frame.words[0].x + frame.words[0].width);
+    expect(gapOf(boxed)).toBeGreaterThan(gapOf(clean));
+  });
+
   it('karaoke: fills the active word as it is spoken', () => {
     const frame = frameAt(700, { highlightMode: 'karaoke' });
     expect(frame.words.map((w) => w.fill)).toEqual([1, 0.5, 0]);

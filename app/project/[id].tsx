@@ -59,6 +59,7 @@ import { loadSettings, markCoachCardSeen } from '../../src/project/settings';
 import { deleteProject, loadProject, saveProject, thumbnailFile } from '../../src/project/store';
 import { Label, PrimaryButton, QuietButton, Screen } from '../../src/ui/atoms';
 import { useClock, type Clock } from '../../src/ui/clock';
+import { describeProject, plural } from '../../src/ui/describe';
 import { useReducedMotion } from '../../src/ui/motion';
 import { formatClock } from '../../src/ui/time';
 import { color, DEFAULT_ACCENT, font, MIN_TOUCH, radius, space } from '../../src/ui/theme';
@@ -66,11 +67,14 @@ import { color, DEFAULT_ACCENT, font, MIN_TOUCH, radius, space } from '../../src
 /**
  * Shows how many draw lists the overlay produced in the last second.
  *
- * An instrument, not a feature: a preview that drops to fifteen frames a second
- * on the target phone is a caption that lies about when a word lands, and the
- * only way to know is to read the number off a release build.
+ * An instrument, not a feature, and off in what ships: a readout under the
+ * scrubber is the sort of thing that survives to the store. Switch it on and
+ * rebuild when a preview needs measuring, because a preview that drops to
+ * fifteen frames a second on the target phone is a caption that lies about when
+ * a word lands, and the only way to know is to read the number off a release
+ * build. The counter behind it stays wired either way.
  */
-const SHOW_OVERLAY_FPS = true;
+const SHOW_OVERLAY_FPS = false;
 
 /** What the preview falls back to before it knows the video's shape. */
 const DEFAULT_ASPECT = 9 / 16;
@@ -180,17 +184,21 @@ export default function Editor() {
 
   const confirmDelete = useCallback(() => {
     if (!project) return;
-    Alert.alert('Delete this project?', 'The transcript goes with it. This cannot be undone.', [
-      { text: 'Keep', style: 'cancel' },
-      {
-        text: 'Delete',
-        style: 'destructive',
-        onPress: () => {
-          deleteProject(project.id);
-          router.replace('/');
+    Alert.alert(
+      'Delete this project?',
+      `${describeProject(project)}\n\nThe transcript goes with it. This cannot be undone.`,
+      [
+        { text: 'Keep', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: () => {
+            deleteProject(project.id);
+            router.replace('/');
+          },
         },
-      },
-    ]);
+      ]
+    );
   }, [project]);
 
   if (!project) {
@@ -216,8 +224,8 @@ export default function Editor() {
           <Label variant="title">Can’t find this video</Label>
           <Label variant="body" tone="mute">
             The file this project was made from is not on the phone any more. Your{' '}
-            {project.words.length} words are safe: pick the same video again and the captions come
-            back with it.
+            {plural(project.words.length, 'word')} are safe: pick the same video again and the
+            captions come back with it.
           </Label>
           <PrimaryButton
             title="Choose the video again"
@@ -326,7 +334,7 @@ function Workspace({ stored }: { stored: Project }) {
       <View style={[styles.bar, { paddingTop: insets.top + space.sm }]}>
         <QuietButton title="Back" onPress={() => router.back()} />
         <Label variant="label" tone="mute">
-          {formatClock(info.durationMs)} · {project.words.length} words
+          {formatClock(info.durationMs)} · {plural(project.words.length, 'word')}
         </Label>
         <QuietButton
           title="Export"

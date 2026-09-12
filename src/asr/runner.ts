@@ -87,6 +87,15 @@ export const STAGE_LABEL: Record<Stage, string> = {
   failed: 'Something went wrong',
 };
 
+/**
+ * How far the picker's duration may be out before the decoded audio replaces it.
+ *
+ * A quarter of a second covers the ordinary case of an audio track ending
+ * slightly before the picture, and is far below the seven second error that made
+ * this check necessary.
+ */
+const DURATION_TRUST_MS = 250;
+
 type Listener = (state: RunState) => void;
 
 const listeners = new Set<Listener>();
@@ -176,7 +185,10 @@ async function run(initial: Project): Promise<void> {
     // the screen claim to be downloading a model it already had.
     publish({ stage: 'extracting' });
     const pcm = await loadOrExtract(project);
-    project = save({ ...loadFresh(project), status: 'transcribing' });
+    project = save({
+      ...withRealDuration(loadFresh(project), pcmDurationMs(pcm.byteLength)),
+      status: 'transcribing',
+    });
 
     const pipeline = await planChunks(project, pcm);
     if (pipeline.chunks.length === 0) {
@@ -210,6 +222,28 @@ async function run(initial: Project): Promise<void> {
     await context?.release();
     void service.stop();
   }
+}
+
+/**
+ * Replaces the picker's idea of how long the video is with the audio's own.
+ *
+ * `asset.duration` from the picker has been seen to disagree with the file by
+ * seven seconds on a sixty second clip. It is the best number available when the
+ * project is created, one tap in, and it is the wrong one to keep: the progress
+ * bar's total, the timing sheet's extent and the length shown next to a project
+ * are all really the media's length. The decoded PCM is measured, not claimed.
+ *
+ * A small disagreement is left alone. A video whose audio track is a few
+ * milliseconds shorter than its picture is normal and not worth a write.
+ */
+function withRealDuration(project: Project, audioMs: Ms): Project {
+  if (audioMs <= 0 || Math.abs(audioMs - project.durationMs) < DURATION_TRUST_MS) return project;
+
+  return {
+    ...project,
+    durationMs: audioMs,
+    progress: { ...project.progress, totalMs: audioMs },
+  };
 }
 
 /**
