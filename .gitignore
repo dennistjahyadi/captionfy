@@ -49,5 +49,10 @@ modules/*/android/.gradle/
 # Phase 0 spike output pulled off device
 /spike-results/
 
+# The speech models, packed into the APK by plugins/with-bundled-models.js.
+# 83 MB of weights that scripts/fetch-models.sh can put back in a minute, which
+# is cheaper than every clone of this repository carrying them forever.
+/assets/models/
+
 # Test clips are third-party licensed audio. Fetch them, do not redistribute them.
 /test-clips/

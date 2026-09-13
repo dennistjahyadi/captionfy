@@ -9,7 +9,7 @@
  * service and what counts against the free tier. This screen shows a bar and a
  * way out.
  */
-import { router, useLocalSearchParams } from 'expo-router';
+import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Alert, Image, Pressable, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -29,8 +29,8 @@ import { loadProject, thumbnailFile } from '../../src/project/store';
 import { createMeasureText } from '../../src/render/measure';
 import { useCaptionFonts } from '../../src/render/typefaces';
 import { Label, PrimaryButton, ProgressBar, QuietButton, Screen } from '../../src/ui/atoms';
-import { describeBytes } from '../../src/ui/describe';
 import { useReducedMotion } from '../../src/ui/motion';
+import { FreeTierLine } from '../../src/ui/tier';
 import { color, MIN_TOUCH, radius, space } from '../../src/ui/theme';
 import type { VideoInfo } from '../../modules/burn-in';
 
@@ -51,8 +51,19 @@ export default function Export() {
   const fonts = useCaptionFonts();
   const reducedMotion = useReducedMotion();
   const measure = useMemo(() => (fonts ? createMeasureText(fonts) : null), [fonts]);
-  const entitlement = useMemo(() => loadEntitlement(), []);
-  const tier = freeTierStatus(entitlement);
+  // Re-read on every focus, because Unlock is one screen away and coming back
+  // from it having paid must not leave this one still selling.
+  const [tier, setTier] = useState(() => freeTierStatus(loadEntitlement()));
+  useFocusEffect(
+    useCallback(() => {
+      setTier(freeTierStatus(loadEntitlement()));
+    }, [])
+  );
+
+  const openUnlock = useCallback(() => {
+    if (!project) return;
+    router.push({ pathname: '/unlock', params: { from: 'export', id: project.id } });
+  }, [project]);
 
   useEffect(() => {
     if (!project) return;
@@ -164,18 +175,16 @@ export default function Export() {
         </View>
       ) : (
         <View style={styles.actions}>
+          {/* At zero this opens Unlock instead of rendering. The wall is before
+              the work, never after it (invariant 5). */}
           <PrimaryButton
             title={tier.blocked ? 'Unlock to export' : 'Save to gallery'}
             accent={accent}
             disabled={!measure || !info}
-            onPress={tier.blocked ? unlockNotReady : save}
+            onPress={tier.blocked ? openUnlock : save}
           />
 
-          {tier.line === '' ? null : (
-            <Label variant="micro" tone="mute">
-              {tier.blocked ? 'Free exports used' : tier.line}
-            </Label>
-          )}
+          <FreeTierLine tier={tier} accent={accent} onPress={openUnlock} />
 
           <Pressable
             accessibilityRole="button"
@@ -230,17 +239,6 @@ export default function Export() {
       )}
     </Screen>
   );
-}
-
-/**
- * The store is not wired up until the slice that wires it up.
- *
- * Said plainly rather than hidden behind a disabled button: a button that does
- * nothing is a bug report, and this is a half-built app talking to the person
- * building it.
- */
-function unlockNotReady() {
-  Alert.alert('Unlocking is not built yet', 'The one-time purchase arrives in a later slice.');
 }
 
 function describe(error: unknown): string {

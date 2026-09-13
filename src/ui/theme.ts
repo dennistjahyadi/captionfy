@@ -43,6 +43,15 @@ export const font = {
   medium: 'BeVietnamPro-Medium',
   semibold: 'BeVietnamPro-SemiBold',
   bold: 'BeVietnamPro-ExtraBold',
+  /**
+   * The caption face, borrowed by the chrome exactly once.
+   *
+   * Spectral belongs inside the video, in the Editorial preset. Welcome is the
+   * one screen with no video on it, and the promise it makes — captions that
+   * look edited — is a promise about type. Saying it in the interface sans would
+   * be describing the product in a voice the product never uses.
+   */
+  serif: 'Spectral-ExtraBold',
 } as const;
 
 /**
@@ -51,6 +60,8 @@ export const font = {
  */
 export const type = {
   display: { fontFamily: font.bold, fontSize: 32, lineHeight: 37, letterSpacing: -0.6 },
+  /** Welcome's headline, and nothing else in the app. */
+  serif: { fontFamily: font.serif, fontSize: 38, lineHeight: 44, letterSpacing: -0.8 },
   title: { fontFamily: font.bold, fontSize: 24, lineHeight: 29, letterSpacing: -0.3 },
   heading: { fontFamily: font.semibold, fontSize: 19, lineHeight: 25 },
   body: { fontFamily: font.regular, fontSize: 16, lineHeight: 25 },

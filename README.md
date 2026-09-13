@@ -80,6 +80,10 @@ larger and slightly more accurate. The exact filename is recorded in every CSV r
 
 Models download to the app document directory on first use. None is bundled.
 
+That was the rig. **The app itself now ships `base.en-q8_0` and the VAD inside the
+APK**, fetched at build time by `scripts/fetch-models.sh` into `assets/models/`,
+which is not in git. See CLAUDE.md.
+
 Round 1 ran a third model, multilingual `small-q5_1`. It is gone. It was slower and
 less accurate than both English-only models on the same accented clips, and v1 is
 English-only anyway. See [Scope](#scope-v1-is-english-only).
@@ -176,8 +180,8 @@ npm install
 change what it does: `--emulator` picks the device, `--dev` picks the build. It
 finds the SDK, prefers a handset over any running emulator, builds only that
 device's architecture, and explains what to do when nothing is found or the
-signature does not match. `--fresh` wipes app data, which means downloading the
-models again. `--skip-build` installs the APK that is already built. `--logs`
+signature does not match. `--fresh` wipes app data: projects, settings and what
+has been paid for. `--skip-build` installs the APK that is already built. `--logs`
 tails the pipeline afterwards. `./run.sh --help` lists the rest.
 
 The long way, if you want the steps separately:
@@ -205,8 +209,11 @@ changes need the command again: anything under `modules/`, the plugin list in
 `app.json`, or a new dependency with native code.
 
 Both variants are signed with the same debug keystore and share a package name, so
-switching between `--dev` and the release install keeps the 275 MB of downloaded
-models in place. No `--fresh` needed.
+switching between `--dev` and the release install keeps every project in place. No
+`--fresh` needed. That shared data is also how a free-export counter is reset:
+install the debug APK, `adb shell run-as com.captionfy.app rm files/entitlement.json`,
+then install the release one again. A release build is not debuggable, so `run-as`
+only reaches app storage while the debug build is the one installed.
 
 The banner reads `DEBUG BUILD` in red the whole time. That is the point: nothing
 measured in this mode is reportable. Re-run `./run.sh` for numbers.

@@ -1,6 +1,8 @@
 import {
+  FREE_TIER,
   freeTierStatus,
   recordExport,
+  recordUnlock,
   type Entitlement,
   type FreeTierPolicy,
 } from '../free-tier';
@@ -25,7 +27,7 @@ describe('invariant 5: the limit is stated before the work starts', () => {
 
   it('blocks only once they are gone, and says so on Home', () => {
     const spent = freeTierStatus(fresh({ exportsUsed: 2 }), now, exports);
-    expect(spent).toMatchObject({ line: 'No free exports left', blocked: true });
+    expect(spent).toMatchObject({ line: 'Free exports used', blocked: true });
   });
 
   it('says nothing to someone who has already paid', () => {
@@ -73,5 +75,40 @@ describe('recordExport', () => {
   it('never counts one against a paid user', () => {
     const paid = fresh({ unlocked: true });
     expect(recordExport(paid)).toBe(paid);
+  });
+});
+
+describe('recordUnlock', () => {
+  const at = new Date('2026-09-13T10:00:00.000Z');
+
+  it('unlocks and dates it', () => {
+    expect(recordUnlock(fresh(), at)).toMatchObject({
+      unlocked: true,
+      unlockedAt: '2026-09-13T10:00:00.000Z',
+    });
+  });
+
+  it('leaves the free exports where they were', () => {
+    // "Your free exports stay yours either way" is on the Unlock screen. A
+    // refund must not hand somebody a fresh three.
+    expect(recordUnlock(fresh({ exportsUsed: 2 }), at).exportsUsed).toBe(2);
+  });
+
+  it('keeps the first unlock date rather than moving it', () => {
+    const already = fresh({ unlocked: true, unlockedAt: '2026-01-01T00:00:00.000Z' });
+    expect(recordUnlock(already, at)).toBe(already);
+  });
+});
+
+describe('the policy that actually ships', () => {
+  // The build prompt's table, pinned. Every screen reads this one object, so a
+  // stray edit here changes what four screens say without touching any of them.
+  it('is three free exports, full quality', () => {
+    expect(FREE_TIER).toEqual({ kind: 'exports', freeExports: 3 });
+  });
+
+  it('states the count before any work starts', () => {
+    expect(freeTierStatus(fresh()).line).toBe('3 free exports left');
+    expect(freeTierStatus(fresh({ exportsUsed: 3 }))).toMatchObject({ blocked: true });
   });
 });

@@ -7,8 +7,23 @@ no server. README.md carries the Stage 0 spike; this file carries the product.
 
 Expo dev client, New Architecture. whisper.rn 0.7.4 (patched, see `patches/`)
 with Silero VAD. Native Expo Modules for audio extraction and burn-in.
-react-native-skia 2.6 for the overlay, react-native-iap for the one-time unlock,
+react-native-skia 2.6 for the overlay, expo-iap 5.6 for the one-time unlock,
 EAS Build. Fonts: Be Vietnam Pro and Spectral, both OFL, in `assets/fonts/`.
+
+**The models are in the APK.** `base.en-q8_0` is 81.8 MB and the Silero VAD is
+0.9 MB, on top of a 62.9 MB app: an install of about 145 MB, inside the 150 MB
+line. They live in `assets/models/`, which is not in git — `scripts/fetch-models.sh`
+puts them there by exact byte count and `run.sh` calls it before every build.
+`plugins/with-bundled-models.js` points the app's asset directory at them and
+turns compression off for `.bin`, the same trick the burn-in module uses for
+`assets/fonts`. whisper.rn opens them through Android's AssetManager, so nothing
+is unpacked and there is no second copy of 82 MB on the phone.
+
+expo-iap rather than the react-native-iap this file used to name: that library's
+current release sits on react-native-nitro-modules, a second native module system
+next to the Expo Modules this app is already built from. expo-iap is the same
+author's Expo-Modules build of it, has no runtime dependencies, and pins the
+exact expo, react and react-native versions in use here.
 
 Skia 2.x requires react-native-reanimated, which in turn requires
 react-native-worklets. Both are installed for that reason alone; nothing in the
@@ -83,26 +98,60 @@ speaker (the draw list reserves `layer` for it; build no segmentation now).
    and 30 fps out by `ffprobe`, 1217 frames for 40.57 seconds. The .srt came out
    valid subrip, 37 cues. The free counter fell 2 → 1 → 0 only on a successful
    save, and at 0 the button reads "Unlock to export" before anything renders.
-   Not measured: a 1080p sixty second export, because the free tier on that phone
-   is spent and resetting it means wiping the user's projects.
+   Slice 9 measured what this one could not: two 1080 × 1920 exports of a 0:22
+   clip at 7 seconds each. Sixty seconds at 1080p is still unmeasured. The free
+   tier no longer has to be spent to find out — the debug-APK dance in the build
+   notes resets `entitlement.json` without touching projects or models.
 8. Dictionary.
-   **Done, verified on an Android 16 emulator. Not yet run on the A54.**
+   **Done, verified on an Android 16 emulator.** Slice 9 put its list screen, its
+   cap dialog and its footer count on the A54; the word-sheet route into it and
+   applying an entry to a transcript are still emulator-only.
    One tap from a word sheet opens the dictionary with the entry half written,
    saving returns to the editor, and the chip there offers to apply it to the
    transcript already on screen as one undo step. A new transcription reads the
    dictionary at the start of the run and feeds the spellings to whisper as an
    initial prompt.
-9. First launch and Unlock. Ask about free-tier policy before starting this.
+9. First launch, Unlock, IAP and the free-export counter.
+   **Done, and this one ran on the A54.** The free tier is **3 exports**, full
+   quality, no watermark. The models moved into the APK, which deleted the Model
+   setup screen. `minSdkVersion` is 29.
+   On the phone: Welcome drew its serif headline and its Restore said "No
+   purchase found for this account" against a Play Billing connection that had
+   genuinely answered (`Finsky: Billing preferred account via installer for
+   com.captionfy.app` in logcat). A 0:22 clip picked from the gallery transcribed
+   to 46 correct words with the model read straight out of the APK and
+   `files/models` deleted from app storage. The counter fell 2 → 1 → 0 on
+   successful saves only, and at 0 the button read "Unlock to export" before
+   anything rendered. With `entitlement.json` seeded unlocked, Home showed no
+   chip, Settings read "Unlocked · Sep 13, 2026", Export offered "Save to
+   gallery" at three exports used, and Unlock showed the Unlocked screen. Reset
+   to a fresh entitlement, Home read "3 free exports left". The dictionary at
+   20 words offered its cap dialog and its Unlock button opened the screen.
+   Also measured, which slice 7 could not: two 1080 × 1920 exports of a 0:22
+   clip, 7 seconds each.
+   **The purchase itself has never happened** — see Known issues.
 
 Every slice runs as a release build on the Galaxy A54 before it is called done.
 
 ## Known issues
 
-Two are left, and neither can be closed from this machine.
+Four are left, and none of them can be closed from this machine.
 
-- **Slices 3 to 6 have not run on the A54.** Slice 7 did. Every verification in them is from
-  an Android 16 emulator, which means no reportable timings and nothing said
-  about the real phone's frame rate. The overlay's counter is still wired behind
+- **Nobody has ever bought anything.** Play Billing connects, and the product
+  query answers — with nothing, because `captions_unlock_v1` does not exist in
+  any Play Console. So `buyUnlock`, the purchase sheet, the pending state, the
+  acknowledgement and a real restore on a second device are all unrun code. What
+  has been verified on the phone is the shape around them: the connection opens,
+  the query answers, the price is asked for, a missing product is reported as one
+  and the screen offers Try again. The rest needs an internal testing track and a
+  licence-tested account, and the app has to be uploaded before any of it exists.
+
+- **Slices 3 to 6 have not run on the A54.** Slice 7 did, and slice 9 opened the
+  editor there on a real 46 word transcript — the overlay drew, the transcript
+  listed, the toolbar chips were all present — but nothing in those slices was
+  exercised or timed. Every verification in them is still from an Android 16
+  emulator, which means no reportable timings and nothing said about the real
+  phone's frame rate. The overlay's counter is still wired behind
   `SHOW_OVERLAY_FPS` in the editor: switch it on, build a release APK, and the
   number appears under the scrubber. Slice 6 adds four more Skia canvases to the
   screen while the style sheet is open, throttled to 20 a second, and that is the
@@ -113,20 +162,23 @@ Two are left, and neither can be closed from this machine.
 - **Sharing was never tapped through to TikTok or Instagram.** The sheet opens
   with the right file under the right name, verified on the emulator; neither app
   is installed there, and on the phone it has not been taken past the sheet.
-- **Below Android 10 the .srt cannot be saved.** MediaStore's permissionless
-  write arrived in Android 10 and `minSdkVersion` is 26. Either the floor moves
-  to 29 or the legacy path gets written and tested on an old device. The video
-  itself is fine: `expo-media-library` handles old versions, and on those it does
-  ask for storage, which is the platform's rule and not this app's.
+
+Closed in slice 9: the .srt could not be saved below Android 10, because
+MediaStore's permissionless write arrived there and `minSdkVersion` was 26. The
+floor is 29 now. The alternative was a legacy storage path that nobody here owns
+a device to run, and this app is unusable on that hardware anyway — `base.en` on
+a 2017 phone is not a product.
 
 Closed after slice 4, all found while accepting slices 3 and 4: the box highlight
 crowding its neighbours, a delete dialog that did not name what it was deleting,
 "1 words" on Home, the fps readout shipping switched on, and a picker duration
 that disagreed with the file by seven seconds.
 
-The model decision in the build prompt now has its number: the release APK is
-62 MB with no model, so bundling `base.en-q8_0` lands near 120 MB, inside the
-150 MB line.
+The model decision is made and the number it was made on was wrong. This file
+said bundling lands "near 120 MB"; the real weights are 81.8 MB and 0.9 MB
+against a 62.9 MB app, so it lands at about 145 MB. Still inside the 150 MB line,
+by five megabytes rather than thirty. Anything else that wants to ride in the APK
+has to argue with that gap.
 
 ## Deviations from the UI spec, all accepted
 
@@ -201,8 +253,37 @@ The model decision in the build prompt now has its number: the release APK is
 - `project.durationMs` starts as the picker's claim and is replaced by the
   decoded audio's own length once the PCM exists, because the picker has been
   seen to be seven seconds out on a sixty second clip.
+- **There is no Model setup screen.** Screen 2 of the spec existed to watch an
+  83 MB download and to have somewhere to fail; the models are in the APK, so
+  Welcome goes straight to Home and the whole screen, its progress bar, its
+  offline copy, its checksum retry and Processing's "finishing model download"
+  first stage are all gone rather than kept as dead code.
+- `Settings.welcomeSeen` in place of the spec's `modelVerified`. Nothing is
+  verified any more; the only question left is whether this person has been told
+  what the app is.
+- The free-tier line is one component on three screens, and the spec's two
+  sentences for the spent state became one: `freeTierStatus` returns "Free
+  exports used", the spec's own words for it on Export, and Home, Saved and
+  Settings say the same. Two phrasings of one fact is the app disagreeing with
+  itself between screens.
+- Welcome's headline is set in Spectral, the caption serif, which every other
+  line of chrome is barred from using. It is the one screen with no video on it
+  and the promise it makes is a promise about type.
+- The Unlocked state is part of `/unlock` rather than a screen of its own. It is
+  the same screen after the answer changed, and a route that can only be reached
+  by having just paid is a route nobody can get back to.
+- Unlock is reached from Home, Export, Saved, Settings, Welcome's Restore and now
+  the dictionary's cap dialog, each passing where it came from, because "Back to
+  export" is the only sensible button for somebody who was mid-export and the
+  wrong one for everybody else.
 
 ## Persistence
+
+`entitlement.json` sits beside `settings.json` and holds what has been paid for:
+`unlocked`, `unlockedAt`, `exportsUsed`, `firstRunAt`. Separate from settings
+because a receipt and a dismissed coach card have nothing to do with each other,
+and because deleting it is how a free tier gets reset for testing. Play is the
+real record; this file is the app's memory of what Play last said.
 
 A project owns everything it needs: `project.json`, `pipeline.json`, `audio.pcm`,
 `envelope.f32`, `thumb.jpg`, `source.<ext>`, the video itself, and `export.mp4`
@@ -378,6 +459,40 @@ type. The editor's chip counts what the dictionary would still change in this
 transcript and applies it as one undo step, which is also how a project made
 before an entry existed catches up.
 
+## The store
+
+`src/policy/store.ts` is the only caller of expo-iap, the way `src/asr` is the
+only caller of whisper. One non-consumable, `captions_unlock_v1`, in both stores.
+
+The price is never composed in this app. `displayPrice` arrives from the store
+already carrying the right symbol, separators and position for the account's
+country; a number formatted here is wrong the moment somebody opens the app
+abroad. When the store cannot be reached there is no price and the button reads
+"Try again" instead of a guess.
+
+A purchase does not come back from `requestPurchase`. It arrives on
+`purchaseUpdatedListener`, so both listeners are attached before the sheet opens
+and removed when it settles: a purchase that completes while nothing is listening
+is a user who paid and saw nothing happen. Anything owned is acknowledged with
+`finishTransaction({ isConsumable: false })` — Play refunds an unacknowledged
+purchase after three days and there is no server here to do it later — and an
+already-acknowledged purchase is left alone, because acknowledging twice is an
+error.
+
+Restore is the same query as the launch check: on both stores restoring is a
+query, not a transaction. It never takes an unlock away. A tunnel, a Play
+Services mid-update and a genuine refund are indistinguishable from inside the
+app, and only one of them should cost somebody what they bought.
+
+There is no receipt validation, because it would need a server this app does not
+have and the thing being protected is a one-time unlock on the user's own phone.
+
+This is the one part of the app that touches the network, which is why invariant
+9 reads "after the model is on disk" rather than "never". Nothing here is ever
+awaited on a path that leads to a caption: the launch check is fire and forget in
+the root layout, and everywhere else the user asked for it and is watching a
+spinner.
+
 ## Emphasis
 
 Emphasis is data, picked in `emphasis.ts` from how the word was said: loudness
@@ -424,6 +539,15 @@ animates the user's own line with its real picks.
   value a responder reads goes through a ref.
 - `StyleSheet.absoluteFillObject` is not in this React Native's types. Spell the
   four edges out.
+- Play Billing 8 stopped omitting a SKU it cannot find. `fetchProducts` returns a
+  `Product` for it with the fields blank and `productStatusAndroid` saying why, so
+  a `?? null` on `displayPrice` hands an empty string straight through. On the A54
+  the button read "Unlock for " with nothing after it, because the app is not
+  published. Check the price is a non-empty string, not that a product came back.
+- Raising `minSdkVersion` past 28 makes AGP store DEX uncompressed. Nothing warns,
+  and this app's 51 MB of DEX turned a 145 MB APK into a 179 MB one. It is a
+  packaging change, not a payload change: the same contents deflate to 112 MB,
+  which is nearer what a store delivers.
 - React Native's Android alert calls `options.onDismiss` when a button closes the
   dialog, not only when the dialog is dismissed, so a promise wrapped around an
   alert cannot tell the two apart and latches onto whichever fires first. Put the

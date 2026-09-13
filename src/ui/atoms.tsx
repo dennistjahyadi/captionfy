@@ -78,20 +78,22 @@ export function QuietButton({
   title,
   onPress,
   tone = 'mute',
+  accent,
 }: {
   title: string;
   onPress: () => void;
   tone?: 'mute' | 'signal';
+  /** A tappable link, painted in the caption colour. Overrides `tone`. */
+  accent?: string;
 }) {
+  const paint = accent ?? (tone === 'signal' ? color.signal : color.mute);
   return (
     <Pressable
       accessibilityRole="button"
       onPress={onPress}
       style={({ pressed }) => [styles.quiet, { opacity: pressed ? 0.6 : 1 }]}
     >
-      <Text style={[type.label, { color: tone === 'signal' ? color.signal : color.mute }]}>
-        {title}
-      </Text>
+      <Text style={[type.label, { color: paint }]}>{title}</Text>
     </Pressable>
   );
 }

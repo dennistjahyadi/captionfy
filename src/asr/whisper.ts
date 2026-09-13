@@ -15,7 +15,7 @@ import {
 } from 'whisper.rn';
 
 import { mergeTokensIntoWords, offsetWords, type AsrWord, type Span } from '../domain';
-import { DTW_PRESET, modelFile, VAD_MODEL, WHISPER_MODEL } from './models';
+import { bundledModel, DTW_PRESET, VAD_MODEL, WHISPER_MODEL } from './models';
 
 export const SAMPLE_RATE = 16_000;
 const BYTES_PER_SAMPLE = 2;
@@ -64,7 +64,7 @@ export function pcmDurationMs(byteLength: number): number {
 /** Speech spans, in milliseconds from the start of the clip. */
 export async function detectSpeech(pcm: ArrayBuffer): Promise<Span[]> {
   const context = await initWhisperVad({
-    filePath: modelFile(VAD_MODEL).uri,
+    ...bundledModel(VAD_MODEL),
     useGpu,
     nThreads: MAX_THREADS,
   });
@@ -82,7 +82,7 @@ export async function detectSpeech(pcm: ArrayBuffer): Promise<Span[]> {
 
 export async function openWhisper(): Promise<WhisperContext> {
   return initWhisper({
-    filePath: modelFile(WHISPER_MODEL).uri,
+    ...bundledModel(WHISPER_MODEL),
     useGpu,
     // A local patch to whisper.rn. Turns on whisper.cpp's DTW token timestamps
     // and returns a probability per token, which is the low-confidence signal.

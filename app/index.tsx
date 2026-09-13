@@ -5,7 +5,7 @@
  * above the fold where it belongs, and the projects already on this phone.
  */
 import * as ImagePicker from 'expo-image-picker';
-import { router, useFocusEffect } from 'expo-router';
+import { Redirect, router, useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { Alert, FlatList, Image, Pressable, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -16,9 +16,11 @@ import { requestNotifications } from '../src/native/foreground-service';
 import { freeTierStatus } from '../src/policy/free-tier';
 import { loadEntitlement } from '../src/policy/entitlement-store';
 import { deleteProject, listProjects, loadPipeline, thumbnailFile } from '../src/project/store';
+import { loadSettings } from '../src/project/settings';
 import { makeThumbnail } from '../src/project/thumbnail';
 import { Label, PrimaryButton, Screen } from '../src/ui/atoms';
 import { describeProject, plural } from '../src/ui/describe';
+import { FreeTierLine } from '../src/ui/tier';
 import { color, DEFAULT_ACCENT, MIN_TOUCH, radius, space } from '../src/ui/theme';
 
 export default function Home() {
@@ -26,6 +28,10 @@ export default function Home() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [status, setStatus] = useState(() => freeTierStatus(loadEntitlement()));
   const [picking, setPicking] = useState(false);
+  // Read once, synchronously, before the first paint. Settings is a small file
+  // read straight off disk, so a first launch never flashes Home on its way to
+  // Welcome the way an effect would make it.
+  const [welcomeSeen] = useState(() => loadSettings().welcomeSeen);
 
   useFocusEffect(
     useCallback(() => {
@@ -33,6 +39,8 @@ export default function Home() {
       setStatus(freeTierStatus(loadEntitlement()));
     }, [])
   );
+
+  if (!welcomeSeen) return <Redirect href="/welcome" />;
 
   async function pickVideo() {
     setPicking(true);
@@ -125,11 +133,13 @@ export default function Home() {
                 accent={DEFAULT_ACCENT}
                 busy={picking}
               />
-              {status.line !== '' ? (
-                <Label variant="label" tone="mute" style={styles.tier}>
-                  {status.line}
-                </Label>
-              ) : null}
+              {/* Invariant 5 at its earliest point: what an export costs is on
+                  screen before the picker opens, not after the work is done. */}
+              <FreeTierLine
+                tier={status}
+                accent={DEFAULT_ACCENT}
+                onPress={() => router.push({ pathname: '/unlock', params: { from: 'home' } })}
+              />
             </View>
 
             {projects.length > 0 ? (
@@ -226,7 +236,6 @@ const styles = StyleSheet.create({
   header: { gap: space.md, marginBottom: space.lg },
   blurb: { maxWidth: 320 },
   action: { gap: space.sm, marginTop: space.lg },
-  tier: { textAlign: 'center' },
   listHead: { marginTop: space.xxl },
   row: {
     flexDirection: 'row',

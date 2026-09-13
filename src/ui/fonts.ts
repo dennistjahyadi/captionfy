@@ -2,7 +2,8 @@
  * The bundled faces.
  *
  * Be Vietnam Pro carries the whole interface and the base caption text. Spectral
- * appears only inside a video, in the Editorial preset, and never in the chrome.
+ * appears inside a video, in the Editorial preset, and in the chrome only on
+ * Welcome's headline — see `font.serif`.
  * Both are OFL and both draw Vietnamese diacritics properly, which English
  * captions need the moment a guest's name is in them.
  */

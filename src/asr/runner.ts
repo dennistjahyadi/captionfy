@@ -45,7 +45,6 @@ import {
 } from '../project/store';
 import { loadDictionary } from '../project/dictionary-store';
 import { adoptSource } from '../project/source';
-import { ensureAllModels } from './models';
 import {
   detectSpeech,
   MAX_CHUNK_MS,
@@ -58,7 +57,6 @@ import {
 
 export type Stage =
   | 'queued'
-  | 'downloading'
   | 'extracting'
   | 'transcribing'
   | 'aligning'
@@ -80,7 +78,6 @@ export interface RunState {
 /** What the Processing screen shows as one short line. */
 export const STAGE_LABEL: Record<Stage, string> = {
   queued: 'Getting ready',
-  downloading: 'Getting the model',
   extracting: 'Getting audio',
   transcribing: 'Transcribing',
   aligning: 'Lining up words',
@@ -195,17 +192,9 @@ async function run(initial: Project): Promise<void> {
   const dictionary = loadDictionary();
 
   try {
-    publish({ stage: 'downloading' });
-    // The bar shows the download's own progress, not a sliver of the whole run.
-    // Eighty-five megabytes on first launch is the longest wait in the product,
-    // and a bar that creeps from nought to two percent looks broken.
-    await ensureAllModels((fraction) => publish({ fraction }));
-    publish({ fraction: 0 });
-
     // Everything up to the first transcribe call is "getting audio" as far as
     // the user is concerned: reading the PCM back, the envelope, and finding the
-    // speech. Leaving the label on the model download through all of that made
-    // the screen claim to be downloading a model it already had.
+    // speech.
     publish({ stage: 'extracting' });
     const pcm = await loadOrExtract(project);
     project = save({

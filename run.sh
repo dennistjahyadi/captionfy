@@ -38,7 +38,7 @@ Options:
   --release       release build. The default everywhere except --emulator.
   --emulator      target an emulator, booting one if none is already up
   --cold          with --emulator, ignore the saved snapshot and boot from scratch
-  --fresh         wipe app data first, which re-downloads 275 MB of models
+  --fresh         wipe app data first: projects, settings and what has been paid for
   --skip-build    install the APK that is already built
   --logs          after a release run, tail the pipeline log
   -h, --help      this
@@ -241,6 +241,11 @@ esac
 # ------------------------------------------------------- build and install steps
 
 ensure_native_project() {
+  # The models ride in the APK, and they are not in git. Cheap when they are
+  # already there, and the one thing in this project that needs the network.
+  step "Checking the speech models"
+  ./scripts/fetch-models.sh
+
   if [ ! -d android ]; then
     step "Generating the native project"
     npx expo prebuild --platform android
@@ -342,14 +347,10 @@ cat <<EOF
 
 Done. On the device:
 
-  1. Check the banner is green. Red means debug or emulator, and the timings are
-     worthless whatever the numbers say.
-  2. Tap "Download models" once, on wifi. About 275 MB for both models plus VAD.
-  3. "Browse files" opens on Downloads and takes audio or video. Name the clip,
-     pick its noise tag, and run. The run button stays dead until a tag is picked.
-  4. "Share CSV" and "Share last words JSON" send the results off the device.
-
-Round 2 procedure and what each CSV column means: spike/ROUND2.md
+  1. "New video" opens the system picker. The models are already in the APK, so
+     there is nothing to download and no network involved from here on.
+  2. Transcription runs itself and hands you the editor.
+  3. Export writes into the gallery's Captionfy album.
 
 Watch the pipeline from here any time with:
 

@@ -11,6 +11,15 @@ import { File, Paths } from 'expo-file-system';
 import { DEFAULT_STYLE_ID, type StyleOverrides } from '../domain';
 
 export interface Settings {
+  /**
+   * Whether the Welcome screen has had its turn.
+   *
+   * The spec called this `modelVerified`, from the days when first launch meant
+   * downloading 83 MB and hoping. The models are in the APK now, so there is
+   * nothing to verify and the only question left is whether this person has been
+   * told what the app is.
+   */
+  welcomeSeen: boolean;
   /** The editor's one coach card. Shown once, on the first project that has
    * anything to check, and never again. */
   coachCardSeen: boolean;
@@ -26,6 +35,7 @@ export interface Settings {
 }
 
 export const NEW_SETTINGS: Settings = {
+  welcomeSeen: false,
   coachCardSeen: false,
   styleId: DEFAULT_STYLE_ID,
   styleOverrides: {},
@@ -54,6 +64,10 @@ export function saveSettings(settings: Settings): void {
 
 export function markCoachCardSeen(): void {
   saveSettings({ ...loadSettings(), coachCardSeen: true });
+}
+
+export function markWelcomeSeen(): void {
+  saveSettings({ ...loadSettings(), welcomeSeen: true });
 }
 
 /** Remembers a style as the one the next project starts on. */

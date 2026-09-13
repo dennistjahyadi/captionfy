@@ -60,9 +60,19 @@ export default function Dictionary() {
 
   const add = useCallback(() => {
     if (full) {
+      // The cap is stated in the dialog, and the way past it is one tap. The
+      // navigation sits in the button's own callback rather than after an
+      // awaited alert: on Android `onDismiss` fires for a button press too.
       Alert.alert(
         `The free list holds ${FREE_DICTIONARY_LIMIT} words`,
-        'Unlocking lifts the limit. The purchase arrives in a later slice.'
+        'Unlocking lifts the limit for good. Your words stay either way.',
+        [
+          { text: 'Not now', style: 'cancel' },
+          {
+            text: 'Unlock',
+            onPress: () => router.push({ pathname: '/unlock', params: { from: 'dictionary' } }),
+          },
+        ]
       );
       return;
     }

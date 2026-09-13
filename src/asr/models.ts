@@ -2,20 +2,20 @@
  * The two model files the product needs.
  *
  * One transcription model, decided by the Stage 0 spike, and the VAD that gates
- * it. Neither is bundled: together they are 85 MB, which is most of an install,
- * and they are fetched once on first launch. That download is the only time the
- * app needs the network.
+ * it. Both ride inside the APK: 83 MB on top of a 63 MB app is an install of
+ * about 145 MB, and it buys an app that has never once needed the network. The
+ * first-launch download was the largest thing that could go wrong in the product
+ * and the only screen that existed to watch something fail.
+ *
+ * whisper.rn opens a bundled model through Android's AssetManager and streams it
+ * into the same buffer a file path would have filled, so nothing is unpacked to
+ * disk and there is no second copy of 82 MB on the user's phone.
  */
 import { Directory, File, Paths } from 'expo-file-system';
 
-const WHISPER_HOST = 'https://huggingface.co/ggerganov/whisper.cpp/resolve/main';
-const VAD_HOST = 'https://huggingface.co/ggml-org/whisper-vad/resolve/main';
-
 export interface ModelFile {
-  fileName: string;
-  url: string;
-  /** Shown on the first-launch screen. Also the sanity check on a finished download. */
-  approxBytes: number;
+  /** The name inside the APK's assets, which is the name in `assets/models`. */
+  assetName: string;
 }
 
 /**
@@ -25,17 +25,9 @@ export interface ModelFile {
  * axes: four times slower, and wrong on the names the English-only models got
  * right. See README for the evidence.
  */
-export const WHISPER_MODEL: ModelFile = {
-  fileName: 'ggml-base.en-q8_0.bin',
-  url: `${WHISPER_HOST}/ggml-base.en-q8_0.bin`,
-  approxBytes: 82 * 1024 * 1024,
-};
+export const WHISPER_MODEL: ModelFile = { assetName: 'ggml-base.en-q8_0.bin' };
 
-export const VAD_MODEL: ModelFile = {
-  fileName: 'ggml-silero-v6.2.0.bin',
-  url: `${VAD_HOST}/ggml-silero-v6.2.0.bin`,
-  approxBytes: 3 * 1024 * 1024,
-};
+export const VAD_MODEL: ModelFile = { assetName: 'ggml-silero-v6.2.0.bin' };
 
 export const REQUIRED_MODELS = [WHISPER_MODEL, VAD_MODEL];
 
@@ -45,90 +37,36 @@ export const REQUIRED_MODELS = [WHISPER_MODEL, VAD_MODEL];
  */
 export const DTW_PRESET = 'base.en' as const;
 
-function modelsDirectory(): Directory {
-  const directory = new Directory(Paths.document, 'models');
-  if (!directory.exists) directory.create({ intermediates: true });
-  return directory;
-}
-
-export function modelFile(model: ModelFile): File {
-  return new File(modelsDirectory(), model.fileName);
+/**
+ * How whisper.rn is told to look inside the APK rather than on the filesystem.
+ *
+ * Its Android side answers `isBundleAsset` with `AAssetManager_open` on this
+ * exact string, so it is the asset name and nothing else — no scheme, no
+ * directory.
+ */
+export function bundledModel(model: ModelFile): { filePath: string; isBundleAsset: true } {
+  return { filePath: model.assetName, isBundleAsset: true };
 }
 
 /**
- * True when the file is present and plausibly whole.
+ * Throws away the models an older build downloaded.
  *
- * Size rather than a checksum. Hashing 82 MB on a mid-range phone at every
- * launch costs more than it is worth, and the `.part` rename below already
- * guarantees that a file at the real name is a file that finished. The size
- * check is what catches a file truncated by something other than us.
+ * Every install before this one fetched 83 MB into `models/` on first run. Those
+ * files are now dead weight that the user cannot see and would never think to
+ * delete. That directory only ever held the two weights and their `.part` files,
+ * and projects live nowhere near it. A failure is swallowed: the app works
+ * whether or not the disk is tidy.
  */
-export function isReady(model: ModelFile): boolean {
-  const file = modelFile(model);
-  return file.exists && file.size > model.approxBytes * 0.9;
-}
+export function pruneDownloadedModels(): void {
+  try {
+    const directory = new Directory(Paths.document, 'models');
+    if (!directory.exists) return;
 
-export function allModelsReady(): boolean {
-  return REQUIRED_MODELS.every(isReady);
-}
-
-export function totalDownloadBytes(): number {
-  return REQUIRED_MODELS.filter((model) => !isReady(model)).reduce(
-    (total, model) => total + model.approxBytes,
-    0
-  );
-}
-
-/**
- * Downloads a model if it is not already on disk.
- *
- * On Android the response body streams straight into the destination, so a
- * download that dies partway leaves a truncated file behind. That file passes an
- * existence check and then fails deep inside whisper's loader, which reads as a
- * mysteriously empty transcript. Downloading under a `.part` name and renaming
- * on success means a file at the real name is always a file that finished.
- */
-export async function ensureModel(
-  model: ModelFile,
-  onProgress?: (fraction: number) => void
-): Promise<File> {
-  if (isReady(model)) {
-    onProgress?.(1);
-    return modelFile(model);
+    for (const entry of directory.list()) {
+      if (entry instanceof File) entry.delete();
+    }
+    directory.delete();
+  } catch {
+    // Nothing here is worth a failed launch.
   }
-
-  const target = modelFile(model);
-  if (target.exists) target.delete();
-
-  const partial = new File(modelsDirectory(), `${model.fileName}.part`);
-  if (partial.exists) partial.delete();
-
-  const downloaded = await File.downloadFileAsync(model.url, partial, {
-    idempotent: true,
-    onProgress: ({ bytesWritten, totalBytes }) => {
-      if (totalBytes > 0) onProgress?.(bytesWritten / totalBytes);
-    },
-  });
-
-  downloaded.rename(model.fileName);
-  return modelFile(model);
-}
-
-/** Fetches whatever is missing, reporting one fraction across all of it. */
-export async function ensureAllModels(onProgress?: (fraction: number) => void): Promise<void> {
-  const missing = REQUIRED_MODELS.filter((model) => !isReady(model));
-  if (missing.length === 0) {
-    onProgress?.(1);
-    return;
-  }
-
-  const total = missing.reduce((sum, model) => sum + model.approxBytes, 0);
-  let done = 0;
-
-  for (const model of missing) {
-    await ensureModel(model, (fraction) => onProgress?.((done + fraction * model.approxBytes) / total));
-    done += model.approxBytes;
-  }
-
-  onProgress?.(1);
 }

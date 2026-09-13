@@ -15,8 +15,13 @@ export type FreeTierPolicy =
   | { kind: 'watermark' }
   | { kind: 'trial'; trialDays: number };
 
-/** The policy in force. Change this line, not the code that reads it. */
-export const FREE_TIER: FreeTierPolicy = { kind: 'exports', freeExports: 2 };
+/**
+ * The policy in force. Change this line, not the code that reads it.
+ *
+ * Three, full quality, no watermark. Enough to caption a clip, post it, watch how
+ * it lands and come back — which is the only demonstration this product has.
+ */
+export const FREE_TIER: FreeTierPolicy = { kind: 'exports', freeExports: 3 };
 
 export interface Entitlement {
   /** True once the one-time purchase is restored or bought. */
@@ -25,6 +30,8 @@ export interface Entitlement {
   exportsUsed: number;
   /** ISO date of first launch, which a trial policy counts from. */
   firstRunAt: string;
+  /** ISO date the purchase was first seen on this phone. Settings shows it. */
+  unlockedAt?: string;
 }
 
 export const NEW_ENTITLEMENT: Entitlement = {
@@ -66,7 +73,10 @@ export function freeTierStatus(
   }
 
   const left = Math.max(0, policy.freeExports - entitlement.exportsUsed);
-  if (left === 0) return { line: 'No free exports left', blocked: true, watermark: false };
+  // The spec's words for this state, and the only ones: Home, Export, Saved and
+  // Settings all read this line, so a second phrasing anywhere would be the app
+  // describing the same fact two ways on two screens.
+  if (left === 0) return { line: 'Free exports used', blocked: true, watermark: false };
   return {
     line: left === 1 ? '1 free export left' : `${left} free exports left`,
     blocked: false,
@@ -78,6 +88,19 @@ export function freeTierStatus(
 export function recordExport(entitlement: Entitlement): Entitlement {
   if (entitlement.unlocked) return entitlement;
   return { ...entitlement, exportsUsed: entitlement.exportsUsed + 1 };
+}
+
+/**
+ * Records what the store said this account owns.
+ *
+ * `exportsUsed` is left exactly where it was. "Your free exports stay yours
+ * either way" is on the Unlock screen, and a refund that put someone back on the
+ * free tier must not hand them three more than they had. The date is kept from
+ * the first time the unlock was seen, so reinstalling does not restart it.
+ */
+export function recordUnlock(entitlement: Entitlement, at: Date = new Date()): Entitlement {
+  if (entitlement.unlocked) return entitlement;
+  return { ...entitlement, unlocked: true, unlockedAt: at.toISOString() };
 }
 
 function daysLeft(firstRunAt: string, now: Date, trialDays: number): number {

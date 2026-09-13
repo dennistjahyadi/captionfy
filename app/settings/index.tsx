@@ -19,22 +19,24 @@ import { loadEntitlement } from '../../src/policy/entitlement-store';
 import { freeTierStatus } from '../../src/policy/free-tier';
 import { Divider, Label, QuietButton, Screen } from '../../src/ui/atoms';
 import { plural } from '../../src/ui/describe';
-import { color, MIN_TOUCH, space } from '../../src/ui/theme';
+import { MIN_TOUCH, space } from '../../src/ui/theme';
 
 export default function Settings() {
   const insets = useSafeAreaInsets();
   const [words, setWords] = useState(0);
   const [styleName, setStyleName] = useState('');
+  const [entitlement, setEntitlement] = useState(loadEntitlement);
 
   useFocusEffect(
     useCallback(() => {
       setWords(loadDictionary().length);
+      setEntitlement(loadEntitlement());
       const { styleId } = loadSettings();
       setStyleName(STYLE_PRESETS.find((preset) => preset.id === styleId)?.name ?? '');
     }, [])
   );
 
-  const tier = freeTierStatus(loadEntitlement());
+  const tier = freeTierStatus(entitlement);
 
   return (
     <Screen>
@@ -54,9 +56,9 @@ export default function Settings() {
         />
         <Divider />
         <Row
-          title="Unlock everything"
-          detail={tier.line === '' ? 'Unlocked' : tier.line}
-          onPress={notYet}
+          title={entitlement.unlocked ? 'Unlocked' : 'Unlock everything'}
+          detail={entitlement.unlocked ? unlockedOn(entitlement.unlockedAt) : tier.line}
+          onPress={() => router.push({ pathname: '/unlock', params: { from: 'settings' } })}
         />
         <Divider />
         <Row title="Default style" detail={styleName} />
@@ -73,9 +75,18 @@ export default function Settings() {
   );
 }
 
-/** The store is not wired up until the slice that wires it up. */
-function notYet() {
-  Alert.alert('Unlocking is not built yet', 'The one-time purchase arrives in a later slice.');
+/**
+ * When it was bought, in the phone's own locale.
+ *
+ * The row still opens Unlock afterwards, which is where Restore lives: somebody
+ * who has changed phones needs a way in that is not a paywall, and this is the
+ * only one that is not.
+ */
+function unlockedOn(at?: string): string {
+  if (!at) return 'Thank you';
+  const when = new Date(at);
+  if (Number.isNaN(when.getTime())) return 'Thank you';
+  return when.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
 }
 
 function about() {

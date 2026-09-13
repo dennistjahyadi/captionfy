@@ -17,6 +17,7 @@ import { freeTierStatus } from '../../src/policy/free-tier';
 import { loadProject } from '../../src/project/store';
 import { Label, PrimaryButton, QuietButton, Screen } from '../../src/ui/atoms';
 import { describeBytes } from '../../src/ui/describe';
+import { FreeTierLine } from '../../src/ui/tier';
 import { color, DEFAULT_ACCENT, radius, space } from '../../src/ui/theme';
 
 export default function Saved() {
@@ -78,11 +79,13 @@ export default function Saved() {
           <QuietButton title="Home" onPress={() => router.replace('/')} />
         </View>
 
-        {tier.line === '' ? null : (
-          <Label variant="micro" tone="mute">
-            {tier.line}
-          </Label>
-        )}
+        {/* The count is one lower than it was a moment ago on Export, because a
+            free export is spent when the file exists and not before. */}
+        <FreeTierLine
+          tier={tier}
+          accent={accent}
+          onPress={() => router.push({ pathname: '/unlock', params: { from: 'saved', id: String(id) } })}
+        />
       </View>
     </Screen>
   );
