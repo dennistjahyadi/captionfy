@@ -9,6 +9,7 @@
  * in the gallery. A render that fails, or that the user cancels, costs nothing.
  */
 import { Directory, File } from 'expo-file-system';
+import * as MediaLibrary from 'expo-media-library';
 
 import BurnIn, { type SavedFile, type VideoInfo } from '../../modules/burn-in';
 import ForegroundService from '../../modules/foreground-service';
@@ -38,7 +39,8 @@ export interface ExportRequest {
 }
 
 export interface ExportOutcome {
-  video: SavedFile;
+  /** The gallery asset, named the way the file on disk is named. */
+  video: { name: string; byteLength: number };
   srt: SavedFile | null;
   /**
    * The app's own copy, kept so Share has a file to hand over.
@@ -58,6 +60,31 @@ export interface ExportOutcome {
 
 export async function probeSource(project: Project): Promise<VideoInfo> {
   return BurnIn.probe(project.sourceUri);
+}
+
+/**
+ * Asks for the gallery, before anything is rendered.
+ *
+ * Before, because a permission sheet after a minute of encoding is the export
+ * failing at the last step, and because a user who says no has lost nothing.
+ */
+export async function canSaveToGallery(): Promise<boolean> {
+  const held = await MediaLibrary.getPermissionsAsync();
+  if (enough(held)) return true;
+  if (!held.canAskAgain) return false;
+  return enough(await MediaLibrary.requestPermissionsAsync());
+}
+
+/**
+ * Whether the app can put a file in the gallery.
+ *
+ * "Select photos" on Android 14 reports limited access rather than granted, and
+ * limited access can still add a file — it only narrows what can be read back.
+ * Refusing to export on it would be this app enforcing a rule the platform does
+ * not have.
+ */
+function enough(permission: MediaLibrary.PermissionResponse): boolean {
+  return permission.granted || permission.accessPrivileges === 'limited';
 }
 
 /** The size an export would come out at, for the line on the Export screen. */
@@ -102,13 +129,13 @@ export async function runExport(request: ExportRequest): Promise<ExportOutcome> 
       outputFile.uri.replace('file://', '')
     );
 
+    // Renamed before it is published, because the gallery and the share sheet
+    // both take their name from the file. One arriving in somebody's messages as
+    // `export.mp4` is this app's name on their screen, and it is the wrong one.
     const name = fileName(project, started);
-    const video = await BurnIn.saveToGallery(rendered.path, `${name}.mp4`);
-    const srt = alsoSrt ? await saveSrt(project, directory, name) : null;
-    // Whatever the share sheet hands on is named the way the gallery names it.
-    // A file arriving in somebody's messages as `export.mp4` is this app's name
-    // on their screen, and it is the wrong one.
     const shareable = keepAs(directory, outputFile, `${name}.mp4`);
+    const video = await publish(shareable, `${name}.mp4`);
+    const srt = alsoSrt ? await saveSrt(project, directory, name) : null;
 
     // Invariant 5, the far end of it: a free export is spent when the user has
     // the file, and not a moment earlier.
@@ -136,6 +163,29 @@ export async function runExport(request: ExportRequest): Promise<ExportOutcome> 
 /** Stops a render in flight. The partial file never reaches the gallery. */
 export function cancelExport(): void {
   BurnIn.cancel();
+}
+
+/**
+ * Puts the finished file in the gallery, in this app's own album.
+ *
+ * The album is a courtesy and failing to make one is not worth losing an export
+ * over: the asset is already in the gallery by then, and a video the user cannot
+ * find in an album is better than a video they do not have.
+ */
+async function publish(path: string, name: string): Promise<{ name: string; byteLength: number }> {
+  // A URI, not a bare path: the module parses what it is given, and a string
+  // with no scheme is not a file to everything that touches it on the way.
+  const asset = await MediaLibrary.createAssetAsync(`file://${path}`);
+
+  try {
+    const album = await MediaLibrary.getAlbumAsync(ALBUM);
+    if (album) await MediaLibrary.addAssetsToAlbumAsync([asset], album, false);
+    else await MediaLibrary.createAlbumAsync(ALBUM, asset, false);
+  } catch {
+    // Left where `createAssetAsync` put it, which is still the gallery.
+  }
+
+  return { name, byteLength: new File(`file://${path}`).size ?? 0 };
 }
 
 /**
@@ -180,6 +230,7 @@ async function saveSrt(project: Project, directory: Directory, name: string): Pr
 
 /** What every file this app writes into a shared place is called. */
 const EXPORT_PREFIX = 'Captionfy ';
+const ALBUM = 'Captionfy';
 
 /**
  * `Captionfy 2026-09-13 1421`, which sorts and says where it came from.

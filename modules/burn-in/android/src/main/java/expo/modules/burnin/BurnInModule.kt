@@ -40,11 +40,11 @@ class VideoInfo : Record {
   @Field var hasAudio: Boolean = false
 }
 
-internal class GallerySaveException(message: String) :
+internal class PublishException(message: String) :
   expo.modules.kotlin.exception.CodedException(message)
 
 /**
- * Captions burned into the video, and the file put where the phone keeps videos.
+ * Captions burned into the video.
  *
  * The module decides nothing about how a caption looks: it is handed a draw list
  * per moment, produced by the one layout in JavaScript at this export's own pixel
@@ -82,19 +82,13 @@ class BurnInModule : Module() {
       cancelled.set(true)
     }
 
-    AsyncFunction("saveToGallery") { path: String, displayName: String ->
-      val context = appContext.reactContext ?: throw Exceptions.ReactContextLost()
-      publish(
-        context,
-        File(path),
-        displayName,
-        "video/mp4",
-        MediaStore.Video.Media.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY),
-        Environment.DIRECTORY_MOVIES + "/" + ALBUM,
-      )
-    }
-
-    /** The sidecar subtitle file, which belongs where a person looks for a download. */
+    /**
+     * The sidecar subtitle file, which belongs where a person looks for a download.
+     *
+     * The video goes through `expo-media-library`. A subtitle file is not media
+     * and no media library will take one, so this is the one thing the module
+     * still publishes itself.
+     */
     AsyncFunction("saveToDownloads") { path: String, displayName: String, mimeType: String ->
       val context = appContext.reactContext ?: throw Exceptions.ReactContextLost()
       publish(
@@ -111,10 +105,9 @@ class BurnInModule : Module() {
   /**
    * Copies a finished file into a public collection.
    *
-   * Android 10 brought scoped storage, and with it the ability to write into the
-   * gallery with no permission at all. Asking a caption app for access to every
-   * photo on the phone, in order to add one file to it, is the opposite of what
-   * this app promises, so this is the only way it saves anything.
+   * Android 10 brought scoped storage, and with it the ability to write into a
+   * shared collection with no permission at all, which is why the subtitle file
+   * takes this route rather than asking for storage access of its own.
    */
   private fun publish(
     context: Context,
@@ -124,9 +117,9 @@ class BurnInModule : Module() {
     collection: Uri,
     relativePath: String,
   ): SavedFile {
-    if (!file.exists()) throw GallerySaveException("The rendered file is gone")
+    if (!file.exists()) throw PublishException("The rendered file is gone")
     if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
-      throw GallerySaveException("Saving to the gallery needs Android 10 or newer")
+      throw PublishException("Saving a subtitle file needs Android 10 or newer")
     }
 
     val values = ContentValues().apply {
@@ -138,11 +131,11 @@ class BurnInModule : Module() {
 
     val resolver = context.contentResolver
     val uri = resolver.insert(collection, values)
-      ?: throw GallerySaveException("The phone would not accept the file")
+      ?: throw PublishException("The phone would not accept the file")
 
     try {
       resolver.openOutputStream(uri)?.use { out -> file.inputStream().use { it.copyTo(out) } }
-        ?: throw GallerySaveException("The phone would not accept the file")
+        ?: throw PublishException("The phone would not accept the file")
     } catch (error: Throwable) {
       resolver.delete(uri, null, null)
       throw error

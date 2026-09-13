@@ -25,6 +25,13 @@
       "expo-router",
       "expo-sharing",
       [
+        "expo-media-library",
+        {
+          "savePhotosPermission": "Captionfy saves the video it captioned to your gallery.",
+          "isAccessMediaLocationEnabled": false
+        }
+      ],
+      [
         "expo-image-picker",
         {
           "photosPermission": "Captionfy reads the video you pick so it can caption it on this device."

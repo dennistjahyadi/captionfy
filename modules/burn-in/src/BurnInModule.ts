@@ -19,9 +19,12 @@ declare class BurnInModule extends NativeModule<BurnInEvents> {
   render(sourceUri: string, planPath: string, outputPath: string): Promise<BurnResult>;
   /** Stops a render at the next frame. The partial file is deleted. */
   cancel(): void;
-  /** Copies a finished file into the phone's gallery. */
-  saveToGallery(path: string, displayName: string): Promise<SavedFile>;
-  /** Copies a finished file into the phone's Downloads. For the .srt. */
+  /**
+   * Copies a finished file into the phone's Downloads. For the .srt.
+   *
+   * The video goes through `expo-media-library`; a subtitle file is not media
+   * and no media library will take one.
+   */
   saveToDownloads(path: string, displayName: string, mimeType: string): Promise<SavedFile>;
 }
 

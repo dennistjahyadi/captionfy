@@ -108,9 +108,10 @@ Two are left, and neither can be closed from this machine.
   `expo-sharing` on the app's own copy of the file, and the sheet was never
   opened on a device, let alone tapped through to TikTok or Instagram. It needs
   a free export to reach, and there are none left on the A54.
-- **Below Android 10 nothing can be saved.** MediaStore's permissionless write
-  arrived in Android 10 and `minSdkVersion` is 26. Either the floor moves to 29
-  or the legacy path gets written and tested on an old device.
+- **Below Android 10 the .srt cannot be saved.** MediaStore's permissionless
+  write arrived in Android 10 and `minSdkVersion` is 26. Either the floor moves
+  to 29 or the legacy path gets written and tested on an old device. The video
+  itself is fine: `expo-media-library` handles old versions.
 
 Closed after slice 4, all found while accepting slices 3 and 4: the box highlight
 crowding its neighbours, a delete dialog that did not name what it was deleting,
@@ -169,10 +170,14 @@ The model decision in the build prompt now has its number: the release APK is
 - Export and Saved are `/export/[id]` and `/saved/[id]`, following Processing
   rather than the spec's nested `/project/[id]/export`. One shape for every
   screen that is about one project.
-- The gallery is written through MediaStore in the burn-in module rather than
-  through `expo-media-library`, which the build prompt lists. The library asks
-  for permission to the user's whole camera roll; MediaStore on Android 10 and up
-  asks for nothing. One module, one permission model, no prebuild.
+- The video is saved through `expo-media-library`, as the build prompt's stack
+  says, and it is asked for **before** the render rather than after: a permission
+  sheet at the end of a minute of encoding is an export that failed at the last
+  step, and saying no before it starts costs nothing. The cost of the library is
+  real and accepted — the app now asks for images and audio as well as video,
+  because that is the only shape of permission it requests. The subtitle file
+  still goes through MediaStore in the module, because a subtitle is not media
+  and no media library will take one.
 - The burn-in is Android only. iOS has never been built in any slice, and a Swift
   implementation nobody can run is a file that rots rather than a feature.
 - The custom colour is a hue strip and not a full picker: a washed-out caption is
@@ -243,10 +248,15 @@ not in the burn-in, which can only draw the rectangle it is handed: hinted glyph
 advances round differently at a canvas 1024 tall than at one 1077 tall. Laying
 the export out at the preview's size instead would trade that for a blurry file.
 
-Saving goes through MediaStore from the module itself. On Android 10 and up that
-needs no permission at all, and a caption app asking for the whole camera roll to
-add one file to it is the opposite of what this app promises. Below Android 10 it
-says so and does nothing, which is a gap: `minSdkVersion` is 26.
+The video is published with `expo-media-library` into a Captionfy album, and the
+file is renamed to what the user is told it is called before it is published, so
+the gallery and the share sheet agree. Permission is asked for on the way in, not
+on the way out. The album is a courtesy: if it cannot be made, the asset is
+already in the gallery and the export is not lost over where it sits.
+
+The .srt goes through MediaStore in the module, into Downloads. A subtitle file
+is not media and no media library will take one. That path needs Android 10,
+which is a gap: `minSdkVersion` is 26.
 
 ## Rendering
 

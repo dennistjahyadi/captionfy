@@ -16,6 +16,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { accentColor, projectStyle, type Project } from '../../src/domain';
 import {
+  canSaveToGallery,
   cancelExport,
   plannedSize,
   probeSource,
@@ -70,6 +71,17 @@ export default function Export() {
 
   const save = useCallback(async () => {
     if (!project || !measure || rendering) return;
+
+    // Asked before the render, not after it: a minute of encoding followed by a
+    // permission sheet is an export that failed at the last step, and saying no
+    // here costs the user nothing.
+    if (!(await canSaveToGallery())) {
+      Alert.alert(
+        'Captionfy cannot reach your gallery',
+        'Allow it to save videos in Settings, and the export will land in your gallery.'
+      );
+      return;
+    }
 
     setRendering(true);
     setDone(0);
