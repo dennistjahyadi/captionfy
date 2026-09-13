@@ -18,6 +18,8 @@ import { accentColor, projectStyle, type Project } from '../../src/domain';
 import {
   canSaveToGallery,
   cancelExport,
+  checkSpace,
+  describeExportFailure,
   plannedSize,
   probeSource,
   runExport,
@@ -29,6 +31,7 @@ import { loadProject, thumbnailFile } from '../../src/project/store';
 import { createMeasureText } from '../../src/render/measure';
 import { useCaptionFonts } from '../../src/render/typefaces';
 import { Label, PrimaryButton, ProgressBar, QuietButton, Screen } from '../../src/ui/atoms';
+import { describeBytes } from '../../src/ui/describe';
 import { useReducedMotion } from '../../src/ui/motion';
 import { FreeTierLine } from '../../src/ui/tier';
 import { color, MIN_TOUCH, radius, space } from '../../src/ui/theme';
@@ -81,15 +84,26 @@ export default function Export() {
   }, [project]);
 
   const save = useCallback(async () => {
-    if (!project || !measure || rendering) return;
+    if (!project || !measure || !info || rendering) return;
 
-    // Asked before the render, not after it: a minute of encoding followed by a
-    // permission sheet is an export that failed at the last step, and saying no
-    // here costs the user nothing.
+    // Both checks are before the render, not after it: a minute of encoding
+    // followed by a permission sheet, or by a disk that was never going to hold
+    // the file, is an export that failed at the last step. Failing here costs
+    // the user nothing.
     if (!(await canSaveToGallery())) {
       Alert.alert(
         'Captionfy cannot reach your gallery',
         'Allow it to save videos in Settings, and the export will land in your gallery.'
+      );
+      return;
+    }
+
+    const space = checkSpace(info, resolution, project.durationMs);
+    if (!space.enough) {
+      Alert.alert(
+        'Not enough space for this export',
+        `It needs about ${describeBytes(space.needed)} and there is ${describeBytes(space.free)} free. ` +
+          'Free some up, or try 720p in Options.'
       );
       return;
     }
@@ -120,14 +134,14 @@ export default function Export() {
       });
     } catch (error) {
       setRendering(false);
-      const message = describe(error);
+      const raw = error instanceof Error ? error.message : String(error);
       // Cancelling is not a failure, and an alert saying so would make it feel
       // like one.
-      if (!message.toLowerCase().includes('cancel')) {
-        Alert.alert('That export did not finish', message);
+      if (!raw.toLowerCase().includes('cancel')) {
+        Alert.alert('That export did not finish', describeExportFailure(error));
       }
     }
-  }, [alsoSrt, measure, project, reducedMotion, rendering, resolution]);
+  }, [alsoSrt, info, measure, project, reducedMotion, rendering, resolution]);
 
   if (!project) {
     return (
@@ -239,10 +253,6 @@ export default function Export() {
       )}
     </Screen>
   );
-}
-
-function describe(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
 }
 
 const styles = StyleSheet.create({

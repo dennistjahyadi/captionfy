@@ -215,6 +215,12 @@ install the debug APK, `adb shell run-as com.captionfy.app rm files/entitlement.
 then install the release one again. A release build is not debuggable, so `run-as`
 only reaches app storage while the debug build is the one installed.
 
+Renaming a directory out of the way to see an empty state — `mv files/projects
+files/projects.hidden` — has a trap at the other end. The app recreates
+`files/projects` the moment it launches, so moving the original back lands it
+*inside* the new one and Home stays empty. Move the contents, not the directory:
+`mv files/projects.hidden/* files/projects/`.
+
 The banner reads `DEBUG BUILD` in red the whole time. That is the point: nothing
 measured in this mode is reportable. Re-run `./run.sh` for numbers.
 

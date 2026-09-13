@@ -8,7 +8,7 @@
  * The order matters at the end: the free export is spent only after the file is
  * in the gallery. A render that fails, or that the user cancels, costs nothing.
  */
-import { Directory, File } from 'expo-file-system';
+import { Directory, File, Paths } from 'expo-file-system';
 import { Album, Asset, getPermissionsAsync, requestPermissionsAsync, type GranularPermission, type PermissionResponse } from 'expo-media-library';
 
 import BurnIn, { type SavedFile, type VideoInfo } from '../../modules/burn-in';
@@ -18,6 +18,9 @@ import { loadEntitlement, saveEntitlement } from '../policy/entitlement-store';
 import { recordExport } from '../policy/free-tier';
 import { projectDirectory } from '../project/store';
 import { buildBurnPlan, exportSize } from '../render/burn';
+import { estimateExportBytes } from './limits';
+
+export { describeExportFailure } from './limits';
 
 /** What the Options row offers. `source` keeps whatever the clip already was. */
 export type ResolutionChoice = '720p' | '1080p' | 'source';
@@ -103,6 +106,30 @@ function enough(permission: PermissionResponse): boolean {
 /** The size an export would come out at, for the line on the Export screen. */
 export function plannedSize(info: VideoInfo, resolution: ResolutionChoice) {
   return exportSize(info.width, info.height, CAPS[resolution]);
+}
+
+export interface SpaceCheck {
+  enough: boolean;
+  /** What the export will take, both copies of it. */
+  needed: number;
+  free: number;
+}
+
+/** Whether there is room, asked before anything is encoded. */
+export function checkSpace(
+  info: VideoInfo,
+  resolution: ResolutionChoice,
+  durationMs: Ms
+): SpaceCheck {
+  const size = plannedSize(info, resolution);
+  const needed = estimateExportBytes(
+    size.width,
+    size.height,
+    Math.round(info.fps || 30),
+    durationMs
+  );
+
+  return { enough: Paths.availableDiskSpace > needed, needed, free: Paths.availableDiskSpace };
 }
 
 export async function runExport(request: ExportRequest): Promise<ExportOutcome> {

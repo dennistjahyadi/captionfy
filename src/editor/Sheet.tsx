@@ -17,11 +17,16 @@ import { ReactNode, useCallback, useEffect, useRef } from 'react';
 import { KeyboardAvoidingView, Modal, Platform, Pressable, StyleSheet, View } from 'react-native';
 
 import { Label } from '../ui/atoms';
+import { useReducedMotion } from '../ui/motion';
 import { color, MIN_TOUCH, radius, space } from '../ui/theme';
 
 export function Sheet({ onClose, children }: { onClose: () => void; children: ReactNode }) {
+  // Asked here rather than passed in: the slide belongs to this component, and a
+  // caller that had to remember to turn it off would eventually forget.
+  const reducedMotion = useReducedMotion();
+
   return (
-    <Modal visible transparent animationType="slide" onRequestClose={onClose}>
+    <Modal visible transparent animationType={reducedMotion ? 'none' : 'slide'} onRequestClose={onClose}>
       <Pressable
         accessibilityRole="button"
         accessibilityLabel="Close"

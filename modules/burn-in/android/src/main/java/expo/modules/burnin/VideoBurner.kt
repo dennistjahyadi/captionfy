@@ -338,6 +338,10 @@ internal class VideoBurner(
    * Captions are hard edges on top of camera footage, and hard edges are what a
    * starved encoder smears first. This is deliberately generous: a phone export
    * is watched once and uploaded, and the platform will re-encode it anyway.
+   *
+   * `checkSpace` in src/export/run.ts mirrors these three numbers to answer
+   * "will this fit" before the encoder starts. Change them here and change them
+   * there.
    */
   private fun bitrate(): Int =
     (plan.width.toLong() * plan.height * plan.fps * BITS_PER_PIXEL)

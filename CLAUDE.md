@@ -67,27 +67,27 @@ speaker (the draw list reserves `layer` for it; build no segmentation now).
    only Android 15+ hardware to hand was an emulator, which starts the service
    and then stops it with "does not have any types" for reasons unknown.
 3. Editor read-only: Skia overlay from `layoutCaptionFrame`, tap to seek.
-   **Done, verified on an Android 16 emulator only. Not yet run on the A54.**
+   **Done. Verified on an Android 16 emulator, and driven on the A54 in slice 10.**
    The overlay held 61 fps in a release build there and produced no redraws at
    all while paused. The canvas following the video's own rectangle was checked
    on a 568×320 clip; a rotated phone recording, where the track dimensions and
    the upright ones disagree, is still unproven.
 4. Word sheet, edit, undo and redo, low-confidence chip.
-   **Done, verified on an Android 16 emulator only. Not yet run on the A54.**
+   **Done. Verified on an Android 16 emulator, and driven on the A54 in slice 10.**
    Checked on a real 173-word transcript: the chip walks the flagged words, an
    edit clears the flag and the count, "Fix 1 more like this" corrected both
    mishearings as one step, undo put both back, an override moved the big word
    inside its own line and nowhere else, and every change survived leaving the
    editor and coming back.
 5. Timing sheet and shift-all.
-   **Done, verified on an Android 16 emulator only. Not yet run on the A54.**
+   **Done. Verified on an Android 16 emulator, and driven on the A54 in slice 10.**
    On a real 173-word transcript: the steppers, both handles and a whole-word
    drag all moved the word and no other, Apply survived leaving the editor and
    coming back, Cancel and undo both put it back, and shift-all held at −150 ms
    because the first word starts there. The first build of the sheet could not
    move anything at all, which is the deviation below.
 6. Style sheet with the four presets.
-   **Done, verified on an Android 16 emulator only. Not yet run on the A54.**
+   **Done. Verified on an Android 16 emulator, and driven on the A54 in slice 10.**
    All four tiles animate the same line through the one layout, a picked colour
    lands on whatever each preset paints and follows a preset switch, size,
    position and words per line apply live, and the look survived leaving the
@@ -131,11 +131,34 @@ speaker (the draw list reserves `layer` for it; build no segmentation now).
    clip, 7 seconds each.
    **The purchase itself has never happened** — see Known issues.
 
+10. Polish pass.
+    **Done, on the A54.** Cold start, measured by recording the screen at 60 fps
+    and reading the frames: Android reports `Displayed +186–196 ms` across three
+    runs, and Home is fully drawn — chip, list and all — **0.30 s** after the
+    launcher starts handing over.
+    The overlay's own counter, release build, 127 word transcript: **0 fps
+    paused**, **75–81 fps playing**. Against `dumpsys gfxinfo` over six seconds
+    of playback: 678 frames, 5.8% janky, 50th 6 ms, 90th 9 ms, 99th 13 ms. With
+    the style sheet open and its four live tiles: 633 frames, 36.7% janky, 50th
+    9 ms, 90th 20 ms, 99th 36 ms. That is the cost CLAUDE.md predicted was worth
+    reading, and it is real but not a broken screen.
+    At **130% system font scale**: Home, the editor, Export, Unlock, Settings and
+    all three sheets hold. The word sheet grows a row and still fits, the timing
+    sheet keeps its waveform and all six steppers, the style sheet scrolls to
+    Words per line. Nothing clipped, nothing unreachable, no overlapping lines —
+    explicit `lineHeight` values smaller than the scaled `fontSize` turned out to
+    be fine, because Android grows the line box rather than clipping.
+    Reduced motion is now honoured by the chrome as well as the captions.
+    Share reached **Instagram's Reels composer** and stopped at its account
+    picker. Empty Home reviewed by hiding `files/projects`.
+    Two 576 × 1024 exports of a 0:41 clip: 8 s each, 11.5 MB.
+    One suspected defect turned out not to be one — see below.
+
 Every slice runs as a release build on the Galaxy A54 before it is called done.
 
 ## Known issues
 
-Four are left, and none of them can be closed from this machine.
+Three are left, and none of them can be closed from this machine.
 
 - **Nobody has ever bought anything.** Play Billing connects, and the product
   query answers — with nothing, because `captions_unlock_v1` does not exist in
@@ -146,22 +169,19 @@ Four are left, and none of them can be closed from this machine.
   and the screen offers Try again. The rest needs an internal testing track and a
   licence-tested account, and the app has to be uploaded before any of it exists.
 
-- **Slices 3 to 6 have not run on the A54.** Slice 7 did, and slice 9 opened the
-  editor there on a real 46 word transcript — the overlay drew, the transcript
-  listed, the toolbar chips were all present — but nothing in those slices was
-  exercised or timed. Every verification in them is still from an Android 16
-  emulator, which means no reportable timings and nothing said about the real
-  phone's frame rate. The overlay's counter is still wired behind
-  `SHOW_OVERLAY_FPS` in the editor: switch it on, build a release APK, and the
-  number appears under the scrubber. Slice 6 adds four more Skia canvases to the
-  screen while the style sheet is open, throttled to 20 a second, and that is the
-  thing worth reading the counter for on the phone.
 - **iOS has never been built.** Not once, in any slice. Nothing is known about
   the Skia overlay, the fonts, the player or the pause-on-background rule there,
   and there is no iOS burn-in at all.
-- **Sharing was never tapped through to TikTok or Instagram.** The sheet opens
-  with the right file under the right name, verified on the emulator; neither app
-  is installed there, and on the phone it has not been taken past the sheet.
+- **TikTok has never received a share.** Slice 10 took a finished export into
+  Instagram's Reels composer, as far as its account picker, which is where a
+  machine should stop inside somebody's real account. TikTok proper is not
+  installed on the A54 — only TikTok Shop Seller — so that half is unproven.
+
+Closed in slice 10: slices 3 to 6 had never run on the A54, and now they have.
+The editor, the word sheet, the timing sheet and the style sheet with its four
+live tiles were all driven on the phone, and the overlay's frame rate was read
+off a release build there (75–81 fps playing, 0 paused). `SHOW_OVERLAY_FPS` in
+the editor is the switch; it goes back to false in what ships.
 
 Closed in slice 9: the .srt could not be saved below Android 10, because
 MediaStore's permissionless write arrived there and `minSdkVersion` was 26. The
@@ -276,6 +296,16 @@ has to argue with that gap.
   the dictionary's cap dialog, each passing where it came from, because "Back to
   export" is the only sensible button for somebody who was mid-export and the
   wrong one for everybody else.
+- Home's empty state has no "Start with a video" line. Everything the spec asks
+  of it is already there — the primary button is the empty state — and a third
+  instruction under a title and a blurb, on a screen with one action, is a
+  sentence nobody reads. Looked at on the phone with the projects hidden before
+  deciding.
+- Reduced motion reaches the chrome as well as the captions: the navigator's fade
+  and the sheet's slide both go to `none`. On Android this is the same switch the
+  platform uses to suppress them itself, so the app cannot be seen to be doing it
+  — it is done because asking for motion the user turned off is wrong whether or
+  not anyone can tell.
 
 ## Persistence
 
@@ -539,6 +569,12 @@ animates the user's own line with its real picks.
   value a responder reads goes through a ref.
 - `StyleSheet.absoluteFillObject` is not in this React Native's types. Spell the
   four edges out.
+- `adb shell input swipe` at the wrong y proves nothing, and a screenshot of the
+  result looks exactly like a component that will not scroll. Slice 10 "found"
+  a broken toolbar ScrollView that way, wrote a `flex: 1` fix with a confident
+  comment, and then a control build without the fix scrolled identically. The
+  swipe had been missing the row by twenty-five pixels. Before believing a device
+  test that says something is broken, make the same gesture prove it can succeed.
 - Play Billing 8 stopped omitting a SKU it cannot find. `fetchProducts` returns a
   `Product` for it with the fields blank and `productStatusAndroid` saying why, so
   a `?? null` on `displayPrice` hands an empty string straight through. On the A54

@@ -8,9 +8,14 @@ import { pruneDownloadedModels } from '../src/asr/models';
 import { syncEntitlement } from '../src/policy/entitlement-store';
 import { color } from '../src/ui/theme';
 import { useAppFonts } from '../src/ui/fonts';
+import { useReducedMotion } from '../src/ui/motion';
 
 export default function RootLayout() {
   const fontsLoaded = useAppFonts();
+  // The caption rise has honoured this setting since slice 1b, through the
+  // layout. The chrome had not: a screen that fades and a sheet that slides are
+  // motion too, and somebody who turned animations off asked for neither.
+  const reducedMotion = useReducedMotion();
 
   useEffect(() => {
     // Both fire and forget, and neither is on the way to anything. The store
@@ -31,7 +36,7 @@ export default function RootLayout() {
           screenOptions={{
             headerShown: false,
             contentStyle: { backgroundColor: color.ink },
-            animation: 'fade',
+            animation: reducedMotion ? 'none' : 'fade',
           }}
         />
       ) : (
