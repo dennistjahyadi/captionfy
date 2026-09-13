@@ -1,0 +1,8 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+  <!--
+    Nothing is declared here. Writing a video into the gallery through
+    MediaStore needs no permission on Android 10 and up, which is the whole
+    reason this module inserts the file itself rather than pulling in a media
+    library that would ask for the user's entire camera roll.
+  -->
+</manifest>

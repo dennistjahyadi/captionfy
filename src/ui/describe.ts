@@ -15,6 +15,18 @@ export function plural(count: number, singular: string, many = `${singular}s`): 
   return `${count} ${count === 1 ? singular : many}`;
 }
 
+/**
+ * `24.7 MB`, the way a person reads a file size.
+ *
+ * Megabytes of a thousand kilobytes, which is what every phone's own storage
+ * screen shows and therefore what the number will be compared against.
+ */
+export function describeBytes(bytes: number): string {
+  if (!Number.isFinite(bytes) || bytes <= 0) return '0 MB';
+  if (bytes < 1_000_000) return `${Math.max(1, Math.round(bytes / 1000))} KB`;
+  return `${(bytes / 1_000_000).toFixed(1)} MB`;
+}
+
 /** `0:53 · 173 words · 13 Sep 12:18`. */
 export function describeProject(project: Project): string {
   return [

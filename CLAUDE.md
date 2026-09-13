@@ -78,6 +78,13 @@ speaker (the draw list reserves `layer` for it; build no segmentation now).
    position and words per line apply live, and the look survived leaving the
    editor and coming back. Undo of a word edit left the style alone.
 7. Export, with a preview-versus-export frame comparison.
+   **Done, and this one ran on the A54.** A 0:40 clip at 576×1024 burned in and
+   landed in the gallery in 7 seconds, audio copied across untouched, 30 fps in
+   and 30 fps out by `ffprobe`, 1217 frames for 40.57 seconds. The .srt came out
+   valid subrip, 37 cues. The free counter fell 2 → 1 → 0 only on a successful
+   save, and at 0 the button reads "Unlock to export" before anything renders.
+   Not measured: a 1080p sixty second export, because the free tier on that phone
+   is spent and resetting it means wiping the user's projects.
 8. Dictionary.
 9. First launch and Unlock. Ask about free-tier policy before starting this.
 
@@ -87,7 +94,7 @@ Every slice runs as a release build on the Galaxy A54 before it is called done.
 
 Two are left, and neither can be closed from this machine.
 
-- **Slices 3 to 6 have not run on the A54.** Every verification in them is from
+- **Slices 3 to 6 have not run on the A54.** Slice 7 did. Every verification in them is from
   an Android 16 emulator, which means no reportable timings and nothing said
   about the real phone's frame rate. The overlay's counter is still wired behind
   `SHOW_OVERLAY_FPS` in the editor: switch it on, build a release APK, and the
@@ -95,7 +102,15 @@ Two are left, and neither can be closed from this machine.
   screen while the style sheet is open, throttled to 20 a second, and that is the
   thing worth reading the counter for on the phone.
 - **iOS has never been built.** Not once, in any slice. Nothing is known about
-  the Skia overlay, the fonts, the player or the pause-on-background rule there.
+  the Skia overlay, the fonts, the player or the pause-on-background rule there,
+  and there is no iOS burn-in at all.
+- **Sharing was never exercised.** The Saved screen's Share button calls
+  `expo-sharing` on the app's own copy of the file, and the sheet was never
+  opened on a device, let alone tapped through to TikTok or Instagram. It needs
+  a free export to reach, and there are none left on the A54.
+- **Below Android 10 nothing can be saved.** MediaStore's permissionless write
+  arrived in Android 10 and `minSdkVersion` is 26. Either the floor moves to 29
+  or the legacy path gets written and tested on an old device.
 
 Closed after slice 4, all found while accepting slices 3 and 4: the box highlight
 crowding its neighbours, a delete dialog that did not name what it was deleting,
@@ -151,6 +166,15 @@ The model decision in the build prompt now has its number: the release APK is
   which is why the chrome turns with it.
 - A colour picked in Clean subtitle does colour its big word. A preset that
   answered a swatch with no visible change would read as broken.
+- Export and Saved are `/export/[id]` and `/saved/[id]`, following Processing
+  rather than the spec's nested `/project/[id]/export`. One shape for every
+  screen that is about one project.
+- The gallery is written through MediaStore in the burn-in module rather than
+  through `expo-media-library`, which the build prompt lists. The library asks
+  for permission to the user's whole camera roll; MediaStore on Android 10 and up
+  asks for nothing. One module, one permission model, no prebuild.
+- The burn-in is Android only. iOS has never been built in any slice, and a Swift
+  implementation nobody can run is a file that rots rather than a feature.
 - The custom colour is a hue strip and not a full picker: a washed-out caption is
   an unreadable one, so saturation and lightness are fixed and the swatches carry
   white. Dragging on it changes the colour rather than scrolling the sheet, as
@@ -168,7 +192,10 @@ The model decision in the build prompt now has its number: the release APK is
 ## Persistence
 
 A project owns everything it needs: `project.json`, `pipeline.json`, `audio.pcm`,
-`envelope.f32`, `thumb.jpg`, and `source.<ext>`, the video itself. `settings.json`
+`envelope.f32`, `thumb.jpg`, `source.<ext>`, the video itself, and `export.mp4`
+once there has been one. The export stays because Share needs a file to hand
+over and the gallery copy is a `content://` URI the share sheet cannot always
+take; the next export of that project overwrites it. `settings.json`
 sits outside them all and holds what is true of the app rather than of a clip: the
 coach card, and the style the next project starts in.
 
@@ -178,6 +205,48 @@ it hands back a copy in this app's cache, and a project pointing at that copy
 opens on a black rectangle the moment the system reclaims the space. When the
 video is missing anyway, the editor says so and offers to pick it again, because
 the transcript is the expensive part and it is still there.
+
+## Export
+
+`src/export/run.ts` is the only caller of the burn-in module, the way
+`src/asr` is the only caller of whisper. It builds the plan, starts the
+foreground service, renders, publishes to the gallery, and spends a free export
+— in that order, so a render that fails or is cancelled costs the user nothing.
+
+The captions cross into native as a **draw list, not as instructions**.
+`buildBurnPlan` runs the same `layoutCaptionFrame` the preview runs, with the
+same Skia measurer, at the export's own pixel size, and writes positions, sizes,
+colours and a baseline per word to a JSON file. Kotlin rasterises that with
+`android.graphics`, which is the same Skia underneath, and decides nothing. The
+five font files are the app's own: the module's Gradle build points its assets
+directory at `assets/fonts`, so there is one copy in the repository and no way
+for the two sides to set a word in a face the other never saw.
+
+Entries are emitted only where the draw list changes, so a box highlight holding
+still for a whole word is one entry rather than thirty, and the encoder reuses
+the overlay texture it already uploaded. A karaoke fill changes every frame and
+costs an entry every frame.
+
+The pipeline is decoder → external texture → GL → the encoder's input surface:
+no frame is ever decoded to the CPU and no pixel is read back. Rotation is baked
+into the texture coordinates rather than left to an orientation hint, because a
+hint asks the player to rotate and the players that ignore it would show a
+sideways video with upright captions. Audio is copied across as compressed
+samples: the user's voice was already right and a second lossy pass is damage
+for nothing.
+
+Preview and export are the same layout at two pixel sizes, which is not the same
+as the same pixels. Measured on the A54: the caption's centre landed within 0.2
+export pixels of the preview's, and its box came out 5 pixels narrower in a 576
+wide frame — under one percent, and invisible. That difference is in the plan,
+not in the burn-in, which can only draw the rectangle it is handed: hinted glyph
+advances round differently at a canvas 1024 tall than at one 1077 tall. Laying
+the export out at the preview's size instead would trade that for a blurry file.
+
+Saving goes through MediaStore from the module itself. On Android 10 and up that
+needs no permission at all, and a caption app asking for the whole camera roll to
+add one file to it is the opposite of what this app promises. Below Android 10 it
+says so and does nothing, which is a gap: `minSdkVersion` is 26.
 
 ## Rendering
 

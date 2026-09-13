@@ -1,5 +1,5 @@
 import { evenWords, project } from '../../domain/__fixtures__/project';
-import { describeProject, plural } from '../describe';
+import { describeBytes, describeProject, plural } from '../describe';
 
 describe('plural', () => {
   it('says one word and two words', () => {
@@ -32,5 +32,19 @@ describe('describeProject', () => {
   it('still says something about a project with an unreadable date', () => {
     const described = describeProject(project({ createdAt: 'not a date' }));
     expect(described).toContain('date unknown');
+  });
+});
+
+describe('describeBytes', () => {
+  it('reads in the units a phone\'s own storage screen uses', () => {
+    expect(describeBytes(24_700_000)).toBe('24.7 MB');
+    expect(describeBytes(1_000_000)).toBe('1.0 MB');
+    expect(describeBytes(240_000)).toBe('240 KB');
+  });
+
+  it('never reports a file as nothing at all', () => {
+    expect(describeBytes(1)).toBe('1 KB');
+    expect(describeBytes(0)).toBe('0 MB');
+    expect(describeBytes(Number.NaN)).toBe('0 MB');
   });
 });

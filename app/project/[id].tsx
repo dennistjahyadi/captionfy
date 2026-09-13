@@ -527,9 +527,7 @@ function Workspace({ stored }: { stored: Project }) {
         </Label>
         <QuietButton
           title="Export"
-          onPress={() =>
-            Alert.alert('Export is not built yet', 'Burn-in and Export arrive in a later slice.')
-          }
+          onPress={() => router.push({ pathname: '/export/[id]', params: { id: project.id } })}
         />
       </View>
 

@@ -18,6 +18,7 @@ export * from './lines';
 export * from './numbers';
 export * from './project';
 export * from './spans';
+export * from './srt';
 export * from './stopwords';
 export * from './style';
 export * from './text';

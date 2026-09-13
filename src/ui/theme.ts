@@ -20,6 +20,8 @@ export const color = {
   paper: '#F2EFEC',
   /** Failed export, delete, the safe-zone overlay. Nothing else may use it. */
   signal: '#FF7A66',
+  /** A file that exists now. The one success state, and nothing else may use it. */
+  good: '#3DDC84',
 } as const;
 
 /** What a caption colour looks like in the chrome, and what reads on top of it. */
