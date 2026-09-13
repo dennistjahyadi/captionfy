@@ -141,7 +141,8 @@ speaker (the draw list reserves `layer` for it; build no segmentation now).
     of playback: 678 frames, 5.8% janky, 50th 6 ms, 90th 9 ms, 99th 13 ms. With
     the style sheet open and its four live tiles: 633 frames, 36.7% janky, 50th
     9 ms, 90th 20 ms, 99th 36 ms. That is the cost CLAUDE.md predicted was worth
-    reading, and it is real but not a broken screen.
+    reading, and it is real but not a broken screen — see below for where it
+    goes and why nothing was changed.
     At **130% system font scale**: Home, the editor, Export, Unlock, Settings and
     all three sheets hold. The word sheet grows a row and still fits, the timing
     sheet keeps its waveform and all six steppers, the style sheet scrolls to
@@ -488,6 +489,43 @@ spelling and what the engine heard is the first variant, so there is nothing to
 type. The editor's chip counts what the dictionary would still change in this
 transcript and applies it as one undo step, which is also how a project made
 before an entry existed catches up.
+
+## What the style sheet costs, and why it still costs it
+
+Taken apart on the A54 with `dumpsys gfxinfo`, six seconds of playback per
+reading, release builds, one control build per row:
+
+| editor playing, 120 Hz panel | janky | 90th | 99th |
+|---|---|---|---|
+| style sheet closed | 4% | 8 ms | 13 ms |
+| open, tiles drawing nothing | 13% | 16 ms | 25 ms |
+| open, four canvases frozen | 17% | 17 ms | 28 ms |
+| open, four canvases at 10 a second | 32% | 17 ms | 30 ms |
+| open, four canvases at 20 a second — what ships | 37% | 20 ms | 36 ms |
+
+Nine of the thirty-three points are the modal window and the shrunken stage,
+before a tile draws anything. Four more are four Skia canvases merely existing.
+The remaining twenty are the per-update work: a layout and a picture recording
+per tile. The GPU is not involved at any point — it sits at 2 ms median, 7 ms at
+the 99th, while `Slow UI thread` and `Slow issue draw commands` carry the count.
+
+Two fixes were built and measured and neither shipped. **Staggering** the four
+tiles onto different frames, on the theory that they were spiking together, made
+it slightly worse: this is load, not a spike. **Halving the rate to ten a second**
+moved 37% to 32% — but the same 20 Hz build measured 36.7% and 42.2% on two
+different runs, so the ±5 point noise band is the whole size of the gain, and it
+buys that by making a karaoke fill step visibly in the tile that exists to show
+a karaoke fill travelling.
+
+What is left is the one thing that would attack the real twenty points without
+touching what the user sees: **one Skia canvas for the whole grid** instead of
+four, with the cells as translated groups, so four picture recordings become one.
+That is a rework of an accepted screen for an unmeasured payoff, so it is written
+down rather than done.
+
+The screen is not broken at 37%. Ninety percent of frames land inside 20 ms with
+the sheet open, which is inside a 60 Hz budget; this is a 120 Hz panel and the
+app is holding about 105 frames a second while animating five captions at once.
 
 ## The store
 
