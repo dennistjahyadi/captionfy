@@ -17,6 +17,7 @@ import {
   appendWords,
   applyDictionary,
   computeAutoEmphasis,
+  dictionaryPrompt,
   computeEnvelopeFromPcm16,
   createIdFactory,
   lineFlagsFor,
@@ -42,6 +43,7 @@ import {
   savePipeline,
   type PipelineState,
 } from '../project/store';
+import { loadDictionary } from '../project/dictionary-store';
 import { adoptSource } from '../project/source';
 import { ensureAllModels } from './models';
 import {
@@ -122,6 +124,23 @@ function publish(next: Partial<RunState>): void {
 }
 
 /** Picks up a project the user just chose, or resumes one that was interrupted. */
+/**
+ * Whether the dictionary is fed to whisper as an initial prompt.
+ *
+ * Off, because it was measured and it costs words. Same clip, same build, same
+ * emulator, twice each: a bare comma-separated prompt took a 173 word transcript
+ * down to 80, and a sentence-shaped one — "This video mentions Media." — brought
+ * it back to 166 but still dropped a clause the speaker said. What the prompt
+ * buys is real: the engine writes the user's spelling itself, so the word keeps
+ * the timing it was heard at instead of being merged by a repair afterwards. It
+ * is not worth losing a phrase of somebody's actual speech for.
+ *
+ * The mechanism stays, and `dictionaryPrompt` keeps the sentence shape, because
+ * this deserves a proper study across clips rather than a deletion. This is the
+ * switch.
+ */
+export const PROMPT_BIAS = false;
+
 export function startRun(project: Project): void {
   if (running && current?.projectId === project.id) return;
   if (running) return;
@@ -170,6 +189,10 @@ async function run(initial: Project): Promise<void> {
   const stopWatching = watchAppState();
   let context: WhisperContext | undefined;
   let project = initial;
+  // Read once, at the start: a run that picked up a word added halfway through
+  // would have transcribed the first half without it and the second half with,
+  // which is a transcript nobody can reason about.
+  const dictionary = loadDictionary();
 
   try {
     publish({ stage: 'downloading' });
@@ -192,7 +215,7 @@ async function run(initial: Project): Promise<void> {
 
     const pipeline = await planChunks(project, pcm);
     if (pipeline.chunks.length === 0) {
-      project = finish(project, []);
+      project = finish(project, dictionary);
       publish({ stage: 'ready', project, fraction: 1 });
       return;
     }
@@ -203,14 +226,14 @@ async function run(initial: Project): Promise<void> {
     void service.start('Captioning your video', 0);
 
     context = await openWhisper();
-    const pass = await transcribeAll(project, pcm, pipeline, context);
+    const pass = await transcribeAll(project, pcm, pipeline, context, dictionary);
     project = pass.project;
     // Stopping part way through is not finishing. The checkpoint holds and the
     // next run picks up at the chunk after the last one written.
     if (!pass.complete) return;
 
     publish({ stage: 'aligning' });
-    project = finish(project, []);
+    project = finish(project, dictionary);
     publish({ stage: 'ready', project, fraction: 1 });
   } catch (error) {
     const message = describe(error);
@@ -307,9 +330,15 @@ async function transcribeAll(
   initial: Project,
   pcm: ArrayBuffer,
   pipeline: PipelineState,
-  context: WhisperContext
+  context: WhisperContext,
+  dictionary: DictionaryEntry[]
 ): Promise<{ project: Project; complete: boolean }> {
   let project = initial;
+  // The same prompt on every chunk. Whisper takes it as prior context, which
+  // makes it likelier to write the user's spelling in the first place instead of
+  // leaving `applyDictionary` to repair it afterwards — and a spelling the
+  // engine chose itself keeps the timing it heard, where a repair merges words.
+  const prompt = PROMPT_BIAS ? dictionaryPrompt(dictionary) : '';
   const total = pipeline.chunks[pipeline.chunks.length - 1].t1Ms;
   const startedAt = Date.now();
   let audioDone = pipeline.chunks
@@ -327,6 +356,7 @@ async function transcribeAll(
 
     const chunk = pipeline.chunks[index];
     const handle = transcribeChunk(context, pcm, chunk, {
+      prompt,
       onProgress: (percent) => {
         const within = chunk.t0Ms + ((chunk.t1Ms - chunk.t0Ms) * percent) / 100;
         publish({ fraction: 0.02 + 0.96 * (within / total) });

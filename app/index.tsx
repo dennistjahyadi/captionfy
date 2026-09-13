@@ -19,7 +19,7 @@ import { deleteProject, listProjects, loadPipeline, thumbnailFile } from '../src
 import { makeThumbnail } from '../src/project/thumbnail';
 import { Label, PrimaryButton, Screen } from '../src/ui/atoms';
 import { describeProject, plural } from '../src/ui/describe';
-import { color, DEFAULT_ACCENT, radius, space } from '../src/ui/theme';
+import { color, DEFAULT_ACCENT, MIN_TOUCH, radius, space } from '../src/ui/theme';
 
 export default function Home() {
   const insets = useSafeAreaInsets();
@@ -101,7 +101,19 @@ export default function Home() {
         }}
         ListHeaderComponent={
           <View style={styles.header}>
-            <Label variant="display">Captionfy</Label>
+            <View style={styles.title}>
+              <Label variant="display">Captionfy</Label>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Settings"
+                onPress={() => router.push('/settings')}
+                style={({ pressed }) => [styles.settings, { opacity: pressed ? 0.6 : 1 }]}
+              >
+                <Label variant="heading" tone="mute">
+                  ⚙
+                </Label>
+              </Pressable>
+            </View>
             <Label variant="body" tone="mute" style={styles.blurb}>
               Captions for your video, made on this phone. Nothing is uploaded.
             </Label>
@@ -209,6 +221,8 @@ function describe(error: unknown): string {
 }
 
 const styles = StyleSheet.create({
+  title: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  settings: { width: MIN_TOUCH, height: MIN_TOUCH, alignItems: 'center', justifyContent: 'center' },
   header: { gap: space.md, marginBottom: space.lg },
   blurb: { maxWidth: 320 },
   action: { gap: space.sm, marginTop: space.lg },

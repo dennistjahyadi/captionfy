@@ -33,8 +33,11 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   accentColor,
   confirmWord,
+  applyDictionary,
   createIdFactory,
   deleteWord,
+  dictionaryMatches,
+  entryFromWord,
   editWordsText,
   isLowConfidence,
   lowConfidenceCount,
@@ -47,6 +50,7 @@ import {
   shiftAll,
   styleOverridesFor,
   type CaptionLine,
+  type DictionaryEntry,
   type MeasureText,
   type Ms,
   type Project,
@@ -63,6 +67,7 @@ import { CaptionOverlay } from '../../src/render/CaptionOverlay';
 import { createFrameSource, type FrameSource } from '../../src/render/frame';
 import { createMeasureText } from '../../src/render/measure';
 import { useCaptionFonts, type FontLookup } from '../../src/render/typefaces';
+import { loadDictionary } from '../../src/project/dictionary-store';
 import { adoptSource, sourceExists } from '../../src/project/source';
 import { loadSettings, markCoachCardSeen, rememberStyle } from '../../src/project/settings';
 import { deleteProject, loadProject, saveProject, thumbnailFile } from '../../src/project/store';
@@ -265,7 +270,14 @@ function Workspace({ stored }: { stored: Project }) {
   const insets = useSafeAreaInsets();
   const { width: windowWidth, height: windowHeight } = useWindowDimensions();
 
-  const editor = useProjectEditor(stored);
+  // Re-read on every entry: the dictionary screen is one tap away and what it
+  // holds decides whether this project has anything left to fix.
+  const [dictionary, setDictionary] = useState<DictionaryEntry[]>([]);
+  useFocusEffect(useCallback(() => setDictionary(loadDictionary()), []));
+
+  // Handed to the editor as well, because a word the user spells themselves is
+  // worth a point to the emphasis rule.
+  const editor = useProjectEditor(stored, dictionary);
   const project = editor.project;
 
   const player = useVideoPlayer(project.sourceUri, (instance) => {
@@ -313,6 +325,10 @@ function Workspace({ stored }: { stored: Project }) {
   const stageHeight = Math.round(windowHeight * (styling ? STAGE_SHARE_STYLING : STAGE_SHARE));
   const stage = containRect(windowWidth, stageHeight, info.aspect);
   const toCheck = lowConfidenceCount(project);
+  const toFix = useMemo(
+    () => dictionaryMatches(project.words, dictionary),
+    [project.words, dictionary]
+  );
 
   // Ids for words an edit has to invent. One factory per visit to the editor,
   // prefixed with the time, so a split can never hand out an id a previous
@@ -516,6 +532,24 @@ function Workspace({ stored }: { stored: Project }) {
     rememberStyle(project.styleId, project.styleOverrides);
   }, [project.styleId, project.styleOverrides, stopLoop]);
 
+  /**
+   * Applies the user's own words to a transcript that was made before them.
+   *
+   * One undo step for the lot. The words it changes are named so emphasis is
+   * re-picked around them and nowhere else — a brand name arriving in the second
+   * line must not move the big word in the eighth.
+   */
+  const useYourWords = useCallback(() => {
+    const next = applyDictionary(project.words, dictionary);
+    if (next === project.words) return;
+
+    const touched = next
+      .filter((word, index) => word !== project.words[index])
+      .map((word) => word.id);
+
+    editor.edit(touched.length === 1 ? 'Use your word' : 'Use your words', () => next, touched);
+  }, [dictionary, editor, project.words]);
+
   const accent = accentColor(source.style);
 
   return (
@@ -586,7 +620,12 @@ function Workspace({ stored }: { stored: Project }) {
         />
       </View>
 
-      <View style={styles.toolbar}>
+      <View style={styles.toolbarRow}>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.toolbar}
+        >
         {toCheck > 0 ? (
           <Pressable
             accessibilityRole="button"
@@ -622,7 +661,19 @@ function Workspace({ stored }: { stored: Project }) {
           </Label>
         </Pressable>
 
-        <View style={styles.toolbarRight}>
+        {toFix > 0 ? (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={`Fix ${toFix} with your words`}
+            onPress={useYourWords}
+            style={({ pressed }) => [styles.chip, { borderColor: accent, opacity: pressed ? 0.6 : 1 }]}
+          >
+            <Label variant="label">Fix {toFix} with your words</Label>
+          </Pressable>
+        ) : null}
+        </ScrollView>
+
+        <View style={styles.steps}>
           <StepButton
             label="↶"
             accessibilityLabel={editor.undoLabel ? `Undo ${editor.undoLabel}` : 'Undo'}
@@ -748,6 +799,17 @@ function actionsFor(
   return {
     openTiming() {
       onTiming(word.id);
+    },
+
+    addToDictionary() {
+      // The correction is already made, so both halves of the entry are known:
+      // what the user wrote is the spelling and what the engine heard is the
+      // first variant. The dictionary screen opens straight into the editor.
+      const seed = entryFromWord(word, '', '');
+      router.push({
+        pathname: '/settings/dictionary',
+        params: { spelling: seed.spelling, heard: seed.heardAs[0] ?? '' },
+      });
     },
 
     setText(text, alsoTheSameHeard) {
@@ -1283,14 +1345,9 @@ const styles = StyleSheet.create({
   trackTouch: { height: MIN_TOUCH, justifyContent: 'center' },
   track: { height: 4, borderRadius: radius.pill, backgroundColor: color.line, overflow: 'hidden' },
   trackFill: { height: '100%' },
-  toolbar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: space.lg,
-    paddingTop: space.sm,
-    minHeight: MIN_TOUCH,
-  },
+  /** The chips scroll; undo and redo never move, because they are the way back. */
+  toolbarRow: { flexDirection: 'row', alignItems: 'center', paddingTop: space.sm, minHeight: MIN_TOUCH },
+  toolbar: { alignItems: 'center', gap: space.sm, paddingHorizontal: space.lg },
   chip: {
     minHeight: MIN_TOUCH,
     justifyContent: 'center',
@@ -1298,7 +1355,7 @@ const styles = StyleSheet.create({
     borderRadius: radius.pill,
     borderWidth: 1,
   },
-  toolbarRight: { flexDirection: 'row', gap: space.sm, marginLeft: 'auto' },
+  steps: { flexDirection: 'row', gap: space.sm, paddingRight: space.lg },
   step: {
     width: MIN_TOUCH,
     height: MIN_TOUCH,

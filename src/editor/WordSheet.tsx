@@ -41,6 +41,8 @@ export interface WordSheetActions {
   remove(): void;
   /** Hands this word to the timing sheet. The only door to it. */
   openTiming(): void;
+  /** Hands this correction to the dictionary, half written. */
+  addToDictionary(): void;
 }
 
 export function WordSheet({
@@ -137,6 +139,20 @@ export function WordSheet({
               tone="tile"
               accent={accent}
             />
+          </View>
+
+          <View style={styles.row}>
+            {/* Only for a word the engine wrote. There is nothing to teach the
+                dictionary about a word it already got right and the user kept. */}
+            {facts.fromDictionary ? null : (
+              <SheetAction
+                label="Add to your words"
+                accessibilityLabel={`Add ${word.text} to your words`}
+                onPress={actions.addToDictionary}
+                tone="tile"
+                accent={accent}
+              />
+            )}
           </View>
 
           <View style={styles.row}>

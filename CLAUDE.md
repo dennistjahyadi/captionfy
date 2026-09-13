@@ -86,6 +86,12 @@ speaker (the draw list reserves `layer` for it; build no segmentation now).
    Not measured: a 1080p sixty second export, because the free tier on that phone
    is spent and resetting it means wiping the user's projects.
 8. Dictionary.
+   **Done, verified on an Android 16 emulator. Not yet run on the A54.**
+   One tap from a word sheet opens the dictionary with the entry half written,
+   saving returns to the editor, and the chip there offers to apply it to the
+   transcript already on screen as one undo step. A new transcription reads the
+   dictionary at the start of the run and feeds the spellings to whisper as an
+   initial prompt.
 9. First launch and Unlock. Ask about free-tier policy before starting this.
 
 Every slice runs as a release build on the Galaxy A54 before it is called done.
@@ -333,6 +339,44 @@ mounts another shows neither. A sheet's draft is a whole preview `Project` held
 by the editor screen, so the overlay, the transcript and the loop all see what is
 about to be applied without any of them learning what a draft is, and one visit
 to a sheet is one undo step however many times a handle moved.
+
+## The dictionary
+
+`dictionary.json` sits beside `settings.json`, outside any project: a creator's
+brand name is spelled the same way in every video they will ever make.
+
+It reaches a transcript twice. Before the words exist, the spellings go to
+whisper as an initial prompt, which biases the decoder toward writing them in the
+first place — and a spelling the engine chose itself keeps the timing it heard,
+where a repair afterwards merges words. After the words exist, `applyDictionary`
+replaces what was heard with what the user spells. The prompt is read once at the
+start of a run: a pass that picked up a new word halfway through would have
+transcribed the first half without it.
+
+**Prompt bias is measured and off.** Same clip, same build, same emulator, each
+run repeated:
+
+| prompt | words from a 0:53 clip |
+|---|---|
+| none | 173, complete |
+| `Media, Zephyrine` | 80, better than half the clip gone |
+| `This video mentions Media, Zephyrine.` | 166, one clause dropped |
+
+The shape mattered more than the content: whisper takes the prompt as the
+transcript that came *before* this audio, so a bare run of proper nouns reads as
+a fragment of speech and the decoder carries on in that shape. A sentence nearly
+fixed it. Nearly is not enough to lose a phrase of somebody's actual speech, so
+`PROMPT_BIAS` in `src/asr/runner.ts` is false. The mechanism and the sentence
+shape stay for a proper study across clips.
+
+A decoy word in the prompt — `Zephyrine`, said nowhere in the clip — was not
+hallucinated into either prompted transcript.
+
+A word sheet hands the dictionary a half-written entry: the corrected text is the
+spelling and what the engine heard is the first variant, so there is nothing to
+type. The editor's chip counts what the dictionary would still change in this
+transcript and applies it as one undo step, which is also how a project made
+before an entry existed catches up.
 
 ## Emphasis
 

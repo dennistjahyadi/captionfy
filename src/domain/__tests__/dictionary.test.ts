@@ -1,6 +1,7 @@
-import { word } from '../__fixtures__/project';
+import { evenWords, word } from '../__fixtures__/project';
 import {
   applyDictionary,
+  dictionaryMatches,
   dictionaryPrompt,
   entryFromWord,
   PROMPT_MAX_CHARS,
@@ -105,13 +106,15 @@ describe('applyDictionary', () => {
 });
 
 describe('dictionaryPrompt', () => {
-  it('lists the spellings', () => {
-    expect(dictionaryPrompt([entry('KitVerify', []), entry('Jakarta', [])])).toBe('KitVerify, Jakarta');
+  it('names the spellings in a sentence, because whisper reads it as speech', () => {
+    expect(dictionaryPrompt([entry('KitVerify', []), entry('Jakarta', [])])).toBe(
+      'This video mentions KitVerify, Jakarta.'
+    );
   });
 
   it('stops at the character budget rather than overrunning the prompt', () => {
     const long = Array.from({ length: 200 }, (_, index) => entry(`Spelling${index}`, []));
-    expect(dictionaryPrompt(long).length).toBeLessThanOrEqual(PROMPT_MAX_CHARS);
+    expect(dictionaryPrompt(long).length).toBeLessThanOrEqual(PROMPT_MAX_CHARS + 40);
   });
 
   it('stops at the entry ceiling', () => {
@@ -140,5 +143,34 @@ describe('entryFromWord', () => {
       spelling: 'KitVerify',
       heardAs: ['kit very by'],
     });
+  });
+});
+
+describe('dictionaryMatches', () => {
+  const dict = [kitVerify, entry('Captionfy', ['captionify'])];
+
+  it('counts nothing when the dictionary changes nothing', () => {
+    expect(dictionaryMatches(evenWords(['So', 'today', 'I']), dict)).toBe(0);
+    expect(dictionaryMatches(evenWords(['kit', 'verify']), [])).toBe(0);
+  });
+
+  it('counts a word it would rewrite', () => {
+    expect(dictionaryMatches(evenWords(['I', 'tried', 'captionify']), dict)).toBe(1);
+  });
+
+  it('counts a phrase it would collapse as one fix, not three', () => {
+    expect(dictionaryMatches(evenWords(['I', 'tried', 'kit', 'very', 'by']), dict)).toBe(1);
+  });
+
+  it('counts every place it would strike', () => {
+    expect(dictionaryMatches(evenWords(['captionify', 'and', 'captionify', 'again']), dict)).toBe(2);
+  });
+
+  it('never counts a word the user typed themselves', () => {
+    const words = evenWords(['I', 'tried', 'captionify']).map((word) =>
+      word.text === 'captionify' ? { ...word, origin: 'edited' as const } : word
+    );
+
+    expect(dictionaryMatches(words, dict)).toBe(0);
   });
 });

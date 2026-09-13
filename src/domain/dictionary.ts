@@ -124,6 +124,22 @@ function replaceRun(run: Word[], spelling: string): Word {
 }
 
 /**
+ * The words in this transcript the dictionary would change.
+ *
+ * What "Fix 3 more in this video" counts. Answered by running the replacement
+ * and seeing what came back different, rather than by a second matcher that
+ * could disagree with the first one about what counts as a match.
+ */
+export function dictionaryMatches(words: Word[], dict: DictionaryEntry[]): number {
+  const applied = applyDictionary(words, dict);
+  if (applied === words) return 0;
+
+  // A phrase that collapsed several words into one is one fix, not three, so
+  // the count is of words produced rather than of words consumed.
+  return applied.filter((word, index) => word !== words[index]).length;
+}
+
+/**
  * Dictionary spellings as an initial prompt, to bias decoding toward them.
  *
  * whisper takes the prompt as prior context, so listing the spellings makes the
@@ -149,7 +165,13 @@ export function dictionaryPrompt(
     length += cost;
   }
 
-  return spellings.join(', ');
+  if (spellings.length === 0) return '';
+
+  // A sentence, not a list. whisper takes the prompt as the transcript that came
+  // before this audio, so a bare run of comma-separated proper nouns reads to it
+  // as a fragment of speech rather than as vocabulary, and it will carry on
+  // writing in that shape. See the measurement in CLAUDE.md.
+  return `This video mentions ${spellings.join(', ')}.`;
 }
 
 /**
