@@ -9,7 +9,7 @@
  * in the gallery. A render that fails, or that the user cancels, costs nothing.
  */
 import { Directory, File } from 'expo-file-system';
-import * as MediaLibrary from 'expo-media-library';
+import { Album, Asset, getPermissionsAsync, requestPermissionsAsync, type GranularPermission, type PermissionResponse } from 'expo-media-library';
 
 import BurnIn, { type SavedFile, type VideoInfo } from '../../modules/burn-in';
 import ForegroundService from '../../modules/foreground-service';
@@ -63,16 +63,29 @@ export async function probeSource(project: Project): Promise<VideoInfo> {
 }
 
 /**
+ * Write access, and nothing else: this app never reads the user's library.
+ *
+ * Asked write-only and for video alone, which on Android 13 and up comes to no
+ * permission at all — adding a file you own needs none. The alternative was the
+ * default ask, which on a caption app opens with "allow access to music and
+ * audio on this device" and then asks for every photo as well.
+ */
+const NEEDS: { writeOnly: true; granular: GranularPermission[] } = {
+  writeOnly: true,
+  granular: ['video'],
+};
+
+/**
  * Asks for the gallery, before anything is rendered.
  *
  * Before, because a permission sheet after a minute of encoding is the export
  * failing at the last step, and because a user who says no has lost nothing.
  */
 export async function canSaveToGallery(): Promise<boolean> {
-  const held = await MediaLibrary.getPermissionsAsync();
+  const held = await getPermissionsAsync(NEEDS.writeOnly, NEEDS.granular);
   if (enough(held)) return true;
   if (!held.canAskAgain) return false;
-  return enough(await MediaLibrary.requestPermissionsAsync());
+  return enough(await requestPermissionsAsync(NEEDS.writeOnly, NEEDS.granular));
 }
 
 /**
@@ -83,7 +96,7 @@ export async function canSaveToGallery(): Promise<boolean> {
  * Refusing to export on it would be this app enforcing a rule the platform does
  * not have.
  */
-function enough(permission: MediaLibrary.PermissionResponse): boolean {
+function enough(permission: PermissionResponse): boolean {
   return permission.granted || permission.accessPrivileges === 'limited';
 }
 
@@ -173,19 +186,16 @@ export function cancelExport(): void {
  * find in an album is better than a video they do not have.
  */
 async function publish(path: string, name: string): Promise<{ name: string; byteLength: number }> {
-  // A URI, not a bare path: the module parses what it is given, and a string
+  // A URI, not a bare path: the library parses what it is given, and a string
   // with no scheme is not a file to everything that touches it on the way.
-  const asset = await MediaLibrary.createAssetAsync(`file://${path}`);
+  const uri = `file://${path}`;
+  const album = await Album.get(ALBUM);
 
-  try {
-    const album = await MediaLibrary.getAlbumAsync(ALBUM);
-    if (album) await MediaLibrary.addAssetsToAlbumAsync([asset], album, false);
-    else await MediaLibrary.createAlbumAsync(ALBUM, asset, false);
-  } catch {
-    // Left where `createAssetAsync` put it, which is still the gallery.
-  }
+  if (album) await Asset.create(uri, album);
+  // `false` copies rather than moves: the app's own copy is what Share hands on.
+  else await Album.create(ALBUM, [uri], false);
 
-  return { name, byteLength: new File(`file://${path}`).size ?? 0 };
+  return { name, byteLength: new File(uri).size ?? 0 };
 }
 
 /**

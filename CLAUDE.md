@@ -104,14 +104,14 @@ Two are left, and neither can be closed from this machine.
 - **iOS has never been built.** Not once, in any slice. Nothing is known about
   the Skia overlay, the fonts, the player or the pause-on-background rule there,
   and there is no iOS burn-in at all.
-- **Sharing was never exercised.** The Saved screen's Share button calls
-  `expo-sharing` on the app's own copy of the file, and the sheet was never
-  opened on a device, let alone tapped through to TikTok or Instagram. It needs
-  a free export to reach, and there are none left on the A54.
+- **Sharing was never tapped through to TikTok or Instagram.** The sheet opens
+  with the right file under the right name, verified on the emulator; neither app
+  is installed there, and on the phone it has not been taken past the sheet.
 - **Below Android 10 the .srt cannot be saved.** MediaStore's permissionless
   write arrived in Android 10 and `minSdkVersion` is 26. Either the floor moves
   to 29 or the legacy path gets written and tested on an old device. The video
-  itself is fine: `expo-media-library` handles old versions.
+  itself is fine: `expo-media-library` handles old versions, and on those it does
+  ask for storage, which is the platform's rule and not this app's.
 
 Closed after slice 4, all found while accepting slices 3 and 4: the box highlight
 crowding its neighbours, a delete dialog that did not name what it was deleting,
@@ -171,13 +171,15 @@ The model decision in the build prompt now has its number: the release APK is
   rather than the spec's nested `/project/[id]/export`. One shape for every
   screen that is about one project.
 - The video is saved through `expo-media-library`, as the build prompt's stack
-  says, and it is asked for **before** the render rather than after: a permission
-  sheet at the end of a minute of encoding is an export that failed at the last
-  step, and saying no before it starts costs nothing. The cost of the library is
-  real and accepted — the app now asks for images and audio as well as video,
-  because that is the only shape of permission it requests. The subtitle file
-  still goes through MediaStore in the module, because a subtitle is not media
-  and no media library will take one.
+  says, asked for **write-only** and for **video alone**. That combination comes
+  to no permission at all on Android 13 and up, which is what the module's own
+  MediaStore code was for: adding a file you own needs none. Asked the default
+  way the library opens with "allow access to music and audio on this device"
+  and then asks for every photo as well, which was measured on the A54 before it
+  was narrowed. The subtitle file still goes through MediaStore in the module,
+  because a subtitle is not media and no media library will take one.
+- Permission is asked for before the render rather than after: a sheet at the end
+  of a minute of encoding is an export that failed at the last step.
 - The burn-in is Android only. iOS has never been built in any slice, and a Swift
   implementation nobody can run is a file that rots rather than a feature.
 - The custom colour is a hue strip and not a full picker: a washed-out caption is
@@ -248,11 +250,16 @@ not in the burn-in, which can only draw the rectangle it is handed: hinted glyph
 advances round differently at a canvas 1024 tall than at one 1077 tall. Laying
 the export out at the preview's size instead would trade that for a blurry file.
 
-The video is published with `expo-media-library` into a Captionfy album, and the
-file is renamed to what the user is told it is called before it is published, so
-the gallery and the share sheet agree. Permission is asked for on the way in, not
-on the way out. The album is a courtesy: if it cannot be made, the asset is
-already in the gallery and the export is not lost over where it sits.
+The video is published with `expo-media-library`'s `Asset` and `Album` into a
+Captionfy album, and the file is renamed to what the user is told it is called
+before it is published, so the gallery and the share sheet agree. The permission
+asked for is write-only and video-only, which on Android 13 and up is no
+permission at all: verified on the A54 by revoking every media grant and
+exporting anyway.
+
+The function API that the docs still lead with — `createAssetAsync` and friends —
+is deprecated in SDK 57 and throws at runtime rather than warning. It was found
+by exporting on the phone, which is the only place it could have been found.
 
 The .srt goes through MediaStore in the module, into Downloads. A subtitle file
 is not media and no media library will take one. That path needs Android 10,
@@ -362,6 +369,9 @@ animates the user's own line with its real picks.
   until the cache is cleared and then opens black with a play button that does
   nothing, which is how this was found. `adb shell pm trim-caches 4096G`
   reproduces it on demand.
+- `expo-media-library`'s function API is deprecated in SDK 57 and throws when
+  called, rather than warning. The class-based `Asset.create` and `Album` are
+  what work. Nothing in a typecheck says so.
 - Unmounting one `Modal` in the same commit that mounts another leaves Android
   showing neither, with no error anywhere. One sheet whose contents change.
 - A `PanResponder` built in a `useMemo` keeps the callbacks of the render that

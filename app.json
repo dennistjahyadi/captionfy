@@ -28,7 +28,8 @@
         "expo-media-library",
         {
           "savePhotosPermission": "Captionfy saves the video it captioned to your gallery.",
-          "isAccessMediaLocationEnabled": false
+          "isAccessMediaLocationEnabled": false,
+          "granularPermissions": ["video"]
         }
       ],
       [
