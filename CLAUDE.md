@@ -7,8 +7,14 @@ no server. README.md carries the Stage 0 spike; this file carries the product.
 
 Expo dev client, New Architecture. whisper.rn 0.7.4 (patched, see `patches/`)
 with Silero VAD. Native Expo Modules for audio extraction and burn-in.
-react-native-skia 2.6 for the overlay, expo-iap 5.6 for the one-time unlock,
-EAS Build. Fonts: Be Vietnam Pro and Spectral, both OFL, in `assets/fonts/`.
+react-native-skia 2.6 for the overlay, expo-iap 5.6 for the one-time unlock.
+Fonts: Be Vietnam Pro and Spectral, both OFL, in `assets/fonts/`.
+
+**Builds are local Gradle, not EAS.** This file used to name EAS Build; nothing
+was ever set up there and there is no `eas.json`. `run.sh` builds APKs onto a
+device and `scripts/build-aab.sh` builds the bundle for Play. Cloud builds would
+have to be taught to fetch the 82 MB of models, which are not in git, so the
+local build stays until there is a reason to move.
 
 **The models are in the APK.** `base.en-q8_0` is 81.8 MB and the Silero VAD is
 0.9 MB, on top of a 62.9 MB app: an install of about 145 MB, inside the 150 MB
@@ -626,6 +632,16 @@ animates the user's own line with its real picks.
   dialog, not only when the dialog is dismissed, so a promise wrapped around an
   alert cannot tell the two apart and latches onto whichever fires first. Put the
   work in the button's own callback and do not await an alert.
+- **A release build is signed with the debug keystore until you stop it, and you
+  cannot stop it by editing `build.gradle`.** AGP's template points the release
+  build type at `signingConfigs.debug`, which is the same key on every React
+  Native machine there has ever been, and Play refuses it. `android/` is not in
+  git and every `prebuild` writes it again, so a hand edit lives until the next
+  one. It has to be a config plugin: `plugins/with-release-signing.js`. Its
+  anchors are AGP template text, and the template spells the assignment both
+  `signingConfig signingConfigs.debug` and `signingConfig = signingConfigs.debug`
+  depending on version — the plugin throws when an anchor stops matching, rather
+  than quietly leaving the debug key in place.
 - **Nothing resizes under a `Modal` when the keyboard opens.** The manifest asks
   for `adjustResize` and React Native asks the dialog it puts a `Modal` in for it
   as well, and on the A54 neither window gave up a pixel: the IME came up over

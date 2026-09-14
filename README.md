@@ -351,6 +351,61 @@ error when hand-scoring.
 `spike/android-sherpa`, a native Kotlin app running sherpa-onnx over the same PCM
 files Rig A writes. Not built yet.
 
+## Building for Play
+
+`run.sh` builds APKs and puts them on a device. Play does not accept an APK from
+a new app, and an AAB cannot be `adb install`ed, so the bundle is its own script:
+
+```bash
+./scripts/build-aab.sh          # or: npm run aab
+```
+
+Same local Gradle build, `bundleRelease` in place of `assembleRelease`, and every
+architecture rather than the one the attached device happens to use. It lands at
+`android/app/build/outputs/bundle/release/app-release.aab`.
+
+The bundle is much larger than the install. Play repacks it per device and sends
+one architecture and one density, so what a phone downloads is roughly half of
+what gets uploaded. The 82 MB of weights are in both, and the uncompressed-DEX
+packaging that `minSdkVersion 29` forces is an upload-size effect rather than a
+download-size one.
+
+### The upload key
+
+Release builds are signed with `debug.keystore` unless told otherwise, which is
+the same key on every React Native machine in the world and is refused at upload.
+Make one key, once:
+
+```bash
+keytool -genkeypair -v -keystore ~/keys/wordburn-upload.jks \
+  -alias upload -keyalg RSA -keysize 2048 -validity 10000
+```
+
+Name it in `~/.gradle/gradle.properties` — outside this repository and outside
+the generated `android/`, both of which are thrown away and written again:
+
+```properties
+WORDBURN_UPLOAD_STORE_FILE=/Users/you/keys/wordburn-upload.jks
+WORDBURN_UPLOAD_STORE_PASSWORD=…
+WORDBURN_UPLOAD_KEY_ALIAS=upload
+WORDBURN_UPLOAD_KEY_PASSWORD=…
+```
+
+`plugins/with-release-signing.js` is what puts that config into the native
+project. Editing `android/app/build.gradle` by hand does not survive `prebuild`,
+and that file is not in git, so a plugin is the only edit that lasts.
+
+With no key configured, a release build still builds and still installs, signed
+with the debug key exactly as before — `./run.sh` measures frame rates on the
+phone and must not need a keystore to do it. Only `build-aab.sh` insists, and it
+checks the finished bundle's certificate rather than trusting the config: a
+debug-signed AAB builds perfectly and fails at upload, which is a slow way to
+find out.
+
+Back the `.jks` up somewhere that is not this Mac, and enrol in Play App Signing
+at the first upload. With it, losing the upload key costs a support request
+instead of the app.
+
 ## Conventions
 
 - `src/domain` has no platform imports and its logic is unit tested first.

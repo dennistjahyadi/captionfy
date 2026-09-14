@@ -55,7 +55,8 @@
       "expo-video",
       "expo-font",
       "expo-iap",
-      "./plugins/with-bundled-models.js"
+      "./plugins/with-bundled-models.js",
+      "./plugins/with-release-signing.js"
     ],
     "experiments": {
       "typedRoutes": true
