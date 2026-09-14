@@ -3,7 +3,7 @@ Pod::Spec.new do |s|
   s.version        = '1.0.0'
   s.summary        = '16 kHz mono PCM extraction from video'
   s.description    = '16 kHz mono PCM extraction from video'
-  s.author         = 'Captionfy'
+  s.author         = 'Wordburn'
   s.homepage       = 'https://docs.expo.dev/modules/'
   s.platforms      = {
     :ios => '16.4',

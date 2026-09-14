@@ -2,7 +2,7 @@ import { sourceName } from '../source';
 
 describe('sourceName', () => {
   it('keeps the container the picker handed over', () => {
-    expect(sourceName('file:///data/user/0/com.captionfy.app/cache/ImagePicker/abc.mp4')).toBe(
+    expect(sourceName('file:///data/user/0/com.wordburn.app/cache/ImagePicker/abc.mp4')).toBe(
       'source.mp4'
     );
     expect(sourceName('file:///tmp/clip.webm')).toBe('source.webm');

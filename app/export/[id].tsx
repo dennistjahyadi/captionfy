@@ -92,7 +92,7 @@ export default function Export() {
     // the user nothing.
     if (!(await canSaveToGallery())) {
       Alert.alert(
-        'Captionfy cannot reach your gallery',
+        'Wordburn cannot reach your gallery',
         'Allow it to save videos in Settings, and the export will land in your gallery.'
       );
       return;

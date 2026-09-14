@@ -266,11 +266,11 @@ async function saveSrt(project: Project, directory: Directory, name: string): Pr
 }
 
 /** What every file this app writes into a shared place is called. */
-const EXPORT_PREFIX = 'Captionfy ';
-const ALBUM = 'Captionfy';
+const EXPORT_PREFIX = 'Wordburn ';
+const ALBUM = 'Wordburn';
 
 /**
- * `Captionfy 2026-09-13 1421`, which sorts and says where it came from.
+ * `Wordburn 2026-09-13 1421`, which sorts and says where it came from.
  *
  * Not the source file's name: two exports of the same clip would collide, and a
  * gallery full of `VID_20260913.mp4` is exactly the mess this avoids.

@@ -1,20 +1,21 @@
 {
   "expo": {
-    "name": "Captionfy",
-    "slug": "captionfy",
-    "scheme": "captionfy",
+    "name": "Wordburn",
+    "slug": "wordburn",
+    "scheme": "wordburn",
     "version": "0.0.1",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "com.captionfy.app"
+      "bundleIdentifier": "com.wordburn.app"
     },
     "android": {
-      "package": "com.captionfy.app",
+      "versionCode": 1,
+      "package": "com.wordburn.app",
       "adaptiveIcon": {
-        "backgroundColor": "#0B0B0F",
+        "backgroundColor": "#0F0E0D",
         "foregroundImage": "./assets/android-icon-foreground.png",
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
@@ -27,7 +28,7 @@
       [
         "expo-media-library",
         {
-          "savePhotosPermission": "Captionfy saves the video it captioned to your gallery.",
+          "savePhotosPermission": "Wordburn saves the video it captioned to your gallery.",
           "isAccessMediaLocationEnabled": false,
           "granularPermissions": ["video"]
         }
@@ -35,7 +36,7 @@
       [
         "expo-image-picker",
         {
-          "photosPermission": "Captionfy reads the video you pick so it can caption it on this device."
+          "photosPermission": "Wordburn reads the video you pick so it can caption it on this device."
         }
       ],
       [

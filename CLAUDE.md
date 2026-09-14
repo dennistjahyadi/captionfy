@@ -1,4 +1,4 @@
-# Captionfy — working notes
+# Wordburn — working notes
 
 Offline, on-device auto-captions for short vertical video. No account, no upload,
 no server. README.md carries the Stage 0 spike; this file carries the product.
@@ -369,7 +369,7 @@ advances round differently at a canvas 1024 tall than at one 1077 tall. Laying
 the export out at the preview's size instead would trade that for a blurry file.
 
 The video is published with `expo-media-library`'s `Asset` and `Album` into a
-Captionfy album, and the file is renamed to what the user is told it is called
+Wordburn album, and the file is renamed to what the user is told it is called
 before it is published, so the gallery and the share sheet agree. The permission
 asked for is write-only and video-only, which on Android 13 and up is no
 permission at all: verified on the A54 by revoking every media grant and

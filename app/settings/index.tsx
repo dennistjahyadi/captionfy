@@ -68,7 +68,7 @@ export default function Settings() {
 
       <View style={styles.foot}>
         <Label variant="micro" tone="mute">
-          Captionfy {Constants.expoConfig?.version ?? ''} · your videos never leave this phone
+          Wordburn {Constants.expoConfig?.version ?? ''} · your videos never leave this phone
         </Label>
       </View>
     </Screen>
@@ -91,7 +91,7 @@ function unlockedOn(at?: string): string {
 
 function about() {
   Alert.alert(
-    `Captionfy ${Constants.expoConfig?.version ?? ''}`,
+    `Wordburn ${Constants.expoConfig?.version ?? ''}`,
     [
       'Your videos never leave this phone. There is no account and no server.',
       '',

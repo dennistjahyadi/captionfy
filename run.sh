@@ -11,8 +11,8 @@ set -euo pipefail
 
 cd "$(dirname "${BASH_SOURCE[0]}")"
 
-PACKAGE="com.captionfy.app"
-SCHEME="captionfy"          # must match expo.scheme in app.json
+PACKAGE="com.wordburn.app"
+SCHEME="wordburn"          # must match expo.scheme in app.json
 RELEASE_APK="android/app/build/outputs/apk/release/app-release.apk"
 DEBUG_APK="android/app/build/outputs/apk/debug/app-debug.apk"
 METRO_PORT=8081
@@ -139,11 +139,11 @@ EOF
     exit 1
   fi
 
-  [ -n "$AVD" ] || AVD="${CAPTIONFY_AVD:-}"
+  [ -n "$AVD" ] || AVD="${WORDBURN_AVD:-}"
   if [ -z "$AVD" ]; then
     AVD="$(echo "$avds" | head -1)"
     if [ "$(echo "$avds" | wc -l | tr -d ' ')" -gt 1 ]; then
-      echo "    more than one AVD. Using $AVD. Pass a name, or set CAPTIONFY_AVD, to pick another:"
+      echo "    more than one AVD. Using $AVD. Pass a name, or set WORDBURN_AVD, to pick another:"
       echo "$avds" | sed 's/^/      /'
     fi
   fi
@@ -155,7 +155,7 @@ EOF
     return
   fi
 
-  local log="${TMPDIR:-/tmp}/captionfy-emulator.log"
+  local log="${TMPDIR:-/tmp}/wordburn-emulator.log"
   step "Booting $AVD"
 
   if [ "$COLD" = true ]; then
@@ -350,7 +350,7 @@ Done. On the device:
   1. "New video" opens the system picker. The models are already in the APK, so
      there is nothing to download and no network involved from here on.
   2. Transcription runs itself and hands you the editor.
-  3. Export writes into the gallery's Captionfy album.
+  3. Export writes into the gallery's Wordburn album.
 
 Watch the pipeline from here any time with:
 

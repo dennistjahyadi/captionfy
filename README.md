@@ -1,4 +1,4 @@
-# Captionfy
+# Wordburn
 
 Offline, on-device auto-captions for short vertical video. No account, no upload,
 no server. One React Native codebase for Android and iOS.
@@ -211,7 +211,7 @@ changes need the command again: anything under `modules/`, the plugin list in
 Both variants are signed with the same debug keystore and share a package name, so
 switching between `--dev` and the release install keeps every project in place. No
 `--fresh` needed. That shared data is also how a free-export counter is reset:
-install the debug APK, `adb shell run-as com.captionfy.app rm files/entitlement.json`,
+install the debug APK, `adb shell run-as com.wordburn.app rm files/entitlement.json`,
 then install the release one again. A release build is not debuggable, so `run-as`
 only reaches app storage while the debug build is the one installed.
 

@@ -147,7 +147,7 @@ describe('entryFromWord', () => {
 });
 
 describe('dictionaryMatches', () => {
-  const dict = [kitVerify, entry('Captionfy', ['captionify'])];
+  const dict = [kitVerify, entry('Wordburn', ['wordbun'])];
 
   it('counts nothing when the dictionary changes nothing', () => {
     expect(dictionaryMatches(evenWords(['So', 'today', 'I']), dict)).toBe(0);
@@ -155,7 +155,7 @@ describe('dictionaryMatches', () => {
   });
 
   it('counts a word it would rewrite', () => {
-    expect(dictionaryMatches(evenWords(['I', 'tried', 'captionify']), dict)).toBe(1);
+    expect(dictionaryMatches(evenWords(['I', 'tried', 'wordbun']), dict)).toBe(1);
   });
 
   it('counts a phrase it would collapse as one fix, not three', () => {
@@ -163,12 +163,12 @@ describe('dictionaryMatches', () => {
   });
 
   it('counts every place it would strike', () => {
-    expect(dictionaryMatches(evenWords(['captionify', 'and', 'captionify', 'again']), dict)).toBe(2);
+    expect(dictionaryMatches(evenWords(['wordbun', 'and', 'wordbun', 'again']), dict)).toBe(2);
   });
 
   it('never counts a word the user typed themselves', () => {
-    const words = evenWords(['I', 'tried', 'captionify']).map((word) =>
-      word.text === 'captionify' ? { ...word, origin: 'edited' as const } : word
+    const words = evenWords(['I', 'tried', 'wordbun']).map((word) =>
+      word.text === 'wordbun' ? { ...word, origin: 'edited' as const } : word
     );
 
     expect(dictionaryMatches(words, dict)).toBe(0);

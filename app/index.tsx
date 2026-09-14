@@ -110,7 +110,7 @@ export default function Home() {
         ListHeaderComponent={
           <View style={styles.header}>
             <View style={styles.title}>
-              <Label variant="display">Captionfy</Label>
+              <Label variant="display">Wordburn</Label>
               <Pressable
                 accessibilityRole="button"
                 accessibilityLabel="Settings"
