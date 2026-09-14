@@ -626,6 +626,18 @@ animates the user's own line with its real picks.
   dialog, not only when the dialog is dismissed, so a promise wrapped around an
   alert cannot tell the two apart and latches onto whichever fires first. Put the
   work in the button's own callback and do not await an alert.
+- **Nothing resizes under a `Modal` when the keyboard opens.** The manifest asks
+  for `adjustResize` and React Native asks the dialog it puts a `Modal` in for it
+  as well, and on the A54 neither window gave up a pixel: the IME came up over
+  the whole entry sheet, title and buttons and all, not merely over the field
+  being typed into. Every text field in this app is inside a sheet, so this was
+  every text field in the app. `KeyboardAvoidingView` does not rescue it — with
+  no `behavior` it renders a plain `View` and does nothing, and `padding`
+  subtracts the keyboard from a frame that is the dialog's rather than the
+  screen's. What does work is reading the height off `keyboardDidShow`, which
+  React Native takes from the IME's own window insets and reports whether or not
+  anything resized, and padding the dock by it. That is `useKeyboardInset`, and
+  `Sheet` is its only caller.
 
 ## Conventions
 

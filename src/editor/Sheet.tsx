@@ -12,11 +12,19 @@
  * Unmounting one `Modal` in the same commit that mounts another leaves Android
  * showing neither: the timing sheet opened from the word sheet and nothing
  * appeared at all, which is how this was found.
+ *
+ * The sheet carries its own keyboard, because nothing else will. Every text
+ * field in the app is in one of these, and Android no longer resizes the window
+ * under a `Modal` when the IME opens: the keyboard came up over the whole sheet
+ * and the user could not see what they were typing. `useKeyboardInset` measures
+ * it and the dock stands that much taller, which is the same arithmetic
+ * `KeyboardAvoidingView` does from a screen frame it cannot read in here.
  */
 import { ReactNode, useCallback, useEffect, useRef } from 'react';
-import { KeyboardAvoidingView, Modal, Platform, Pressable, StyleSheet, View } from 'react-native';
+import { Modal, Pressable, StyleSheet, View } from 'react-native';
 
 import { Label } from '../ui/atoms';
+import { useKeyboardInset } from '../ui/keyboard';
 import { useReducedMotion } from '../ui/motion';
 import { color, MIN_TOUCH, radius, space } from '../ui/theme';
 
@@ -24,9 +32,12 @@ export function Sheet({ onClose, children }: { onClose: () => void; children: Re
   // Asked here rather than passed in: the slide belongs to this component, and a
   // caller that had to remember to turn it off would eventually forget.
   const reducedMotion = useReducedMotion();
+  const keyboard = useKeyboardInset();
 
   return (
     <Modal visible transparent animationType={reducedMotion ? 'none' : 'slide'} onRequestClose={onClose}>
+      {/* The backdrop shrinks so the sheet can rise: it is the only thing in
+          here that can give up the height the keyboard took. */}
       <Pressable
         accessibilityRole="button"
         accessibilityLabel="Close"
@@ -34,12 +45,9 @@ export function Sheet({ onClose, children }: { onClose: () => void; children: Re
         onPress={onClose}
       />
 
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        style={styles.dock}
-      >
+      <View style={[styles.dock, { paddingBottom: keyboard }]}>
         <View style={styles.sheet}>{children}</View>
-      </KeyboardAvoidingView>
+      </View>
     </Modal>
   );
 }
