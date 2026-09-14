@@ -44,14 +44,12 @@ import {
   mergeWords,
   nextLowConfidenceWordId,
   sameHeardWordIds,
-  safeZoneUnion,
   setBreakAfter,
   setEmphasis,
   shiftAll,
   styleOverridesFor,
   type CaptionLine,
   type DictionaryEntry,
-  type MeasureText,
   type Ms,
   type Project,
   type StyleChoices,
@@ -63,10 +61,10 @@ import { StylePicker } from '../../src/editor/StylePicker';
 import { TimingSheet } from '../../src/editor/TimingSheet';
 import { WordSheet, type WordFacts, type WordSheetActions } from '../../src/editor/WordSheet';
 import { useProjectEditor, type ProjectEditor } from '../../src/editor/useProjectEditor';
-import { CaptionOverlay } from '../../src/render/CaptionOverlay';
+import { CaptionLayer } from '../../src/render/CaptionLayer';
 import { createFrameSource, type FrameSource } from '../../src/render/frame';
 import { createMeasureText } from '../../src/render/measure';
-import { useCaptionFonts, type FontLookup } from '../../src/render/typefaces';
+import { useCaptionFonts } from '../../src/render/typefaces';
 import { loadDictionary } from '../../src/project/dictionary-store';
 import { adoptSource, sourceExists } from '../../src/project/source';
 import { loadSettings, markCoachCardSeen, rememberStyle } from '../../src/project/settings';
@@ -75,6 +73,7 @@ import { Label, PrimaryButton, QuietButton, Screen } from '../../src/ui/atoms';
 import { useClock, type Clock } from '../../src/ui/clock';
 import { describeProject, plural } from '../../src/ui/describe';
 import { useReducedMotion } from '../../src/ui/motion';
+import { containRect, SafeZone } from '../../src/ui/stage';
 import { formatClock } from '../../src/ui/time';
 import { color, DEFAULT_ACCENT, font, MIN_TOUCH, radius, space } from '../../src/ui/theme';
 
@@ -890,70 +889,6 @@ function CoachCard({ toCheck, onShowMe }: { toCheck: number; onShowMe: () => voi
   );
 }
 
-/**
- * The caption overlay, and the only thing on this screen that redraws per frame.
- *
- * The canvas is the video's own rectangle, not the screen's, so a caption a
- * fifth of the way down the preview is a fifth of the way down the exported
- * file whatever the phone's aspect ratio is.
- */
-const CaptionLayer = memo(function CaptionLayer({
-  source,
-  clock,
-  fonts,
-  measure,
-  width,
-  height,
-  reducedMotion,
-  onFps,
-}: {
-  source: FrameSource;
-  clock: Clock;
-  fonts: FontLookup;
-  measure: MeasureText;
-  width: number;
-  height: number;
-  reducedMotion: boolean;
-  onFps?: (fps: number) => void;
-}) {
-  const [tMs, setTMs] = useState(0);
-  useEffect(() => clock.subscribe(setTMs), [clock]);
-
-  const canvas = useMemo(() => ({ width, height }), [width, height]);
-  const frame = source.frameAt(tMs, canvas, measure, { reducedMotion });
-
-  useDrawCounter(onFps);
-
-  return <CaptionOverlay frame={frame} width={width} height={height} fonts={fonts} />;
-});
-
-/**
- * What all three platforms leave uncovered, dashed over the preview.
- *
- * Fractions of the frame, so it lands in the same place on the export, and drawn
- * over the video rather than over the stage: the letterbox is not part of
- * anybody's post. A warning and not a rule — a caption is allowed to sit outside
- * it, and some of them should.
- */
-function SafeZone() {
-  const zone = safeZoneUnion();
-
-  return (
-    <View
-      pointerEvents="none"
-      style={[
-        styles.safeZone,
-        {
-          top: `${zone.top * 100}%`,
-          bottom: `${zone.bottom * 100}%`,
-          left: `${zone.left * 100}%`,
-          right: `${zone.right * 100}%`,
-        },
-      ]}
-    />
-  );
-}
-
 /** Tap or drag anywhere on the track to seek. */
 const Scrubber = memo(function Scrubber({
   clock,
@@ -1262,24 +1197,6 @@ function useSourceInfo(player: VideoPlayer, project: Project | null) {
   return { aspect, durationMs };
 }
 
-/** Counts committed draw lists per second. */
-function useDrawCounter(report?: (fps: number) => void) {
-  const drawn = useRef(0);
-
-  useEffect(() => {
-    drawn.current += 1;
-  });
-
-  useEffect(() => {
-    if (!report) return;
-    const handle = setInterval(() => {
-      report(drawn.current);
-      drawn.current = 0;
-    }, 1000);
-    return () => clearInterval(handle);
-  }, [report]);
-}
-
 /**
  * Asks before accepting a replacement of a different length.
  *
@@ -1304,14 +1221,6 @@ function describe(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
-/** The largest box of `aspect` that fits, which is what `contentFit="contain"` draws. */
-function containRect(boxWidth: number, boxHeight: number, aspect: number) {
-  const width = boxHeight * aspect;
-  return width <= boxWidth
-    ? { width: Math.round(width), height: boxHeight }
-    : { width: boxWidth, height: Math.round(boxWidth / aspect) };
-}
-
 const styles = StyleSheet.create({
   bar: {
     flexDirection: 'row',
@@ -1321,13 +1230,6 @@ const styles = StyleSheet.create({
     paddingBottom: space.sm,
   },
   stage: { backgroundColor: '#000000', alignItems: 'center', justifyContent: 'center' },
-  safeZone: {
-    position: 'absolute',
-    borderWidth: 1,
-    borderStyle: 'dashed',
-    borderColor: color.signal,
-    borderRadius: radius.control,
-  },
   controls: {
     flexDirection: 'row',
     alignItems: 'center',

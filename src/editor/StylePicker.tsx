@@ -91,6 +91,7 @@ export function StylePicker({
   measure,
   clock,
   reducedMotion,
+  fill = false,
   onChange,
   onClose,
 }: {
@@ -101,8 +102,17 @@ export function StylePicker({
   measure: MeasureText;
   clock: Clock;
   reducedMotion: boolean;
+  /**
+   * Take the height it is given instead of a share of the window.
+   *
+   * In the sheet the controls are a guest over the editor and the preview under
+   * them is the thing being decided about, so they stop at `SCROLL_SHARE`. On a
+   * screen of their own there is nothing underneath to protect.
+   */
+  fill?: boolean;
   onChange(styleId: string, choices: StyleChoices): void;
-  onClose(): void;
+  /** Omitted where the screen's own bar is the way out: two of them is one too many. */
+  onClose?(): void;
 }) {
   const { height: windowHeight } = useWindowDimensions();
   const [gridWidth, setGridWidth] = useState(0);
@@ -143,11 +153,11 @@ export function StylePicker({
             The dashed box is what every platform leaves uncovered.
           </Label>
         </View>
-        <SheetAction label="Done" onPress={onClose} tone="quiet" accent={accent} />
+        {onClose ? <SheetAction label="Done" onPress={onClose} tone="quiet" accent={accent} /> : null}
       </View>
 
       <ScrollView
-        style={{ maxHeight: Math.round(windowHeight * SCROLL_SHARE) }}
+        style={fill ? styles.fill : { maxHeight: Math.round(windowHeight * SCROLL_SHARE) }}
         contentContainerStyle={styles.body}
         showsVerticalScrollIndicator={false}
       >
@@ -439,6 +449,7 @@ function sameColor(a: string, b: string): boolean {
 }
 
 const styles = StyleSheet.create({
+  fill: { flex: 1 },
   header: { flexDirection: 'row', alignItems: 'flex-start', gap: space.md },
   headerText: { flex: 1, gap: space.xs },
   body: { gap: space.lg, paddingBottom: space.sm },

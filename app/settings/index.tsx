@@ -61,7 +61,11 @@ export default function Settings() {
           onPress={() => router.push({ pathname: '/unlock', params: { from: 'settings' } })}
         />
         <Divider />
-        <Row title="Default style" detail={styleName} />
+        <Row
+          title="Default style"
+          detail={styleName}
+          onPress={() => router.push('/settings/style')}
+        />
         <Divider />
         <Row title="About" onPress={about} />
       </View>

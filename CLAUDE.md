@@ -418,6 +418,16 @@ the export will never produce.
 Settings carry a style too, written when the style sheet closes and read by
 `createProject`. A creator has a look, not a look per clip.
 
+Settings can also set it directly, at `/settings/style`, over `sample.ts`'s
+standing line instead of a transcript: the same `StylePicker`, the same
+`createFrameSource`, the same one layout. Before that screen the style had one
+home and it was the editor's sheet, so Settings could only report it — a row
+reading "Box highlight" that answered no tap, which is what a broken row looks
+like, and no way at all to change it without a project open. The picker keeps
+its Done for the sheet and drops it here, where the screen's own Back is the way
+out; `CaptionLayer` and the safe zone moved out of the editor screen so both
+previews draw through one of each.
+
 ## Editing
 
 Every change to a project goes through `useProjectEditor`, which is what keeps
