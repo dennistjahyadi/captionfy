@@ -20,9 +20,13 @@ import {
   CAPTION_INSET,
   EDITORIAL_MAX_ROWS,
   insetsFor,
+  isPaintable,
   LINE_HEIGHT_RATIO,
+  OWN_COLOR,
   TEXT_SIZE_RATIO,
+  type CaptionPosition,
   type FontWeight,
+  type ShadowStyle,
   type StyleProps,
 } from './style';
 import type { Ms, Project, Word } from './types';
@@ -53,6 +57,24 @@ export type WordState = 'past' | 'active' | 'future';
  */
 export type Layer = 'front' | 'behind';
 
+/**
+ * A drop shadow in pixels, ready to draw.
+ *
+ * `blur` is a Gaussian sigma, which is what Skia's blur mask filter takes. The
+ * burn-in converts it to the blur radius `android.graphics` asks for, because
+ * the two APIs name the same thing differently and a shadow twice as soft in the
+ * exported file would be invariant 2 broken quietly.
+ *
+ * `OWN_COLOR` is resolved before this is built, so nothing downstream ever has
+ * to know what casts the shadow.
+ */
+export interface ShadowDraw {
+  color: string;
+  blur: number;
+  dx: number;
+  dy: number;
+}
+
 export interface CaptionBoxDraw {
   x: number;
   y: number;
@@ -60,6 +82,7 @@ export interface CaptionBoxDraw {
   height: number;
   radius: number;
   color: string;
+  shadow?: ShadowDraw;
   layer: Layer;
 }
 
@@ -91,6 +114,8 @@ export interface CaptionWordDraw {
   /** Uniform scale about the centre of the word box. 1 unless the word is rising. */
   scale: number;
   outline: { color: string; width: number };
+  /** Soft shadow or glow behind the glyphs. Absent when the style asks for none. */
+  shadow?: ShadowDraw;
   box?: CaptionBoxDraw;
   layer: Layer;
 }
@@ -100,6 +125,13 @@ export interface CaptionFrame {
   /** Base size after any shrink to fit. The emphasised word may differ. */
   fontSize: number;
   lineHeight: number;
+  /**
+   * One card behind the whole block, drawn under every word.
+   *
+   * Not the per-word box: that is `CaptionWordDraw.box` and it marks the word
+   * being spoken. This is the sheet of paper the line is printed on.
+   */
+  plate?: CaptionBoxDraw;
   words: CaptionWordDraw[];
 }
 
@@ -176,6 +208,8 @@ export function layoutCaptionFrameFromLines(
   const insets = insetsFor(style);
   const available = canvas.width * (1 - insets.left - insets.right);
   const minFontSize = canvas.height * MIN_FONT_RATIO;
+  const captionTime = tMs - globalOffsetMs;
+  const visible = visibleCount(line.words, style, captionTime);
 
   const baseFace: FaceSpec = { family: style.fontFamily, weight: style.weight, italic: false };
   const emphasisFace: FaceSpec = {
@@ -190,63 +224,156 @@ export function layoutCaptionFrameFromLines(
 
   const plan =
     style.emphasis.ownRow && emphasisIndex >= 0
-      ? stackedPlan(line.words, emphasisIndex, style, baseFontSize, minFontSize, available, measure, baseFace, emphasisFace)
-      : flowPlan(line.words, emphasisIndex, style, baseFontSize, minFontSize, available, measure, baseFace, emphasisFace);
+      ? stackedPlan(line.words, emphasisIndex, visible, style, baseFontSize, minFontSize, available, measure, baseFace, emphasisFace)
+      : flowPlan(line.words, emphasisIndex, visible, style, baseFontSize, minFontSize, available, measure, baseFace, emphasisFace);
 
-  const blockHeight = plan.rows.reduce((total, row) => total + row.height, 0);
-  const blockTop = blockTopFor(style, canvas, blockHeight);
-  const captionTime = tMs - globalOffsetMs;
+  // A row pinned to a band of its own is not part of the block, so it does not
+  // count towards where the block sits or how tall it is.
+  const blockHeight = plan.rows.reduce((total, row) => total + (row.band ? 0 : row.height), 0);
+  const blockTop = blockTopFor(style.position, canvas, blockHeight);
+  const reducedMotion = opts.reducedMotion === true;
 
   const words: CaptionWordDraw[] = [];
+  const bounds = new Bounds();
   let rowTop = blockTop;
 
   for (const row of plan.rows) {
+    const top = row.band ? blockTopFor(row.band, canvas, row.height) : rowTop;
     // Left-aligned rows start at the margin; centred rows centre in the canvas,
     // not in the inset box, so a caption sits under the middle of the frame.
-    let x =
-      style.align === 'left' ? canvas.width * insets.left : (canvas.width - row.width) / 2;
-    const baseline = rowTop + (row.height - (row.ascent + row.descent)) / 2 + row.ascent;
+    let x = style.align === 'left' ? canvas.width * insets.left : (canvas.width - row.width) / 2;
+    const baseline = top + (row.height - (row.ascent + row.descent)) / 2 + row.ascent;
 
     for (const item of row.items) {
       const word = line.words[item.index];
       const state = stateOf(word, activeWord, captionTime);
       const boxed = style.highlightMode === 'box' && state === 'active';
+      const color = colorOf(style, item.emphasised, boxed);
+      const arrival = entranceOf(word, item, captionTime, style, reducedMotion);
+      const box = boxed
+        ? boxFor(x, top + arrival.dy, item.width, row.height, item.fontSize, style)
+        : undefined;
 
       words.push({
         wordId: word.id,
         text: item.text,
         x,
-        y: rowTop,
+        // The entrance slide is folded into the coordinates rather than carried
+        // as a separate offset, so every renderer that can draw a word at a
+        // place can draw a word arriving without learning a new field.
+        y: top + arrival.dy,
         width: item.width,
         height: row.height,
-        baseline,
+        baseline: baseline + arrival.dy,
         fontSize: item.fontSize,
         face: item.face,
         state,
         emphasised: item.emphasised,
         fill: fillOf(word, state, captionTime, style),
-        color: colorOf(style, item.emphasised, boxed),
+        color,
         fillColor: fillColorOf(style, item.emphasised, boxed),
-        opacity: state === 'future' ? style.upcomingOpacity : 1,
-        scale: riseOf(word, item.emphasised, captionTime, style, opts.reducedMotion === true),
+        opacity: (state === 'future' ? style.upcomingOpacity : 1) * arrival.opacity,
+        scale: arrival.scale,
         outline: { color: style.outlineColor, width: item.fontSize * style.outlineRatio },
-        box: boxed
-          ? boxFor(x, rowTop, item.width, row.height, item.fontSize, style.boxColor)
-          : undefined,
+        // A glow resolves against the colour the word ends up, not the one it
+        // starts in: a karaoke word is white until it fills and the accent
+        // after, and a halo that waited for the fill to catch up would read as
+        // the glow lagging the voice.
+        shadow: shadowOf(
+          shadowSpecFor(style, item.emphasised),
+          item.fontSize,
+          fillColorOf(style, item.emphasised, boxed)
+        ),
+        box,
         layer: 'front',
       });
+
+      // The card is measured off where the words settle, not off where they are
+      // mid-entrance, and against the box every word could wear rather than the
+      // one wearing it now. Either would make the card the only thing on screen
+      // that moves: it would breathe under an arriving word, and it would step
+      // in and out as the highlight reached the ends of the line.
+      if (!row.band) {
+        const inBox = style.highlightMode === 'box';
+        const padX = inBox ? item.fontSize * BOX_PAD.x : 0;
+        const padY = inBox ? item.fontSize * BOX_PAD.y : 0;
+        bounds.add(x - padX, top - padY, item.width + padX * 2, row.height + padY * 2);
+      }
 
       x += item.width + row.spaceWidth;
     }
 
-    rowTop += row.height;
+    if (!row.band) rowTop += row.height;
   }
 
   return {
     tMs,
     fontSize: plan.baseFontSize,
     lineHeight: plan.baseFontSize * LINE_HEIGHT_RATIO,
+    plate: plateFor(style, plan.baseFontSize, bounds),
     words,
+  };
+}
+
+/**
+ * How many of a line's words are on screen.
+ *
+ * Under `reveal: 'word'` a line builds as it is spoken, so a word the viewer has
+ * not heard yet is not drawn at all — which is what every app this one competes
+ * with does, and what a static block of subtitle text does not.
+ *
+ * Never zero. A line becomes visible when its first word starts, so the count is
+ * already at least one in every ordinary case; the floor is here for the moment
+ * after an edit when a line's own start and its first word's start disagree, and
+ * a caption blinking out is worse than a caption a few milliseconds early.
+ */
+function visibleCount(words: Word[], style: StyleProps, captionTime: Ms): number {
+  if (style.reveal !== 'word') return words.length;
+
+  let count = 0;
+  while (count < words.length && words[count].start <= captionTime) count += 1;
+  return Math.max(1, count);
+}
+
+/** The rectangle the drawn rows cover, for the plate to sit under. */
+class Bounds {
+  left = Infinity;
+  top = Infinity;
+  right = -Infinity;
+  bottom = -Infinity;
+
+  add(x: number, y: number, width: number, height: number): void {
+    this.left = Math.min(this.left, x);
+    this.top = Math.min(this.top, y);
+    this.right = Math.max(this.right, x + width);
+    this.bottom = Math.max(this.bottom, y + height);
+  }
+
+  get empty(): boolean {
+    return this.right <= this.left;
+  }
+}
+
+function plateFor(
+  style: StyleProps,
+  baseFontSize: number,
+  bounds: Bounds
+): CaptionBoxDraw | undefined {
+  const { plate } = style;
+  if (!isPaintable(plate.color) || bounds.empty) return undefined;
+
+  const padX = baseFontSize * plate.padXRatio;
+  const padY = baseFontSize * plate.padYRatio;
+
+  return {
+    x: bounds.left - padX,
+    y: bounds.top - padY,
+    width: bounds.right - bounds.left + padX * 2,
+    height: bounds.bottom - bounds.top + padY * 2,
+    radius: baseFontSize * plate.radiusRatio,
+    color: plate.color,
+    shadow: shadowOf(plate.shadow, baseFontSize, plate.color),
+    layer: 'front',
   };
 }
 
@@ -266,6 +393,8 @@ type Row = {
   ascent: number;
   descent: number;
   spaceWidth: number;
+  /** Set only on an emphasis row the style pinned away from the block. */
+  band?: CaptionPosition;
 };
 
 type Plan = { rows: Row[]; baseFontSize: number };
@@ -275,10 +404,16 @@ type Plan = { rows: Row[]; baseFontSize: number };
  *
  * The emphasised word, if there is one, simply sits inline at its own size. This
  * is what every preset but Editorial does.
+ *
+ * The fit is decided against the whole line and only then are the first
+ * `visible` words laid out, so a line revealing a word at a time keeps one type
+ * size from its first word to its last. Fitting the prefix instead would shrink
+ * the type under the reader as the line filled up.
  */
 function flowPlan(
   words: Word[],
   emphasisIndex: number,
+  visible: number,
   style: StyleProps,
   baseFontSize: number,
   minFontSize: number,
@@ -301,6 +436,19 @@ function flowPlan(
     rows = wrapRows(words, emphasisIndex, style, fontSize, available, measure, baseFace, emphasisFace);
   }
 
+  if (visible < words.length) {
+    rows = wrapRows(
+      words.slice(0, visible),
+      emphasisIndex,
+      style,
+      fontSize,
+      available,
+      measure,
+      baseFace,
+      emphasisFace
+    );
+  }
+
   return { rows, baseFontSize: fontSize };
 }
 
@@ -314,6 +462,7 @@ function flowPlan(
 function stackedPlan(
   words: Word[],
   emphasisIndex: number,
+  visible: number,
   style: StyleProps,
   baseFontSize: number,
   minFontSize: number,
@@ -341,16 +490,23 @@ function stackedPlan(
 
   const emphasisSize = fitEmphasis(emphasisText, base, style, available, measure, emphasisFace);
 
+  // Only the words already spoken take a place in the shape; the rows that have
+  // not arrived are simply absent, so the stack builds downward. The sizes above
+  // were decided against the whole line, so nothing resizes as it fills.
+  const shownBefore = before.slice(0, visible);
+  const shownAfter = after.slice(0, Math.max(0, visible - emphasisIndex - 1));
+
   const rows: Row[] = [];
-  if (before.length > 0) {
-    rows.push(buildRow(before, 0, style, base, measure, baseFace, emphasisFace, -1));
+  if (shownBefore.length > 0) {
+    rows.push(buildRow(shownBefore, 0, style, base, measure, baseFace, emphasisFace, -1));
   }
-  rows.push(
-    buildRow([words[emphasisIndex]], emphasisIndex, style, base, measure, baseFace, emphasisFace, emphasisIndex, emphasisSize)
-  );
-  if (after.length > 0) {
+  if (emphasisIndex < visible) {
+    const row = buildRow([words[emphasisIndex]], emphasisIndex, style, base, measure, baseFace, emphasisFace, emphasisIndex, emphasisSize);
+    rows.push(style.emphasis.band ? { ...row, band: style.emphasis.band } : row);
+  }
+  if (shownAfter.length > 0) {
     rows.push(
-      buildRow(after, emphasisIndex + 1, style, base, measure, baseFace, emphasisFace, -1)
+      buildRow(shownAfter, emphasisIndex + 1, style, base, measure, baseFace, emphasisFace, -1)
     );
   }
 
@@ -524,10 +680,10 @@ function display(word: Word, style: StyleProps): string {
   return style.uppercase ? word.text.toUpperCase() : word.text;
 }
 
-function blockTopFor(style: StyleProps, canvas: Canvas, blockHeight: number): number {
-  if (style.position === 'top') return canvas.height * CAPTION_INSET.top;
-  if (style.position === 'upperMiddle') return canvas.height * CAPTION_INSET.upperMiddle;
-  if (style.position === 'middle') return (canvas.height - blockHeight) / 2;
+function blockTopFor(position: CaptionPosition, canvas: Canvas, blockHeight: number): number {
+  if (position === 'top') return canvas.height * CAPTION_INSET.top;
+  if (position === 'upperMiddle') return canvas.height * CAPTION_INSET.upperMiddle;
+  if (position === 'middle') return (canvas.height - blockHeight) / 2;
   return canvas.height * (1 - CAPTION_INSET.bottom) - blockHeight;
 }
 
@@ -558,11 +714,86 @@ function fillColorOf(style: StyleProps, emphasised: boolean, boxed: boolean): st
 }
 
 /**
- * The emphasised word's entrance, computed here rather than left to an animation
- * driver.
+ * How a word arrives: where it is, how big and how solid, at this instant.
  *
- * A spring in the preview that the exporter does not run is exactly how an app
- * ends up with a preview that does not match the file.
+ * Every channel is computed here rather than left to an animation driver, for
+ * the same reason the rise always was: a spring running in the preview that the
+ * exporter does not run is exactly how an app ends up with a preview that does
+ * not match the file (invariant 2).
+ *
+ * Scale has two owners and they do not mix. An emphasised word uses the
+ * preset's own `riseFrom` over `riseMs`, because how a big word arrives is part
+ * of what a preset says about big words; everything else uses the line's
+ * `entrance`. Slide and fade come from `entrance` for every word including the
+ * emphasised one, so a line and its big word land together.
+ */
+function entranceOf(
+  word: Word,
+  item: RowItem,
+  captionTime: Ms,
+  style: StyleProps,
+  reducedMotion: boolean
+): { scale: number; dy: number; opacity: number } {
+  const scale = item.emphasised
+    ? riseOf(word, true, captionTime, style, reducedMotion)
+    : scaleIn(word, captionTime, style, reducedMotion);
+
+  const { dyRatio, opacityFrom, ms } = style.entrance;
+  if (reducedMotion || ms <= 0 || (dyRatio === 0 && opacityFrom === 1)) {
+    return { scale, dy: 0, opacity: 1 };
+  }
+
+  const remaining = 1 - easeOutCubic(clamp01((captionTime - word.start) / ms));
+  return {
+    scale,
+    dy: item.fontSize * dyRatio * remaining,
+    opacity: 1 - (1 - opacityFrom) * remaining,
+  };
+}
+
+function scaleIn(word: Word, captionTime: Ms, style: StyleProps, reducedMotion: boolean): number {
+  const { scaleFrom, ms } = style.entrance;
+  if (scaleFrom === 1 || ms <= 0 || reducedMotion) return 1;
+  const progress = clamp01((captionTime - word.start) / ms);
+  return scaleFrom + (1 - scaleFrom) * easeOutCubic(progress);
+}
+
+/**
+ * Which shadow a word casts: the big word's own, where the preset gave it one,
+ * and otherwise the line's.
+ *
+ * A glow belongs to the word it picks out. Under the rest of the sentence the
+ * same glow is a smear.
+ */
+function shadowSpecFor(style: StyleProps, emphasised: boolean): ShadowStyle {
+  return (emphasised && style.emphasis.shadow) || style.shadow;
+}
+
+/**
+ * A shadow in pixels, or nothing at all.
+ *
+ * Nothing when it would put no pixels down — a transparent colour, or no blur
+ * and no offset — so a preset that does not want one costs the renderers no
+ * branch and the export's plan no bytes.
+ */
+function shadowOf(spec: ShadowStyle, fontSize: number, ownColor: string): ShadowDraw | undefined {
+  const color = spec.color === OWN_COLOR ? ownColor : spec.color;
+  if (!isPaintable(color)) return undefined;
+  if (spec.blurRatio === 0 && spec.dxRatio === 0 && spec.dyRatio === 0) return undefined;
+
+  return {
+    color,
+    blur: fontSize * spec.blurRatio,
+    dx: fontSize * spec.dxRatio,
+    dy: fontSize * spec.dyRatio,
+  };
+}
+
+/**
+ * The emphasised word's rise.
+ *
+ * Kept separate from the line's entrance because it predates it and because the
+ * two say different things: this one is the preset's opinion about big words.
  */
 function riseOf(
   word: Word,
@@ -583,7 +814,7 @@ function boxFor(
   width: number,
   rowHeight: number,
   fontSize: number,
-  color: string
+  style: StyleProps
 ): CaptionBoxDraw {
   const padX = fontSize * BOX_PAD.x;
   const padY = fontSize * BOX_PAD.y;
@@ -593,7 +824,8 @@ function boxFor(
     width: width + padX * 2,
     height: rowHeight + padY * 2,
     radius: fontSize * BOX_RADIUS_RATIO,
-    color,
+    color: style.boxColor,
+    shadow: shadowOf(style.boxShadow, fontSize, style.boxColor),
     layer: 'front',
   };
 }

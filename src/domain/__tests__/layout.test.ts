@@ -1,6 +1,13 @@
 import { measureMono, project, word } from '../__fixtures__/project';
 import { layoutCaptionFrame, type Canvas } from '../layout';
-import { CAPTION_INSET, resolveStyle, TEXT_SIZE_RATIO, type StyleProps } from '../style';
+import {
+  CAPTION_INSET,
+  NO_SHADOW,
+  OWN_COLOR,
+  resolveStyle,
+  TEXT_SIZE_RATIO,
+  type StyleOverrides,
+} from '../style';
 
 const canvas: Canvas = { width: 1080, height: 1920 };
 
@@ -10,9 +17,9 @@ const words = [
   word({ id: 'w3', text: 'I', start: 1000, end: 1200 }),
 ];
 
-const style = (overrides: Partial<StyleProps> = {}) => resolveStyle('box', overrides);
+const style = (overrides: StyleOverrides = {}) => resolveStyle('box', overrides);
 
-const frameAt = (tMs: number, overrides: Partial<StyleProps> = {}, p = project({ words })) =>
+const frameAt = (tMs: number, overrides: StyleOverrides = {}, p = project({ words })) =>
   layoutCaptionFrame(p, style(overrides), tMs, canvas, measureMono);
 
 describe('invariant 2: one deterministic layout', () => {
@@ -216,3 +223,245 @@ describe('highlight modes', () => {
     expect(new Set(frame.words.map((w) => w.color)).size).toBe(1);
   });
 });
+
+describe('reveal: a line that builds as it is spoken', () => {
+  const revealing = { reveal: 'word' as const };
+
+  it('draws only the words already started', () => {
+    expect(frameAt(200, revealing).words.map((w) => w.text)).toEqual(['so']);
+    expect(frameAt(500, revealing).words.map((w) => w.text)).toEqual(['so', 'today']);
+    expect(frameAt(1100, revealing).words.map((w) => w.text)).toEqual(['so', 'today', 'I']);
+  });
+
+  it('keeps one type size from the first word to the last', () => {
+    // The fit is decided against the whole line, so a line does not shrink under
+    // the reader as it fills up.
+    const sizes = [200, 500, 1100].map((at) => frameAt(at, revealing).fontSize);
+    expect(new Set(sizes).size).toBe(1);
+  });
+
+  it('re-centres what is on screen rather than holding a space', () => {
+    const one = frameAt(200, revealing);
+    const two = frameAt(500, revealing);
+    expect(centre(one)).toBeCloseTo(canvas.width / 2);
+    expect(centre(two)).toBeCloseTo(canvas.width / 2);
+    expect(two.words[0].x).not.toBeCloseTo(one.words[0].x);
+  });
+
+  it('draws the whole line when the style does not ask for a reveal', () => {
+    expect(frameAt(200).words).toHaveLength(3);
+  });
+
+  it('never blinks out: a line on screen always has a word on it', () => {
+    for (let at = -50; at < 1600; at += 10) {
+      const whole = frameAt(at).words.length;
+      const building = frameAt(at, revealing).words.length;
+
+      if (whole > 0) expect(building).toBeGreaterThan(0);
+      else expect(building).toBe(0);
+    }
+  });
+});
+
+describe('entrance', () => {
+  const arriving = {
+    reveal: 'word' as const,
+    entrance: { scaleFrom: 0.5, dyRatio: 0.5, opacityFrom: 0, ms: 200 },
+  };
+
+  it('brings every word in, not only the emphasised one', () => {
+    const word = frameAt(480, arriving).words[1];
+    expect(word.scale).toBeGreaterThan(0.5);
+    expect(word.scale).toBeLessThan(1);
+    expect(word.opacity).toBeGreaterThan(0);
+    expect(word.opacity).toBeLessThan(1);
+  });
+
+  it('settles: a word past its entrance is where the layout put it', () => {
+    const settled = frameAt(900, arriving).words[1];
+    const still = frameAt(900, { reveal: 'word' }).words[1];
+
+    expect(settled.scale).toBe(1);
+    expect(settled.opacity).toBe(1);
+    expect(settled.y).toBeCloseTo(still.y);
+    expect(settled.baseline).toBeCloseTo(still.baseline);
+  });
+
+  it('starts a word below where it lands', () => {
+    expect(frameAt(400, arriving).words[1].y).toBeGreaterThan(frameAt(900, arriving).words[1].y);
+  });
+
+  it('moves the word box with the word', () => {
+    const arrivingBox = { ...arriving, highlightMode: 'box' as const };
+    const mid = frameAt(450, arrivingBox).words[1];
+    expect(mid.box!.y).toBeCloseTo(mid.y - mid.fontSize * 0.12);
+  });
+
+  it('is off under reduced motion, in the preview and the export alike', () => {
+    const frame = layoutCaptionFrame(project({ words }), style(arriving), 400, canvas, measureMono, {
+      reducedMotion: true,
+    });
+    expect(frame.words.every((w) => w.scale === 1 && w.opacity === 1)).toBe(true);
+    expect(frame.words[1].y).toBeCloseTo(frameAt(900, arriving).words[1].y);
+  });
+});
+
+describe('shadow', () => {
+  const shadowed = { shadow: { color: '#000000AA', blurRatio: 0.2, dxRatio: 0, dyRatio: 0.05 } };
+
+  it('scales with the font, so preview and export cast the same one', () => {
+    const big = frameAt(500, shadowed).words[0];
+    const small = layoutCaptionFrame(
+      project({ words }),
+      style(shadowed),
+      500,
+      { width: 270, height: 480 },
+      measureMono
+    ).words[0];
+
+    expect(big.shadow!.blur / small.shadow!.blur).toBeCloseTo(4);
+    expect(big.shadow!.blur).toBeCloseTo(big.fontSize * 0.2);
+  });
+
+  it('is absent when it would put no pixels down', () => {
+    expect(frameAt(500).words[0].shadow).toBeUndefined();
+    expect(
+      frameAt(500, { shadow: { color: '#000000', blurRatio: 0, dxRatio: 0, dyRatio: 0 } }).words[0]
+        .shadow
+    ).toBeUndefined();
+  });
+
+  it('resolves a glow to the colour of the word casting it', () => {
+    const glow = {
+      emphasis: { shadow: { color: OWN_COLOR, blurRatio: 0.3, dxRatio: 0, dyRatio: 0 } },
+    };
+    const frame = layoutCaptionFrame(project({ words }), style(glow), 500, canvas, measureMono, {
+      emphasisIds: new Set(['w2']),
+    });
+    const big = frame.words[1];
+
+    // Never the sentinel: the export reads a colour, not an instruction.
+    expect(big.shadow!.color).toBe(big.color);
+    expect(big.shadow!.color).not.toBe(OWN_COLOR);
+  });
+
+  it('gives the big word its own where the preset asked, and the line theirs', () => {
+    const frame = layoutCaptionFrame(
+      project({ words }),
+      style({
+        ...shadowed,
+        emphasis: { shadow: { color: '#FF0000', blurRatio: 0, dxRatio: 0.04, dyRatio: 0.04 } },
+      }),
+      500,
+      canvas,
+      measureMono,
+      { emphasisIds: new Set(['w2']) }
+    );
+
+    expect(frame.words[1].shadow!.color).toBe('#FF0000');
+    expect(frame.words[0].shadow!.color).toBe('#000000AA');
+  });
+});
+
+describe('plate', () => {
+  const plated = {
+    plate: {
+      color: '#FFFFFF',
+      padXRatio: 0.3,
+      padYRatio: 0.2,
+      radiusRatio: 0.1,
+      shadow: { color: '#00000040', blurRatio: 0.2, dxRatio: 0, dyRatio: 0.1 },
+    },
+  };
+
+  it('covers every word on the block', () => {
+    const frame = frameAt(500, plated);
+    const plate = frame.plate!;
+
+    for (const word of frame.words) {
+      expect(plate.x).toBeLessThan(word.x);
+      expect(plate.x + plate.width).toBeGreaterThan(word.x + word.width);
+      expect(plate.y).toBeLessThan(word.y);
+      expect(plate.y + plate.height).toBeGreaterThan(word.y + word.height);
+    }
+  });
+
+  it('holds still while the highlight walks the line', () => {
+    // It has to be sized against the box every word could wear, not the one
+    // wearing it: a card that stepped in and out at the ends of the line would
+    // be the only thing on screen the eye follows.
+    const boxed = { ...plated, highlightMode: 'box' as const };
+    const plates = [200, 500, 1100].map((at) => frameAt(at, boxed).plate);
+
+    expect(plates[1]).toEqual(plates[0]);
+    expect(plates[2]).toEqual(plates[0]);
+  });
+
+  it('contains the box wherever it is', () => {
+    const boxed = { ...plated, highlightMode: 'box' as const };
+    for (const at of [200, 500, 1100]) {
+      const frame = frameAt(at, boxed);
+      const box = frame.words.find((entry) => entry.box)!.box!;
+      expect(frame.plate!.x).toBeLessThanOrEqual(box.x);
+      expect(frame.plate!.x + frame.plate!.width).toBeGreaterThanOrEqual(box.x + box.width);
+    }
+  });
+
+  it('is absent when the style asks for none', () => {
+    expect(frameAt(500).plate).toBeUndefined();
+    expect(frameAt(-1, plated).plate).toBeUndefined();
+  });
+});
+
+describe('a big word in a band of its own', () => {
+  const detached = {
+    position: 'lowerThird' as const,
+    emphasis: { ownRow: true, scale: 2, band: 'top' as const },
+  };
+
+  const banded = (overrides = {}) =>
+    layoutCaptionFrame(project({ words }), style({ ...detached, ...overrides }), 1100, canvas, measureMono, {
+      emphasisIds: new Set(['w2']),
+    });
+
+  it('puts it at its own band and leaves the rest where the style says', () => {
+    const frame = banded();
+    const big = frame.words.find((w) => w.emphasised)!;
+    const rest = frame.words.filter((w) => !w.emphasised);
+
+    expect(big.y).toBeCloseTo(canvas.height * CAPTION_INSET.top);
+    for (const word of rest) expect(word.y).toBeGreaterThan(canvas.height * 0.6);
+  });
+
+  it('does not let the banded row push the block around', () => {
+    // The block sits where it would with no big word in it at all.
+    const withBand = banded();
+    const inline = layoutCaptionFrame(
+      project({ words }),
+      style({ position: 'lowerThird', emphasis: { ownRow: true, scale: 2 } }),
+      1100,
+      canvas,
+      measureMono,
+      { emphasisIds: new Set(['w2']) }
+    );
+
+    const lowest = (frame: typeof withBand) =>
+      Math.max(...frame.words.map((w) => w.y + w.height));
+    expect(lowest(withBand)).toBeCloseTo(lowest(inline));
+    expect(withBand.words.filter((w) => !w.emphasised).length).toBe(2);
+  });
+
+  it('leaves a banded word outside the card', () => {
+    const frame = banded({
+      plate: { color: '#FFFFFF', padXRatio: 0.2, padYRatio: 0.2, radiusRatio: 0, shadow: NO_SHADOW },
+    });
+    const big = frame.words.find((w) => w.emphasised)!;
+    expect(frame.plate!.y).toBeGreaterThan(big.y + big.height);
+  });
+});
+
+function centre(frame: { words: { x: number; width: number }[] }): number {
+  const left = Math.min(...frame.words.map((w) => w.x));
+  const right = Math.max(...frame.words.map((w) => w.x + w.width));
+  return (left + right) / 2;
+}

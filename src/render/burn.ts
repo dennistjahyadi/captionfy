@@ -20,11 +20,13 @@
  * get an entry every frame, which is the honest cost of that preset.
  */
 import {
+  type CaptionBoxDraw,
   type CaptionWordDraw,
   type Canvas,
   type MeasureText,
   type Ms,
   type Project,
+  type ShadowDraw,
 } from '../domain';
 import { faceKey } from './faces';
 import { createFrameSource } from './frame';
@@ -34,6 +36,14 @@ function round2(value: number): number {
   return Math.round(value * 100) / 100;
 }
 
+/** A drop shadow. `blur` is a Gaussian sigma; the module converts it to a radius. */
+export interface BurnShadow {
+  color: string;
+  blur: number;
+  dx: number;
+  dy: number;
+}
+
 export interface BurnBox {
   x: number;
   y: number;
@@ -41,6 +51,7 @@ export interface BurnBox {
   height: number;
   radius: number;
   color: string;
+  shadow?: BurnShadow;
 }
 
 /** One word, ready to draw. Every number is in export pixels. */
@@ -63,12 +74,15 @@ export interface BurnWord {
   scale: number;
   outlineColor: string;
   outlineWidth: number;
+  shadow?: BurnShadow;
   box?: BurnBox;
 }
 
 /** A draw list, and the time from which it applies. */
 export interface BurnEntry {
   tMs: Ms;
+  /** The card under the whole block, where the style asked for one. */
+  plate?: BurnBox;
   words: BurnWord[];
 }
 
@@ -103,17 +117,19 @@ export function buildBurnPlan(
 
   for (let index = 0; index < frames; index += 1) {
     const tMs = Math.round((index * 1000) / opts.fps);
-    const words = source
-      .frameAt(tMs, canvas, measure, { reducedMotion: opts.reducedMotion })
-      .words.map(toBurnWord);
+    const frame = source.frameAt(tMs, canvas, measure, { reducedMotion: opts.reducedMotion });
+    const entry: Omit<BurnEntry, 'tMs'> = {
+      ...(frame.plate ? { plate: toBurnBox(frame.plate) } : {}),
+      words: frame.words.map(toBurnWord),
+    };
 
     // Compared as text because that is exactly the question: would the native
     // side draw anything different from what it is already showing?
-    const shape = JSON.stringify(words);
+    const shape = JSON.stringify(entry);
     if (shape === previous) continue;
 
     previous = shape;
-    entries.push({ tMs, words });
+    entries.push({ tMs, ...entry });
   }
 
   return {
@@ -142,18 +158,29 @@ function toBurnWord(word: CaptionWordDraw): BurnWord {
     scale: Math.round(word.scale * 1000) / 1000,
     outlineColor: word.outline.color,
     outlineWidth: round2(word.outline.width),
-    ...(word.box
-      ? {
-          box: {
-            x: round2(word.box.x),
-            y: round2(word.box.y),
-            width: round2(word.box.width),
-            height: round2(word.box.height),
-            radius: round2(word.box.radius),
-            color: word.box.color,
-          },
-        }
-      : {}),
+    ...(word.shadow ? { shadow: toBurnShadow(word.shadow) } : {}),
+    ...(word.box ? { box: toBurnBox(word.box) } : {}),
+  };
+}
+
+function toBurnBox(box: CaptionBoxDraw): BurnBox {
+  return {
+    x: round2(box.x),
+    y: round2(box.y),
+    width: round2(box.width),
+    height: round2(box.height),
+    radius: round2(box.radius),
+    color: box.color,
+    ...(box.shadow ? { shadow: toBurnShadow(box.shadow) } : {}),
+  };
+}
+
+function toBurnShadow(shadow: ShadowDraw): BurnShadow {
+  return {
+    color: shadow.color,
+    blur: round2(shadow.blur),
+    dx: round2(shadow.dx),
+    dy: round2(shadow.dy),
   };
 }
 

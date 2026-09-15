@@ -2,7 +2,7 @@
  * The line the default-style screen animates.
  *
  * That screen picks the style a new project starts in, and it runs before there
- * is a project: no video, no transcript, nothing for four preset tiles to draw.
+ * is a project: no video, no transcript, nothing for the preset tiles to draw.
  * So it draws this instead.
  *
  * It is a whole `Project` rather than a special case inside the picker, because

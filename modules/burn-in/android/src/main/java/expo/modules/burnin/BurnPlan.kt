@@ -13,6 +13,22 @@ import java.io.File
  * That is how the exported file and the preview stay the same picture
  * (invariant 2), and it is why this is a reader and not a layout engine.
  */
+/**
+ * A drop shadow.
+ *
+ * `blur` is the Gaussian sigma the preview's Skia blur mask was given. Android's
+ * `BlurMaskFilter` takes a radius and converts it to a sigma itself, so the
+ * painter converts back rather than passing the number straight through: the
+ * same figure read as a radius would be a shadow nearly twice as soft in the
+ * exported file, which is invariant 2 broken in the one place nobody would look.
+ */
+internal data class BurnShadow(
+  val color: Int,
+  val blur: Float,
+  val dx: Float,
+  val dy: Float,
+)
+
 internal data class BurnBox(
   val x: Float,
   val y: Float,
@@ -20,6 +36,7 @@ internal data class BurnBox(
   val height: Float,
   val radius: Float,
   val color: Int,
+  val shadow: BurnShadow?,
 )
 
 internal data class BurnWord(
@@ -40,11 +57,12 @@ internal data class BurnWord(
   val scale: Float,
   val outlineColor: Int,
   val outlineWidth: Float,
+  val shadow: BurnShadow?,
   val box: BurnBox?,
 )
 
 /** A draw list and the moment it starts applying. It holds until the next one. */
-internal data class BurnEntry(val tMs: Long, val words: List<BurnWord>)
+internal data class BurnEntry(val tMs: Long, val plate: BurnBox?, val words: List<BurnWord>)
 
 internal data class BurnPlan(
   val width: Int,
@@ -77,7 +95,13 @@ internal object PlanReader {
     val entries = ArrayList<BurnEntry>(entriesJson.length())
     for (index in 0 until entriesJson.length()) {
       val entry = entriesJson.getJSONObject(index)
-      entries.add(BurnEntry(entry.getLong("tMs"), words(entry.getJSONArray("words"))))
+      entries.add(
+        BurnEntry(
+          tMs = entry.getLong("tMs"),
+          plate = box(entry.optJSONObject("plate")),
+          words = words(entry.getJSONArray("words")),
+        )
+      )
     }
 
     return BurnPlan(
@@ -108,16 +132,31 @@ internal object PlanReader {
         scale = word.getDouble("scale").toFloat(),
         outlineColor = parseColor(word.getString("outlineColor")),
         outlineWidth = word.getDouble("outlineWidth").toFloat(),
-        box = word.optJSONObject("box")?.let { box ->
-          BurnBox(
-            x = box.getDouble("x").toFloat(),
-            y = box.getDouble("y").toFloat(),
-            width = box.getDouble("width").toFloat(),
-            height = box.getDouble("height").toFloat(),
-            radius = box.getDouble("radius").toFloat(),
-            color = parseColor(box.getString("color")),
-          )
-        },
+        shadow = shadow(word.optJSONObject("shadow")),
+        box = box(word.optJSONObject("box")),
+      )
+    }
+
+  private fun box(json: JSONObject?): BurnBox? =
+    json?.let {
+      BurnBox(
+        x = it.getDouble("x").toFloat(),
+        y = it.getDouble("y").toFloat(),
+        width = it.getDouble("width").toFloat(),
+        height = it.getDouble("height").toFloat(),
+        radius = it.getDouble("radius").toFloat(),
+        color = parseColor(it.getString("color")),
+        shadow = shadow(it.optJSONObject("shadow")),
+      )
+    }
+
+  private fun shadow(json: JSONObject?): BurnShadow? =
+    json?.let {
+      BurnShadow(
+        color = parseColor(it.getString("color")),
+        blur = it.getDouble("blur").toFloat(),
+        dx = it.getDouble("dx").toFloat(),
+        dy = it.getDouble("dy").toFloat(),
       )
     }
 

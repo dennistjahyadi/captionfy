@@ -1,6 +1,9 @@
 import {
   accentColor,
+  DEFAULT_STYLE_ID,
   highlightColorOverrides,
+  isPaintable,
+  OWN_COLOR,
   presetById,
   PLATFORM_SAFE_ZONES,
   resolveStyle,
@@ -161,5 +164,96 @@ describe('safeZoneUnion', () => {
     // The overlay would be a liar if the default position sat outside it.
     expect(presetById('box').position).toBe('lowerThird');
     expect(safeZoneUnion().bottom).toBeLessThanOrEqual(0.22);
+  });
+});
+
+describe('the preset roster', () => {
+  it('holds nine, each with its own id and name', () => {
+    expect(STYLE_PRESETS).toHaveLength(9);
+    expect(new Set(STYLE_PRESETS.map((preset) => preset.id)).size).toBe(9);
+    expect(new Set(STYLE_PRESETS.map((preset) => preset.name)).size).toBe(9);
+  });
+
+  it('starts new projects on one that exists', () => {
+    expect(STYLE_PRESETS.some((preset) => preset.id === DEFAULT_STYLE_ID)).toBe(true);
+  });
+
+  it('only bands a big word that has a row of its own', () => {
+    // A word sitting inline in a row cannot also be somewhere else on screen.
+    for (const preset of STYLE_PRESETS) {
+      if (preset.props.emphasis.band) expect(preset.props.emphasis.ownRow).toBe(true);
+    }
+  });
+
+  it('paints every word in something, whether a stroke or a shadow', () => {
+    // Type on a photograph needs an edge. A preset with neither is one that
+    // disappears over a white wall.
+    for (const preset of STYLE_PRESETS) {
+      const { props } = preset;
+      const stroked = props.outlineRatio > 0 && isPaintable(props.outlineColor);
+      const shadowed = isPaintable(props.shadow.color) && props.shadow.blurRatio > 0;
+      const plated = isPaintable(props.plate.color);
+
+      expect(stroked || shadowed || plated).toBe(true);
+    }
+  });
+
+  it('answers the colour swatch with something visible in every one of them', () => {
+    for (const preset of STYLE_PRESETS) {
+      const style = resolveStyle(preset.id, highlightColorOverrides(preset.props, RED));
+      const painted = [style.boxColor, style.highlightColor, style.spokenColor, style.emphasis.color];
+      expect(painted).toContain(RED);
+    }
+  });
+
+  it('keeps a glow following the colour the user picked', () => {
+    const glowing = STYLE_PRESETS.filter((preset) => preset.props.emphasis.shadow?.color === OWN_COLOR);
+    expect(glowing.length).toBeGreaterThan(0);
+
+    for (const preset of glowing) {
+      const style = resolveStyle(preset.id, highlightColorOverrides(preset.props, RED));
+      expect(style.emphasis.shadow!.color).toBe(OWN_COLOR);
+      expect(style.emphasis.color).toBe(RED);
+    }
+  });
+});
+
+describe('a highlight that survives the colour it is given', () => {
+  it('keeps the box a shape on the one preset that prints on paper', () => {
+    // White is a swatch and the card is white, so the fill alone cannot be the
+    // whole signal.
+    const style = resolveStyle('newsprint', highlightColorOverrides(presetById('newsprint'), '#FFFFFF'));
+
+    expect(style.boxColor).toBe('#FFFFFF');
+    expect(isPaintable(style.boxShadow.color)).toBe(true);
+    expect(style.boxShadow.dxRatio).toBeGreaterThan(0);
+  });
+});
+
+describe('isPaintable', () => {
+  it('is false only for a colour with nothing in it', () => {
+    expect(isPaintable('#00000000')).toBe(false);
+    expect(isPaintable('#FFFFFF00')).toBe(false);
+    expect(isPaintable('#000000')).toBe(true);
+    expect(isPaintable('#00000001')).toBe(true);
+  });
+});
+
+describe('resolveStyle', () => {
+  it('merges a nested override without dropping the rest of it', () => {
+    const style = resolveStyle('stack', { shadow: { color: RED }, entrance: { ms: 400 } });
+    const preset = presetById('stack');
+
+    expect(style.shadow.color).toBe(RED);
+    expect(style.shadow.blurRatio).toBe(preset.shadow.blurRatio);
+    expect(style.entrance.ms).toBe(400);
+    expect(style.entrance.dyRatio).toBe(preset.entrance.dyRatio);
+  });
+
+  it('will not take an entrance that runs backwards', () => {
+    const style = resolveStyle('stack', { entrance: { ms: -100, opacityFrom: 4 } });
+
+    expect(style.entrance.ms).toBe(0);
+    expect(style.entrance.opacityFrom).toBe(1);
   });
 });

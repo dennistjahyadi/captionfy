@@ -123,3 +123,63 @@ describe('exportSize', () => {
     expect(exportSize(1, 1, 1080)).toEqual({ width: 2, height: 2 });
   });
 });
+
+describe('the new presets across the bridge', () => {
+  const canvas: Canvas = { width: options.width, height: options.height };
+
+  it.each(['spotlight', 'stack', 'headline', 'newsprint'])(
+    '%s: the plan draws what the preview draws',
+    (styleId) => {
+      const projected = ready(styleId);
+      const plan = buildBurnPlan(projected, options, measureMono);
+      const style = projectStyle(projected);
+
+      let entry = 0;
+      for (let index = 0; index < 96; index += 1) {
+        const tMs = Math.round((index * 1000) / options.fps);
+        while (entry + 1 < plan.entries.length && plan.entries[entry + 1].tMs <= tMs) entry += 1;
+
+        const expected = layoutCaptionFrame(projected, style, tMs, canvas, measureMono);
+        const showing = plan.entries[entry];
+
+        expect(showing.words).toHaveLength(expected.words.length);
+        showing.words.forEach((word, at) => {
+          expect(word.text).toBe(expected.words[at].text);
+          expect(word.x).toBeCloseTo(expected.words[at].x, 1);
+          expect(word.baseline).toBeCloseTo(expected.words[at].baseline, 1);
+          expect(word.opacity).toBeCloseTo(expected.words[at].opacity, 2);
+          expect(word.shadow?.color).toBe(expected.words[at].shadow?.color);
+        });
+        expect(showing.plate?.color).toBe(expected.plate?.color);
+      }
+    }
+  );
+
+  it('carries the card, because a new entry is a whole new drawing', () => {
+    // The comparison that skips unchanged frames is over the entry, not the
+    // words: a plate that changed while the words did not would be dropped.
+    const plan = buildBurnPlan(ready('newsprint'), options, measureMono);
+
+    expect(plan.entries.every((entry) => entry.plate !== undefined)).toBe(true);
+    expect(plan.entries[0].plate!.shadow).toBeDefined();
+  });
+
+  it('carries a resolved colour for a glow, never the sentinel', () => {
+    const plan = buildBurnPlan(ready('stack'), options, measureMono);
+    const glows = plan.entries.flatMap((entry) => entry.words).filter((word) => word.shadow);
+
+    expect(glows.length).toBeGreaterThan(0);
+    for (const word of glows) expect(word.shadow!.color).toMatch(/^#[0-9A-Fa-f]{6,8}$/);
+  });
+
+  it('costs a reveal what it costs, and no more', () => {
+    // A word arriving changes the drawing every frame while it arrives and not
+    // once it has landed, so a built line is cheaper than a karaoke fill.
+    const frames = Math.ceil((options.durationMs * options.fps) / 1000);
+    const spotlight = buildBurnPlan(ready('spotlight'), options, measureMono);
+    const karaoke = buildBurnPlan(ready('karaoke'), options, measureMono);
+
+    expect(spotlight.entries.length).toBeLessThan(karaoke.entries.length);
+    expect(spotlight.entries.length).toBeLessThan(frames);
+  });
+});
