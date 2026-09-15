@@ -1,20 +1,33 @@
 /**
  * The style sheet.
  *
- * Four presets and the properties every one of them exposes, because a preset is
- * a set of defaults and never a lock. What the user picks is stored as choices
- * rather than as a pile of properties, so a colour follows them from preset to
- * preset while Clean subtitle still looks like Clean subtitle.
+ * Nine presets and the properties every one of them exposes, because a preset
+ * is a set of defaults and never a lock. What the user picks is stored as
+ * choices rather than as a pile of properties, so a colour follows them from
+ * preset to preset while Clean subtitle still looks like Clean subtitle.
  *
  * The tiles are not thumbnails. Each one lays out the line that is on screen
  * right now, through the same `layoutCaptionFrame` the preview and the export
- * use, at the video's own proportions and cropped to the caption. Four little
- * drawings of what the button does, rather than four pictures of what it did for
- * somebody else.
+ * use, at the video's own proportions and cropped to the caption. Nine little
+ * drawings of what the button does, rather than nine pictures of what it did
+ * for somebody else.
+ *
+ * They share one canvas. Nine of them would cost nine picture recordings a tick,
+ * and the per-update work was already the expensive two thirds of this screen
+ * at four; as translated groups in a single canvas it is one recording however
+ * many presets the list grows to.
  */
-import { Canvas, LinearGradient, Rect, vec } from '@shopify/react-native-skia';
-import { memo, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { PanResponder, Pressable, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
+import { Canvas, Group, LinearGradient, rect, Rect, vec } from '@shopify/react-native-skia';
+import { memo, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import {
+  PanResponder,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  useWindowDimensions,
+  View,
+  type LayoutRectangle,
+} from 'react-native';
 
 import {
   accentColor,
@@ -27,9 +40,10 @@ import {
   type MeasureText,
   type Project,
   type StyleChoices,
+  type StyleOverrides,
   type TextSize,
 } from '../domain';
-import { CaptionOverlay } from '../render/CaptionOverlay';
+import { CaptionElements } from '../render/CaptionOverlay';
 import { createFrameSource, type FrameSource } from '../render/frame';
 import type { FontLookup } from '../render/typefaces';
 import { Label } from '../ui/atoms';
@@ -46,6 +60,21 @@ import { SheetAction } from './Sheet';
  * below the big word, which is the half of Editorial that makes it Editorial.
  */
 const TILE_HEIGHT = 96;
+
+/**
+ * A preset's choices, with a big word in a band of its own brought back into
+ * the block for the tile only.
+ *
+ * Spotlight puts a word across the top of the frame and the rest of the line in
+ * the lower third, which is most of a phone screen apart. A tile is a hundred
+ * points tall: shown honestly it is one word or the other, and a tile that
+ * answers "what does this look like" with half the answer is worse than one
+ * that shows the pieces together. The preview under the sheet is where the real
+ * arrangement is, and it is on screen while the tile is being tapped.
+ */
+function tileOverrides(chosen: StyleOverrides): StyleOverrides {
+  return { ...chosen, emphasis: { ...chosen.emphasis, band: undefined } };
+}
 
 /**
  * How often a tile redraws.
@@ -135,7 +164,7 @@ export function StylePicker({
         source: createFrameSource({
           ...project,
           styleId: preset.id,
-          styleOverrides: styleOverridesFor(preset.id, choices),
+          styleOverrides: tileOverrides(styleOverridesFor(preset.id, choices)),
         }),
       })),
     [project, choices]
@@ -161,26 +190,19 @@ export function StylePicker({
         contentContainerStyle={styles.body}
         showsVerticalScrollIndicator={false}
       >
-        <View style={styles.grid} onLayout={(event) => setGridWidth(event.nativeEvent.layout.width)}>
-          {tileWidth > 0
-            ? previews.map((preview) => (
-                <PresetTile
-                  key={preview.id}
-                  name={preview.name}
-                  source={preview.source}
-                  width={tileWidth}
-                  aspect={aspect}
-                  fonts={fonts}
-                  measure={measure}
-                  clock={clock}
-                  reducedMotion={reducedMotion}
-                  selected={preview.id === project.styleId}
-                  accent={accent}
-                  onPick={() => onChange(preview.id, choices)}
-                />
-              ))
-            : null}
-        </View>
+        <PresetGrid
+          previews={previews}
+          tileWidth={tileWidth}
+          aspect={aspect}
+          fonts={fonts}
+          measure={measure}
+          clock={clock}
+          reducedMotion={reducedMotion}
+          selectedId={project.styleId}
+          accent={accent}
+          onMeasure={setGridWidth}
+          onPick={(id) => onChange(id, choices)}
+        />
 
         <Field label="Highlight colour">
           <View style={styles.swatches}>
@@ -235,40 +257,53 @@ export function StylePicker({
   );
 }
 
+interface Preview {
+  id: string;
+  name: string;
+  source: FrameSource;
+}
+
 /**
- * One preset, drawing the current line.
+ * Every preset, drawing the line that is on screen right now.
  *
- * The canvas is the whole frame at tile width, and the tile is a window onto the
- * caption in it. Laying out into a short canvas instead would put a lower third
- * a third of the way up a letterbox and show the user a size the export will
- * never produce.
+ * The buttons are ordinary views laid out by the flow; the drawings are one
+ * canvas over the top of them, with each preset a translated, clipped group
+ * landing in the rectangle its button reported. One canvas because the cost
+ * measured on the phone was a layout and a picture recording per tile, and
+ * this is what turns nine of the second into one.
+ *
+ * Each preset lays out into a canvas the size of the whole frame at tile width,
+ * and the tile is a window onto the caption in it. Laying out into a short
+ * canvas instead would put a lower third a third of the way up a letterbox and
+ * show the user a size the export will never produce.
  */
-const PresetTile = memo(function PresetTile({
-  name,
-  source,
-  width,
+function PresetGrid({
+  previews,
+  tileWidth,
   aspect,
   fonts,
   measure,
   clock,
   reducedMotion,
-  selected,
+  selectedId,
   accent,
+  onMeasure,
   onPick,
 }: {
-  name: string;
-  source: FrameSource;
-  width: number;
+  previews: Preview[];
+  tileWidth: number;
   aspect: number;
   fonts: FontLookup;
   measure: MeasureText;
   clock: Clock;
   reducedMotion: boolean;
-  selected: boolean;
+  selectedId: string;
   accent: string;
-  onPick: () => void;
+  onMeasure: (width: number) => void;
+  onPick: (id: string) => void;
 }) {
   const [tMs, setTMs] = useState(0);
+  const [cells, setCells] = useState<Record<string, LayoutRectangle>>({});
   const shown = useRef(0);
 
   useEffect(
@@ -282,30 +317,108 @@ const PresetTile = memo(function PresetTile({
   );
 
   const canvas = useMemo(
-    () => ({ width, height: Math.max(TILE_HEIGHT, Math.round(width / aspect)) }),
-    [width, aspect]
+    () => ({ width: tileWidth, height: Math.max(TILE_HEIGHT, Math.round(tileWidth / aspect)) }),
+    [tileWidth, aspect]
   );
-  const frame = source.frameAt(tMs, canvas, measure, { reducedMotion });
 
   // A gap between two lines has nothing to centre on, and a tile that jumped
   // back to the top for those few frames would read as a flicker.
-  const settled = useRef(0);
-  const offset = cropOffset(frame, canvas.height);
-  if (offset !== null) settled.current = offset;
+  const settled = useRef<Record<string, number>>({});
 
+  const place = useCallback((id: string, layout: LayoutRectangle) => {
+    setCells((current) =>
+      current[id] && current[id].x === layout.x && current[id].y === layout.y
+        ? current
+        : { ...current, [id]: layout }
+    );
+  }, []);
+
+  const grid = gridSize(cells);
+
+  return (
+    <View style={styles.grid} onLayout={(event) => onMeasure(event.nativeEvent.layout.width)}>
+      {tileWidth > 0
+        ? previews.map((preview) => (
+            <PresetButton
+              key={preview.id}
+              id={preview.id}
+              name={preview.name}
+              width={tileWidth}
+              selected={preview.id === selectedId}
+              accent={accent}
+              onLayout={place}
+              onPick={onPick}
+            />
+          ))
+        : null}
+
+      {/* Over the buttons rather than under them, so a tile's own border and
+          label are not painted on; transparent everywhere a caption is not, and
+          never in the way of a tap. */}
+      {tileWidth > 0 && grid ? (
+        <View pointerEvents="none" style={StyleSheet.absoluteFill}>
+          <Canvas style={{ width: grid.width, height: grid.height }}>
+            {previews.map((preview) => {
+              const cell = cells[preview.id];
+              if (!cell) return null;
+
+              const frame = preview.source.frameAt(tMs, canvas, measure, { reducedMotion });
+              const offset = cropOffset(frame, canvas.height);
+              if (offset !== null) settled.current[preview.id] = offset;
+
+              return (
+                <Group key={preview.id} clip={rect(cell.x, cell.y, tileWidth, TILE_HEIGHT)}>
+                  <Group
+                    transform={[
+                      { translateX: cell.x },
+                      { translateY: cell.y - (settled.current[preview.id] ?? 0) },
+                    ]}
+                  >
+                    <CaptionElements frame={frame} fonts={fonts} />
+                  </Group>
+                </Group>
+              );
+            })}
+          </Canvas>
+        </View>
+      ) : null}
+    </View>
+  );
+}
+
+/**
+ * One preset's button: the frame it is drawn in, its border and its name.
+ *
+ * Memoised and told nothing about time, so the twenty ticks a second that
+ * redraw the canvas do not walk nine buttons' worth of views with them.
+ */
+const PresetButton = memo(function PresetButton({
+  id,
+  name,
+  width,
+  selected,
+  accent,
+  onLayout,
+  onPick,
+}: {
+  id: string;
+  name: string;
+  width: number;
+  selected: boolean;
+  accent: string;
+  onLayout: (id: string, layout: LayoutRectangle) => void;
+  onPick: (id: string) => void;
+}) {
   return (
     <Pressable
       accessibilityRole="button"
       accessibilityState={{ selected }}
       accessibilityLabel={name}
-      onPress={onPick}
+      onPress={() => onPick(id)}
+      onLayout={(event) => onLayout(id, event.nativeEvent.layout)}
       style={({ pressed }) => [{ width, opacity: pressed ? 0.7 : 1 }, styles.tile]}
     >
-      <View style={[styles.tileClip, selected && { borderColor: accent }]}>
-        <View style={{ position: 'absolute', top: -settled.current, width: canvas.width, height: canvas.height }}>
-          <CaptionOverlay frame={frame} width={canvas.width} height={canvas.height} fonts={fonts} />
-        </View>
-      </View>
+      <View style={[styles.tileClip, selected && { borderColor: accent }]} />
       <Label variant="micro" tone={selected ? 'paper' : 'mute'}>
         {name}
       </Label>
@@ -313,8 +426,22 @@ const PresetTile = memo(function PresetTile({
   );
 });
 
+/** The canvas is as big as the rectangles the buttons reported, or there is none. */
+function gridSize(cells: Record<string, LayoutRectangle>): { width: number; height: number } | null {
+  const rects = Object.values(cells);
+  if (rects.length === 0) return null;
+
+  return {
+    width: Math.max(...rects.map((cell) => cell.x + cell.width)),
+    height: Math.max(...rects.map((cell) => cell.y + TILE_HEIGHT)),
+  };
+}
+
 /** Where to cut the frame so the caption is in the middle of the tile. */
-function cropOffset(frame: { words: { y: number; height: number }[] }, canvasHeight: number): number | null {
+function cropOffset(
+  frame: { plate?: { y: number; height: number }; words: { y: number; height: number }[] },
+  canvasHeight: number
+): number | null {
   if (frame.words.length === 0) return null;
 
   let top = Infinity;
@@ -322,6 +449,12 @@ function cropOffset(frame: { words: { y: number; height: number }[] }, canvasHei
   for (const word of frame.words) {
     top = Math.min(top, word.y);
     bottom = Math.max(bottom, word.y + word.height);
+  }
+  // The card is the tile's whole picture where there is one, so it is what the
+  // window has to be centred on.
+  if (frame.plate) {
+    top = Math.min(top, frame.plate.y);
+    bottom = Math.max(bottom, frame.plate.y + frame.plate.height);
   }
 
   const centre = (top + bottom) / 2;
