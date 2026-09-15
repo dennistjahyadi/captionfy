@@ -3,8 +3,24 @@
 Prompts for generating the Play Store art, and the specs they have to hit.
 Companion to ASO.md, which carries the text. The icon exists: three
 left-aligned caption pills with the active one in the accent yellow, cut at
-every size by `scripts/make-icons.py`, with the vector in `store/`. The
-feature graphic and the screenshots do not exist yet.
+every size by `scripts/make-icons.py`, with the vector in `store/`.
+
+**The feature graphic exists**: `store/play-feature-graphic-1024x500.png`, cut by
+`scripts/make-feature-graphic.py` from real device screenshots in `store/shots/`,
+not from a mockup. In front is the video's own rectangle with a caption burned
+into it, which is what the user actually gets; behind it a screen of the app.
+The type is the app's own — Spectral for the promise, Be Vietnam Pro for the
+rest — and the words are ASO.md's words, so the graphic cannot drift from the
+listing. Re-shoot and re-run the script when a screen changes.
+
+Two things the shots have to survive. **The status bar and the dev-launcher
+bubble are cropped off**, because the captures came from a debug build and that
+blue gear sits exactly over Export. **No third-party footage.** The talking-head
+test clips are licensed for testing and not for redistribution, so a frame of
+somebody's face cannot go in a listing; the mock clips the project renders for
+itself can.
+
+The phone screenshots for the listing do not exist yet.
 
 ## What Play actually asks for
 
