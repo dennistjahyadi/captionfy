@@ -300,6 +300,35 @@ function Workspace({ stored }: { stored: Project }) {
   const info = useSourceInfo(player, stored);
   const [fps, setFps] = useState(0);
 
+  /**
+   * Leaving the editor stops the audio.
+   *
+   * Invariant 4 is that audio plays while editing, on every editing surface —
+   * and every one of those is a sheet over this screen, which does not take the
+   * focus, so they are unaffected. Export, Saved, the dictionary and Settings
+   * are screens of their own. The player loops, so without this a clip carried
+   * on talking underneath them: you would finish an export and still be
+   * listening to the video over "Saved to gallery".
+   *
+   * It does not start again on the way back. Returning to a screen is not
+   * asking it to play, and a video that started itself when you tapped Back
+   * would be the more annoying bug.
+   */
+  useFocusEffect(
+    useCallback(
+      () => () => {
+        // The screen may be leaving for good rather than losing focus, and
+        // `useVideoPlayer` releases the player first when it does.
+        try {
+          player.pause();
+        } catch {
+          // Already released. There is nothing left to stop.
+        }
+      },
+      [player]
+    )
+  );
+
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const selectedIndex = selectedId ? project.words.findIndex((word) => word.id === selectedId) : -1;
   const selected = selectedIndex === -1 ? null : project.words[selectedIndex];
@@ -495,7 +524,7 @@ function Workspace({ stored }: { stored: Project }) {
   /**
    * Opens the style sheet on the line that is on screen, and loops it.
    *
-   * Four presets side by side are only comparable on the same words, and the
+   * Nine presets side by side are only comparable on the same words, and the
    * words the user was looking at are the ones they want to see in each.
    */
   const openStyle = useCallback(() => {
