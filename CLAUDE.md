@@ -46,8 +46,15 @@ inside an English sentence are the dictionary's job. See README for the evidence
 
 Out of scope: other languages, language detection, translation, cloud anything,
 accounts, trimming, multiple speakers, emoji or B-roll or auto-zoom, iOS
-background continuation, a fifth style preset, SRT import, and text behind the
-speaker (the draw list reserves `layer` for it; build no segmentation now).
+background continuation, SRT import, and text behind the speaker (the draw list
+reserves `layer` for it; build no segmentation now).
+
+**The preset cap is lifted.** This file used to put "a fifth style preset" out
+of scope. There are eight now, and the reason is in `references/`: four clips of
+what the apps this one competes with actually ship. The look is the product for
+a captions app, and the four v1 presets were a subtitle renderer's four looks
+rather than a short-form video app's. See below for what changed and why it is
+properties rather than presets.
 
 ## Invariants — write tests for these, do not trade them away
 
@@ -161,11 +168,47 @@ speaker (the draw list reserves `layer` for it; build no segmentation now).
     Two 576 × 1024 exports of a 0:41 clip: 8 s each, 11.5 MB.
     One suspected defect turned out not to be one — see below.
 
+11. Caption styles taken from the competition.
+    **Done, and this one ran on the A54.** Four reference clips in `references/`
+    — Captions, invideo, a Veed-style edit and a Submagic-style one — taken
+    apart for what they do rather than what they look like, and the four
+    mechanisms they share added to `StyleProps`: a line that reveals a word at a
+    time, a per-word entrance, a shadow or glow instead of a stroke, and a card
+    behind the block. Five presets arranged out of them — Spotlight, Word stack,
+    Headline, Newsprint and Neon — and the picker's nine tiles moved into one
+    Skia canvas.
+    Designed in a headless harness first: the real `layoutCaptionFrame` over the
+    real font metrics, drawn as SVG on a still and screenshotted. That is how
+    the plate was caught breathing under the highlight, how the preset numbers
+    were chosen, and how a white swatch on a white card was found.
+    On the phone, release build, a real 145-word transcript: all nine tiles draw
+    and animate, the glow renders, Spotlight's band puts its big word across the
+    top with the sentence in the lower third, and a 0:41 clip exported at
+    576 × 1024 in **8 seconds**. Two exports were checked frame by frame against
+    what the preview drew. Spotlight's: the line builds word by word, the shadow
+    is there, the banded word is where the preview put it. Neon's, which is the
+    hardest case because it does three new things at once: the fill is caught
+    mid-word — `YOU IMPR|OVE`, gold running into white — with the glow on every
+    word and the line building `THAT` → `THAT CAN` → `THAT CAN HELP`. The Kotlin
+    painter and the Skia overlay agree, `BlurMaskFilter` converted radius and
+    all.
+    Two free exports were spent proving this, so the counter on that phone is at
+    one. Deleting `entitlement.json` from the debug build resets it.
+    Frame timings are in the style-sheet section: **4.9% janky** playing with
+    shadows on every word, **23.6%** with all nine tiles live, against the 37%
+    slice 10 measured for four tiles in four canvases.
+
 Every slice runs as a release build on the Galaxy A54 before it is called done.
 
 ## Known issues
 
 Three are left, and none of them can be closed from this machine.
+
+Closed in slice 11: the five new presets, the shadow, the plate and the
+one-canvas tile grid all ran on the A54, in a release build, and both renderers
+were checked against each other on an exported file. The blur conversion is
+right, the shadow costs the overlay nothing measurable, and nine tiles in one
+canvas beat the four the old grid drew in four.
 
 - **Nobody has ever bought anything.** Play Billing connects, and the product
   query answers — with nothing, because `captions_unlock_v1` does not exist in
@@ -308,11 +351,34 @@ has to argue with that gap.
   instruction under a title and a blurb, on a screen with one action, is a
   sentence nobody reads. Looked at on the phone with the projects hidden before
   deciding.
+- **Invariant 4 is about editing surfaces, and Export is not one.** The editor
+  pauses its player when the screen loses focus. Every editing surface is a
+  sheet over that screen and a sheet does not take the route's focus, so they
+  are unaffected; Export, Saved, the dictionary and Settings are screens of
+  their own. The player loops, so before this a clip carried on talking
+  underneath them — you could finish an export and still be listening to the
+  video over "Saved to gallery", for as long as you left it there. It does not
+  start again on the way back: returning to a screen is not asking it to play.
 - Reduced motion reaches the chrome as well as the captions: the navigator's fade
   and the sheet's slide both go to `none`. On Android this is the same switch the
   platform uses to suppress them itself, so the app cannot be seen to be doing it
   — it is done because asking for motion the user turned off is wrong whether or
-  not anyone can tell.
+  not anyone can tell. It now also turns off the per-word entrance, on the same
+  one rule the emphasis rise already went through.
+- **A tile draws Spotlight's big word in the block, where the preset puts it in
+  a band of its own.** The two bands are most of a phone screen apart and a tile
+  is a hundred points tall, so an honest tile shows one word or the other. A
+  tile that answers "what does this look like" with half the answer is worse
+  than one that shows the pieces together, and the real arrangement is in the
+  preview above the sheet while the tile is being tapped.
+- The preset tiles share one Skia canvas, each a translated and clipped group
+  landing in the rectangle its own button reported through `onLayout`. The
+  buttons are ordinary views and know nothing about time, so twenty redraws a
+  second do not walk eight buttons' worth of views with them.
+- Newsprint is the one preset that prints dark on light, so the word sitting on
+  the highlight stays ink rather than taking the accent, and both the highlight
+  and the big word wear a hard ink offset. That offset is not decoration: white
+  is one of the six swatches and the card is white.
 
 ## Persistence
 
@@ -356,7 +422,18 @@ for the two sides to set a word in a face the other never saw.
 Entries are emitted only where the draw list changes, so a box highlight holding
 still for a whole word is one entry rather than thirty, and the encoder reuses
 the overlay texture it already uploaded. A karaoke fill changes every frame and
-costs an entry every frame.
+costs an entry every frame. A revealing preset costs entries while a word is
+arriving and none once it has landed, which puts it between the two. The
+comparison is over the whole entry, card included: a plate that changed while
+the words did not would otherwise be dropped.
+
+**A shadow's blur crosses as a sigma.** Skia's blur mask takes a Gaussian sigma
+and `android.graphics`'s `BlurMaskFilter` takes a radius, converting it itself
+with `radius * 0.57735 + 0.5`. The painter runs that backwards. Handing the
+number straight over would have made every shadow in the exported file nearly
+twice as soft as the one in the preview — invariant 2 broken in the one place
+nobody would think to look, because both sides would have been "using the blur
+from the plan".
 
 The pipeline is decoder → external texture → GL → the encoder's input surface:
 no frame is ever decoded to the CPU and no pixel is read back. Rotation is baked
@@ -406,14 +483,16 @@ renders into the frame rather than into the letterbox.
 
 One clock reads the player once per display frame and the overlay, the scrubber
 and the transcript subscribe to it. Nothing above them re-renders, which is what
-keeps the video view out of the render loop. The style sheet's four tiles
-subscribe to the same clock at a twentieth of a second, because a thumbnail does
-not need sixty frames and the preview does.
+keeps the video view out of the render loop. The style sheet's grid subscribes
+to the same clock at a twentieth of a second, because a thumbnail does not need
+sixty frames and the preview does.
 
 A style tile is a window, not a thumbnail: the canvas is the whole frame at tile
 width and the tile shows the band the caption is in. Laying out into a short
 canvas would put a lower third a third of the way up a letterbox and show a size
-the export will never produce.
+the export will never produce. All eight windows are cut out of one canvas —
+`CaptionElements` is the drawing without a canvas around it, and `CaptionOverlay`
+is that plus the canvas and the view it sits in.
 
 Settings carry a style too, written when the style sheet closes and read by
 `createProject`. A creator has a look, not a look per clip.
@@ -427,6 +506,87 @@ like, and no way at all to change it without a project open. The picker keeps
 its Done for the sheet and drops it here, where the screen's own Back is the way
 out; `CaptionLayer` and the safe zone moved out of the editor screen so both
 previews draw through one of each.
+
+## Caption styles, and what the references taught us
+
+Four competitor clips sit in `references/`, **which is not in git** — they are
+somebody else's footage and this repository keeps none. What survives the clone
+is this section: what they do, why, and which property each thing became.
+
+Watched frame by frame rather than admired, they turn out to share four
+mechanisms and disagree only about arrangement — so those four are properties on `StyleProps` that any preset may
+set, and the presets are arrangements of them. A ninth look should be a new
+entry in `STYLE_PRESETS` and no new code.
+
+- **`reveal: 'word'`.** The line builds as it is spoken; a word the viewer has
+  not heard is not on screen. All four clips do this and one of them opens by
+  showing a static block of subtitles as the thing that makes people scroll. The
+  fit is decided against the *whole* line and only then is the visible prefix
+  laid out, so the type does not shrink under the reader as the line fills.
+- **`entrance`.** Every word arrives — scale, slide, fade — not only the
+  emphasised one. `emphasis.riseFrom` stays and owns the big word's scale,
+  because how a big word arrives is part of what a preset says about big words.
+  The slide is folded into the emitted coordinates rather than carried as a new
+  field, so a renderer that can draw a word at a place can draw one arriving.
+- **`shadow`.** A soft shadow, or with no offset and `OWN_COLOR`, a glow. Every
+  reference holds its type off the frame this way; a hard stroke reads as a
+  caption a piece of software added. `blurRatio` is a Gaussian sigma.
+- **`plate`.** One card behind the whole block. It is sized against the box
+  *every* word could wear rather than the one wearing it, and off where the
+  words settle rather than where they are mid-entrance — either mistake makes
+  the card the only thing on screen the eye follows.
+
+Two smaller ones came with them: `emphasis.band` puts the big word in a band of
+its own, which is the whole shape of the loudest clip (a huge word across the
+top, the sentence it came from small in the lower third), and `boxShadow` keeps
+a pale highlight a visible shape on a light card.
+
+### Where we are behind them, and where we are ahead
+
+Four of the presets answer a clip each: Headline is the Captions one, Word stack
+the invideo one, Spotlight the Veed-shaped one, Newsprint the plate. Two things
+in those clips this app still cannot do, both named above: **letter spacing**
+and a **condensed display face**.
+
+What none of the four can do is the thing this app already had and was not using
+hard enough. **Their emphasis is a setting; ours is acoustic.** invideo's own
+settings panel is on screen in one of the clips — "Emphasized text", a font
+colour and a background colour, applied to words the user marks. `emphasis.ts`
+picks the big word from how it was *said*: loudness over the clip's speech
+median, how long it was held, the pause around it. That is a thing a keyword
+list cannot do, and **Neon** is the preset built to show it off — the word the
+speaker leaned on is the word that lights up, without anybody tagging it.
+
+Neon is also the one arrangement none of the four clips contains: a karaoke fill
+under a glow, where the halo turns colour before the fill reaches it. The fill
+and the reveal are theirs; the acoustic pick and the leading glow are not.
+
+`OWN_COLOR` is a sentinel and the layout is the only thing that ever sees it: a
+glow is a word bleeding its own colour, so it has to follow the swatch, and the
+draw list that crosses into the export carries the resolved colour.
+
+The four v1 presets were left exactly as they were. They are accepted, verified
+designs and `reveal` is one property away for whoever wants to A/B them; what
+this slice owed was better looks on offer, not a redesign of the ones already
+signed off.
+
+Two things the references do that this app still cannot: **letter spacing**,
+which the small caps row of the Captions-style headline leans on, and a
+**condensed display face**, which is most of why that headline reads as a poster.
+Tracking would have to go through the measurer to survive invariant 2, and a
+condensed face is another font file against the five megabytes of headroom the
+APK has left. Both are real gaps and neither is guesswork to close.
+
+### The harness
+
+`layoutCaptionFrame` is pure and the fonts are on disk, so the design can be
+looked at without a build: advance widths out of the TTFs with fontTools, the
+real layout over a fake transcript, the draw list written out as SVG on a video
+still, screenshotted headless. That is how the plate was caught breathing, how
+the preset numbers were chosen, and how the white-swatch-on-a-white-card case
+was found. It lives in the scratchpad rather than the repo because it is a
+second renderer, and a second renderer that shipped would be something for the
+export to drift against.
 
 ## Editing
 
@@ -507,6 +667,30 @@ transcript and applies it as one undo step, which is also how a project made
 before an entry existed catches up.
 
 ## What the style sheet costs, and why it still costs it
+
+**Measured again in slice 11, and the answer is better than the table below.**
+The last paragraph of this section describes one canvas for the whole grid as
+the fix that would attack the real twenty points, and declines to build it for
+an unmeasured payoff. Adding presets forced the question — nine canvases at the
+old rate would have doubled the worst row — so it was built, and on the A54,
+release build, six seconds of playback each:
+
+| editor playing, 120 Hz panel | frames | janky | 50th | 90th | 99th |
+|---|---|---|---|---|---|
+| style sheet closed, four tiles, four canvases (slice 10) | — | 4% | — | 8 ms | 13 ms |
+| style sheet **open**, four tiles, four canvases (slice 10) | — | 37% | 9 ms | 20 ms | 36 ms |
+| style sheet closed, Spotlight, shadows on every word | 570 | **4.9%** | 6 ms | 8 ms | 15 ms |
+| style sheet **open**, eight tiles, one canvas | 505 | **23.6%** | 11 ms | 18 ms | 26 ms |
+
+Two things fall out of that. **A shadow costs the overlay nothing measurable** —
+Spotlight draws every word twice, once through a blur mask, and closed-sheet
+playback is the same 4-to-5% it was with a stroke. And **one canvas more than
+paid for four extra tiles**: twice the presets at two thirds of the jank, with
+the 99th percentile down from 36 ms to 26 ms. The remaining twenty-odd points
+are the modal window and the shrunken stage, which the slice 10 table already
+attributed nine of before a tile drew anything.
+
+The table below stands as the history that justified the change.
 
 Taken apart on the A54 with `dumpsys gfxinfo`, six seconds of playback per
 reading, release builds, one control build per row:
@@ -605,6 +789,14 @@ animates the user's own line with its real picks.
   same render gets to subscribe, and `sourceLoad` does not replay for a listener
   that arrives late. Read `player.videoTrack` and `player.duration` directly as
   well as listening, or the screen never learns the shape of the video.
+- **A pushed screen does not stop the one underneath it.** `expo-video` pauses a
+  player when the app is backgrounded, which is why nothing looked wrong for ten
+  slices, but navigating within the app is not backgrounding: the editor stayed
+  mounted under Export and its looping player kept playing. Pause on blur, and
+  guard it — the cleanup also runs on unmount, where `useVideoPlayer` has
+  already released the player and a `pause()` on a released shared object
+  throws. `adb shell dumpsys audio` is how to see this without ears: the app's
+  `AudioPlaybackConfiguration` reads `state:started` when it should not.
 - A release build is not debuggable, so `adb shell run-as` cannot reach the app's
   own files. Seeding a fixture project into app storage needs the debug build.
 - `expo-image-picker` returns a copy it made in `cache/ImagePicker`, not the file
@@ -652,6 +844,13 @@ animates the user's own line with its real picks.
   `signingConfig signingConfigs.debug` and `signingConfig = signingConfigs.debug`
   depending on version — the plugin throws when an anchor stops matching, rather
   than quietly leaving the debug key in place.
+- **A blur is a sigma on one side of the bridge and a radius on the other.**
+  Skia's blur mask filter takes a Gaussian sigma; `BlurMaskFilter` takes a
+  radius and converts it with `radius * 0.57735 + 0.5`. Nothing in either API
+  says which it wants, and passing the plan's number to both would have made
+  every exported shadow nearly twice as soft as the previewed one, with both
+  sides able to claim they used the number they were given. `CaptionPainter`
+  converts.
 - **Nothing resizes under a `Modal` when the keyboard opens.** The manifest asks
   for `adjustResize` and React Native asks the dialog it puts a `Modal` in for it
   as well, and on the A54 neither window gave up a pixel: the IME came up over

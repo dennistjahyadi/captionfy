@@ -56,3 +56,7 @@ modules/*/android/.gradle/
 
 # Test clips are third-party licensed audio. Fetch them, do not redistribute them.
 /test-clips/
+
+# Competitor clips studied for the caption styles. Somebody else's footage:
+# what was learned from them is written down in CLAUDE.md instead.
+references/
