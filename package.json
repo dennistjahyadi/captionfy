@@ -10,7 +10,7 @@
     "phone": "./run.sh",
     "dev": "./run.sh --dev",
     "emulator": "./run.sh --emulator",
-    "aab": "./scripts/build-aab.sh",
+    "aab": "./aab.sh",
     "ios": "expo run:ios",
     "ios:release": "expo run:ios --configuration Release",
     "prebuild": "expo prebuild",
