@@ -9,6 +9,10 @@ dist/
 web-build/
 expo-env.d.ts
 
+# Built artifacts, one file per version that was actually produced. Kept on disk
+# as the record of which versionCodes are spent; too big for git.
+/build/
+
 # Native
 .kotlin/
 *.orig.*

@@ -23,6 +23,10 @@ BOOT_TIMEOUT=300
 step() { printf '\n\033[1;36m==>\033[0m %s\n' "$1"; }
 fail() { printf '\n\033[1;31mx\033[0m %s\n' "$1" >&2; exit 1; }
 
+# VERSION and VERSION_CODE, out of app.json, which is the only place they live.
+. scripts/version.sh
+version_read
+
 usage() {
   cat <<'EOF'
 Build the Stage 0 rig and run it.
@@ -250,6 +254,10 @@ ensure_native_project() {
     step "Generating the native project"
     npx expo prebuild --platform android
   fi
+
+  # android/ is generated and holds a copy of the version, which goes stale the
+  # moment app.json moves. Nothing in a Gradle build notices, so this does.
+  version_sync_native
 }
 
 remove_existing_install() {
@@ -333,8 +341,18 @@ if [ "$SKIP_BUILD" = false ]; then
   ensure_native_project
 
   # Building only the target's own architecture keeps whisper.cpp compile times sane.
-  step "Building the release APK for $ABI"
+  step "Building the release APK for $ABI — $VERSION ($VERSION_CODE)"
   (cd android && ./gradlew :app:assembleRelease -PreactNativeArchitectures="$ABI" --console=plain -q)
+
+  # Read the version out of the APK rather than off app.json. A generated
+  # android/ that had gone stale once shipped a bundle saying 0.0.1 under a
+  # message saying 1.0.0, and this is the check that catches that.
+  version_verify "$RELEASE_APK" apk
+
+  # Gradle always writes app-release.apk, so the next build erases which build
+  # this was. Tagged with the architecture because this one is single-ABI.
+  version_archive "$RELEASE_APK" apk "$ABI"
+  echo "    Archived as $ARCHIVED"
 fi
 
 [ "$FRESH" = false ] || remove_existing_install

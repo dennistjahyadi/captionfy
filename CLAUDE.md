@@ -863,6 +863,18 @@ animates the user's own line with its real picks.
   React Native takes from the IME's own window insets and reports whether or not
   anything resized, and padding the dock by it. That is `useKeyboardInset`, and
   `Sheet` is its only caller.
+- **`android/` holds a copy of the version, and a copy goes stale.** `expo
+  prebuild` writes `versionName` and `versionCode` into `android/app/build.gradle`
+  once; bumping `app.json` afterwards changes nothing, because `android/` is only
+  regenerated when it is missing. A bundle sat on this disk carrying 0.0.1 while
+  `app.json` said 1.0.0 — and `build-aab.sh` printed "version 1.0.0" on the way
+  out, because it read the version it had asked for rather than the one it got.
+  Nothing anywhere warns. `scripts/version.sh` syncs `build.gradle` from
+  `app.json` before every Gradle run and then reads the version back out of the
+  finished artifact: `aapt2 dump badging` for an APK, and for a bundle
+  `scripts/aab-version.py`, because aapt2 cannot open an `.aab` at all and
+  bundletool is not installed here. Saying the version back to yourself is not a
+  check.
 
 ## Conventions
 

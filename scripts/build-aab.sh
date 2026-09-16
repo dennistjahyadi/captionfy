@@ -25,6 +25,8 @@ step() { printf '\n\033[1;36m==>\033[0m %s\n' "$1"; }
 fail() { printf '\n\033[1;31mx\033[0m %s\n' "$1" >&2; exit 1; }
 warn() { printf '\033[1;33m!\033[0m %s\n' "$1" >&2; }
 
+. scripts/version.sh
+
 # Same resolution as run.sh, and for the same reason: Gradle wants an SDK path
 # and there is no ANDROID_HOME in the shell here, only Android Studio's default
 # location. Without this the build dies at "SDK location not found".
@@ -68,6 +70,38 @@ EOF
   exit 1
 fi
 
+# --------------------------------------------------------------- the version
+
+# Checked before anything slow happens, because the answer can be "don't build".
+version_read
+
+case "$VERSION" in
+  0.*) warn "app.json still says version $VERSION. Play takes it, but 1.0.0 is what a first release calls itself." ;;
+esac
+
+# Play refuses an upload whose versionCode it has already seen, and it refuses it
+# at the end — after the whole bundle has gone up the wire. Cheaper to refuse it
+# here. The archive under build/ is the record of which codes have been produced;
+# if a bundle for this one exists, it either went to Play or is about to.
+ARCHIVE="$(version_archive_name aab)"
+if [ -f "$ARCHIVE" ]; then
+  cat >&2 <<EOF
+
+x versionCode $VERSION_CODE has already been built:
+
+    $ARCHIVE
+
+  Play will not take that number twice. Bump it first:
+
+    npm run bump
+
+  If that bundle never reached Play and you want the number back, delete the
+  file and run this again.
+
+EOF
+  exit 1
+fi
+
 # ---------------------------------------------------------------- the build
 
 # 82 MB of weights that ride inside the bundle. Not in git, cheap when already
@@ -80,17 +114,21 @@ if [ ! -d android ]; then
   npx expo prebuild --platform android
 fi
 
-VERSION="$(node -p "require('./app.json').expo.version")"
-CODE="$(node -p "require('./app.json').expo.android.versionCode")"
-case "$VERSION" in
-  0.*) warn "app.json still says version $VERSION. Play takes it, but 1.0.0 is what a first release calls itself." ;;
-esac
+# The generated project is a copy of the version, not the version. It goes stale
+# the moment app.json moves and nothing in a Gradle build notices.
+version_sync_native
 
-step "Building the bundle — $VERSION ($CODE)"
+step "Building the bundle — $VERSION ($VERSION_CODE)"
 echo "    Every architecture in app.json, not just this machine's. Play splits them."
 (cd android && ./gradlew :app:bundleRelease --console=plain)
 
 [ -f "$BUNDLE" ] || fail "Gradle finished but $BUNDLE is not there."
+
+# Read out of the bundle, not out of app.json. Saying the version back to
+# yourself proves nothing; this is the check that would have caught the 0.0.1.
+step "Checking the version it came out with"
+version_verify "$BUNDLE" aab
+echo "    $VERSION ($VERSION_CODE), read back from the bundle's own manifest."
 
 # ---------------------------------------------------------------- the check
 
@@ -110,12 +148,23 @@ OWNER="$(printf '%s\n' "$CERT" | sed -n 's/^Owner: //p' | head -1)"
 SHA="$(printf '%s\n' "$CERT" | sed -n 's/.*SHA256: //p' | head -1)"
 SIZE="$(du -h "$BUNDLE" | cut -f1)"
 
+# ------------------------------------------------------------- the archive
+
+# Gradle's own output is always app-release.aab, so the next build erases the
+# evidence of this one. The copy carries the version in its name, which is the
+# only way to tell two bundles apart on disk, and its checksum is what proves
+# the file you upload months later is the file this run produced.
+step "Archiving"
+version_archive "$BUNDLE" aab
+shasum -a 256 "$ARCHIVED" | awk '{print $1}' > "$ARCHIVED.sha256"
+echo "    $ARCHIVED"
+
 cat <<EOF
 
 ==> Done.
 
-  $BUNDLE
-  $SIZE, version $VERSION, versionCode $CODE
+  $ARCHIVED
+  $SIZE, version $VERSION, versionCode $VERSION_CODE
   Signed by $OWNER
 
   SHA-256 $SHA
@@ -127,4 +176,10 @@ something else.
 Upload it at Play Console, Release, Testing, Internal testing. The bundle is
 larger than what anyone downloads: Play repacks it per device and sends one
 architecture, so the install is roughly half of this.
+
+Once this one has gone up, versionCode $VERSION_CODE is spent — Play will not take it
+again. The next bundle needs:
+
+  npm run bump
+
 EOF

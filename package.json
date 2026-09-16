@@ -11,6 +11,8 @@
     "dev": "./run.sh --dev",
     "emulator": "./run.sh --emulator",
     "aab": "./aab.sh",
+    "bump": "./scripts/bump-version.sh",
+    "version:show": "./scripts/bump-version.sh --show",
     "ios": "expo run:ios",
     "ios:release": "expo run:ios --configuration Release",
     "prebuild": "expo prebuild",
