@@ -20,6 +20,7 @@
  * get an entry every frame, which is the honest cost of that preset.
  */
 import {
+  layoutWatermark,
   type CaptionBoxDraw,
   type CaptionWordDraw,
   type Canvas,
@@ -27,6 +28,7 @@ import {
   type Ms,
   type Project,
   type ShadowDraw,
+  type WatermarkDraw,
 } from '../domain';
 import { faceKey } from './faces';
 import { createFrameSource } from './frame';
@@ -86,11 +88,32 @@ export interface BurnEntry {
   words: BurnWord[];
 }
 
+/** The free tier's mark. One per plan, because it does not move or change. */
+export interface BurnWatermark {
+  text: string;
+  x: number;
+  baseline: number;
+  size: number;
+  face: string;
+  color: string;
+  shadow: BurnShadow;
+}
+
 export interface BurnPlan {
   width: number;
   height: number;
   fps: number;
   durationMs: Ms;
+  /**
+   * Absent for anyone who has paid.
+   *
+   * At the top of the plan rather than inside every entry: it is the same mark
+   * for the whole video, and repeating it a thousand times would grow the file
+   * and tell the painter nothing it did not already know. The painter clears and
+   * redraws the overlay bitmap whenever the entry changes, so drawing this after
+   * the captions on each of those repaints puts it on every frame.
+   */
+  watermark?: BurnWatermark;
   entries: BurnEntry[];
 }
 
@@ -101,6 +124,8 @@ export interface BurnPlanOptions {
   durationMs: Ms;
   /** The export must pass what the preview used, or the rise animates twice. */
   reducedMotion: boolean;
+  /** Burn the free tier's mark. The caller reads the entitlement; this does not. */
+  watermark: boolean;
 }
 
 export function buildBurnPlan(
@@ -137,7 +162,23 @@ export function buildBurnPlan(
     height: opts.height,
     fps: opts.fps,
     durationMs: opts.durationMs,
+    // The same pure function the preview called, over the same measurer, against
+    // this export's canvas instead of the stage's. That is the whole of why the
+    // mark lands in the same place in both (invariant 2).
+    ...(opts.watermark ? { watermark: toBurnWatermark(layoutWatermark(canvas, measure)) } : {}),
     entries,
+  };
+}
+
+function toBurnWatermark(mark: WatermarkDraw): BurnWatermark {
+  return {
+    text: mark.text,
+    x: round2(mark.x),
+    baseline: round2(mark.baseline),
+    size: round2(mark.fontSize),
+    face: faceKey(mark.face),
+    color: mark.color,
+    shadow: toBurnShadow(mark.shadow),
   };
 }
 

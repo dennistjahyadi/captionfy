@@ -217,7 +217,7 @@ internal class VideoBurner(
                 val presentationMs = presentationUs / 1000
                 val wanted = plan.entryAt(presentationMs, maxOf(entryShowing, 0))
                 if (wanted != entryShowing) {
-                  painter.paint(overlay, plan.entries[wanted])
+                  painter.paint(overlay, plan.entries[wanted], plan.watermark)
                   scene.uploadOverlay(overlay)
                   entryShowing = wanted
                 }

@@ -65,12 +65,15 @@ import { CaptionLayer } from '../../src/render/CaptionLayer';
 import { createFrameSource, type FrameSource } from '../../src/render/frame';
 import { createMeasureText } from '../../src/render/measure';
 import { useCaptionFonts } from '../../src/render/typefaces';
+import { loadEntitlement } from '../../src/policy/entitlement-store';
+import { freeTierStatus } from '../../src/policy/free-tier';
 import { loadDictionary } from '../../src/project/dictionary-store';
 import { adoptSource, sourceExists } from '../../src/project/source';
 import { loadSettings, markCoachCardSeen, rememberStyle } from '../../src/project/settings';
 import { deleteProject, loadProject, saveProject, thumbnailFile } from '../../src/project/store';
 import { Label, PrimaryButton, QuietButton, Screen } from '../../src/ui/atoms';
 import { useClock, type Clock } from '../../src/ui/clock';
+import { Curtain } from '../../src/ui/curtain';
 import { describeProject, plural } from '../../src/ui/describe';
 import { useReducedMotion } from '../../src/ui/motion';
 import { containRect, SafeZone } from '../../src/ui/stage';
@@ -92,8 +95,19 @@ const SHOW_OVERLAY_FPS = false;
 /** What the preview falls back to before it knows the video's shape. */
 const DEFAULT_ASPECT = 9 / 16;
 
-/** The share of the screen the video gets. The rest is the transcript. */
-const STAGE_SHARE = 0.46;
+/**
+ * The share of the screen the video gets. The rest is the transcript.
+ *
+ * It was 0.46, and on the A54 that left the transcript 28% of the screen, five
+ * rows, under a stage that was 44% black pillar either side of a 9:16 clip. At
+ * 0.38, with the scrubber on the stage's own edge and the timecode and undo in
+ * the bar, the transcript has about 45% and ten rows. The clip previews at 191
+ * points wide there rather than 231, which is the cost, and it was chosen over
+ * a stage that crops to the caption band (bigger captions, but the frame is a
+ * drag away) and over a video-first sheet (which covers the lower third, where
+ * the captions are).
+ */
+const STAGE_SHARE = 0.38;
 
 /**
  * What it shrinks to while the style sheet is open.
@@ -104,8 +118,20 @@ const STAGE_SHARE = 0.46;
  */
 const STAGE_SHARE_STYLING = 0.3;
 
-/** The scrubber redraws at this rate. The overlay gets the rest of the budget. */
+/** The scrubber and the timecode redraw at this rate. The overlay gets the rest of the budget. */
 const SCRUB_INTERVAL_MS = 100;
+
+/**
+ * A transcript row is 36 points tall and its touch target is 44.
+ *
+ * `MIN_TOUCH` is the rule for what a finger can hit, not for what the eye sees:
+ * a 44-point row on a 17-word line is a transcript that shows five lines of a
+ * sixty-second clip. The slop restores the four points above and below, and
+ * where two rows' slop overlaps the lower one wins by a hair, which nobody can
+ * feel.
+ */
+const WORD_ROW_HEIGHT = 36;
+const WORD_HIT_SLOP = { top: (MIN_TOUCH - WORD_ROW_HEIGHT) / 2, bottom: (MIN_TOUCH - WORD_ROW_HEIGHT) / 2 };
 
 /**
  * How far a replacement video's length may differ before the user is warned.
@@ -257,6 +283,8 @@ export default function Editor() {
           />
           <QuietButton title="Delete project" tone="signal" onPress={confirmDelete} />
         </View>
+        {/* The same wait as Home's, for the same copy. */}
+        {relinking ? <Curtain title="Getting your video ready" note="Nothing is uploaded." /> : null}
       </Screen>
     );
   }
@@ -273,6 +301,13 @@ function Workspace({ stored }: { stored: Project }) {
   // holds decides whether this project has anything left to fix.
   const [dictionary, setDictionary] = useState<DictionaryEntry[]>([]);
   useFocusEffect(useCallback(() => setDictionary(loadDictionary()), []));
+
+  // Same reason, one screen further away: Unlock is reachable from here, and
+  // coming back having paid should take the mark off the preview immediately.
+  const [watermark, setWatermark] = useState(() => freeTierStatus(loadEntitlement()).watermark);
+  useFocusEffect(
+    useCallback(() => setWatermark(freeTierStatus(loadEntitlement()).watermark), [])
+  );
 
   // Handed to the editor as well, because a word the user spells themselves is
   // worth a point to the emphasis rule.
@@ -582,15 +617,29 @@ function Workspace({ stored }: { stored: Project }) {
 
   return (
     <Screen>
+      {/* Undo and redo live here rather than beside the chips: they are the way
+          back from anything, so they never scroll and never move. */}
       <View style={[styles.bar, { paddingTop: insets.top + space.sm }]}>
         <QuietButton title="Back" onPress={() => router.back()} />
-        <Label variant="label" tone="mute">
-          {formatClock(info.durationMs)} · {plural(project.words.length, 'word')}
-        </Label>
-        <QuietButton
-          title="Export"
-          onPress={() => router.push({ pathname: '/export/[id]', params: { id: project.id } })}
-        />
+        <Timecode clock={clock} durationMs={info.durationMs} />
+        <View style={styles.barActions}>
+          <StepButton
+            label="↶"
+            accessibilityLabel={editor.undoLabel ? `Undo ${editor.undoLabel}` : 'Undo'}
+            disabled={!editor.canUndo}
+            onPress={editor.undo}
+          />
+          <StepButton
+            label="↷"
+            accessibilityLabel={editor.redoLabel ? `Redo ${editor.redoLabel}` : 'Redo'}
+            disabled={!editor.canRedo}
+            onPress={editor.redo}
+          />
+          <QuietButton
+            title="Export"
+            onPress={() => router.push({ pathname: '/export/[id]', params: { id: project.id } })}
+          />
+        </View>
       </View>
 
       <Pressable
@@ -615,6 +664,7 @@ function Workspace({ stored }: { stored: Project }) {
               width={stage.width}
               height={stage.height}
               reducedMotion={reducedMotion}
+              watermark={watermark}
               onFps={SHOW_OVERLAY_FPS ? setFps : undefined}
             />
           ) : null}
@@ -623,18 +673,11 @@ function Workspace({ stored }: { stored: Project }) {
               set of crop marks on somebody's video. */}
           {styling ? <SafeZone /> : null}
         </View>
-      </Pressable>
 
-      <View style={styles.controls}>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={playing ? 'Pause' : 'Play'}
-          onPress={() => (playing ? player.pause() : player.play())}
-          style={styles.transport}
-        >
-          <Label variant="heading">{playing ? '॥' : '▶'}</Label>
-        </Pressable>
-
+        {/* The scrubber is the stage's bottom edge, and the transport sits in
+            the corner over it: a controls row under the video was a row the
+            transcript did not get. The transport is mounted after the scrubber
+            so its corner of the strip is its own. */}
         <Scrubber
           clock={clock}
           durationMs={info.durationMs}
@@ -646,7 +689,17 @@ function Workspace({ stored }: { stored: Project }) {
             seekTo(tMs);
           }}
         />
-      </View>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={playing ? 'Pause' : 'Play'}
+          onPress={() => (playing ? player.pause() : player.play())}
+          style={styles.transport}
+        >
+          <View style={styles.transportDisc}>
+            <Label variant="label">{playing ? '॥' : '▶'}</Label>
+          </View>
+        </Pressable>
+      </Pressable>
 
       <View style={styles.toolbarRow}>
         <ScrollView
@@ -700,21 +753,6 @@ function Workspace({ stored }: { stored: Project }) {
           </Pressable>
         ) : null}
         </ScrollView>
-
-        <View style={styles.steps}>
-          <StepButton
-            label="↶"
-            accessibilityLabel={editor.undoLabel ? `Undo ${editor.undoLabel}` : 'Undo'}
-            disabled={!editor.canUndo}
-            onPress={editor.undo}
-          />
-          <StepButton
-            label="↷"
-            accessibilityLabel={editor.redoLabel ? `Redo ${editor.redoLabel}` : 'Redo'}
-            disabled={!editor.canRedo}
-            onPress={editor.redo}
-          />
-        </View>
       </View>
 
       {/* A player that will not open the file has to say so. Silence here is a
@@ -918,7 +956,35 @@ function CoachCard({ toCheck, onShowMe }: { toCheck: number; onShowMe: () => voi
   );
 }
 
-/** Tap or drag anywhere on the track to seek. */
+/** The playhead as a number, in the bar. Ten readings a second is plenty for text. */
+const Timecode = memo(function Timecode({ clock, durationMs }: { clock: Clock; durationMs: Ms }) {
+  const [tMs, setTMs] = useState(0);
+  const shown = useRef(0);
+
+  useEffect(
+    () =>
+      clock.subscribe((next) => {
+        if (Math.abs(next - shown.current) < SCRUB_INTERVAL_MS) return;
+        shown.current = next;
+        setTMs(next);
+      }),
+    [clock]
+  );
+
+  return (
+    <Label variant="label" tone="mute" style={styles.timecode}>
+      {formatClock(tMs)} / {formatClock(durationMs)}
+    </Label>
+  );
+});
+
+/**
+ * Tap or drag anywhere along the bottom of the stage to seek.
+ *
+ * The strip is the full touch height and the track is a hairline at the foot of
+ * it, drawn over the letterbox rather than in a row of its own. It is not part
+ * of the draw list: the export never sees it.
+ */
 const Scrubber = memo(function Scrubber({
   clock,
   durationMs,
@@ -982,21 +1048,16 @@ const Scrubber = memo(function Scrubber({
   const fraction = durationMs > 0 ? Math.min(1, Math.max(0, tMs / durationMs)) : 0;
 
   return (
-    <View style={styles.scrubber}>
-      <View
-        {...responder.panHandlers}
-        onLayout={(event) => {
-          width.current = event.nativeEvent.layout.width;
-        }}
-        style={styles.trackTouch}
-      >
-        <View style={styles.track}>
-          <View style={[styles.trackFill, { width: `${fraction * 100}%`, backgroundColor: accent }]} />
-        </View>
+    <View
+      {...responder.panHandlers}
+      onLayout={(event) => {
+        width.current = event.nativeEvent.layout.width;
+      }}
+      style={styles.scrubStrip}
+    >
+      <View style={styles.track}>
+        <View style={[styles.trackFill, { width: `${fraction * 100}%`, backgroundColor: accent }]} />
       </View>
-      <Label variant="micro" tone="mute">
-        {formatClock(tMs)} / {formatClock(durationMs)}
-      </Label>
     </View>
   );
 });
@@ -1105,6 +1166,7 @@ const UnitRow = memo(function UnitRow({
             key={word.id}
             accessibilityRole="button"
             accessibilityLabel={unsure ? `${word.text}, not sure about this one` : word.text}
+            hitSlop={WORD_HIT_SLOP}
             onPress={() => onPickWord(word)}
             style={({ pressed }) => [
               styles.chipWord,
@@ -1258,25 +1320,30 @@ const styles = StyleSheet.create({
     paddingHorizontal: space.sm,
     paddingBottom: space.sm,
   },
+  barActions: { flexDirection: 'row', alignItems: 'center' },
+  timecode: { fontVariant: ['tabular-nums'] },
   stage: { backgroundColor: '#000000', alignItems: 'center', justifyContent: 'center' },
-  controls: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: space.lg,
-    paddingTop: space.md,
-    gap: space.md,
-  },
   transport: {
+    position: 'absolute',
+    left: space.sm,
+    bottom: space.md,
     width: MIN_TOUCH,
     height: MIN_TOUCH,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  scrubber: { flex: 1, gap: space.xs },
-  trackTouch: { height: MIN_TOUCH, justifyContent: 'center' },
-  track: { height: 4, borderRadius: radius.pill, backgroundColor: color.line, overflow: 'hidden' },
+  /** A disc of the ground colour, so the glyph reads on a white frame as well as a dark one. */
+  transportDisc: {
+    width: 32,
+    height: 32,
+    borderRadius: radius.pill,
+    backgroundColor: '#0F0E0D8C',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  scrubStrip: { position: 'absolute', left: 0, right: 0, bottom: 0, height: MIN_TOUCH, justifyContent: 'flex-end' },
+  track: { height: 3, backgroundColor: '#F2EFEC40' },
   trackFill: { height: '100%' },
-  /** The chips scroll; undo and redo never move, because they are the way back. */
   toolbarRow: { flexDirection: 'row', alignItems: 'center', paddingTop: space.sm, minHeight: MIN_TOUCH },
   toolbar: { alignItems: 'center', gap: space.sm, paddingHorizontal: space.lg },
   chip: {
@@ -1286,7 +1353,6 @@ const styles = StyleSheet.create({
     borderRadius: radius.pill,
     borderWidth: 1,
   },
-  steps: { flexDirection: 'row', gap: space.sm, paddingRight: space.lg },
   step: {
     width: MIN_TOUCH,
     height: MIN_TOUCH,
@@ -1295,7 +1361,7 @@ const styles = StyleSheet.create({
   },
   fps: { paddingHorizontal: space.lg },
   transcript: { flex: 1, marginTop: space.sm },
-  transcriptBody: { paddingHorizontal: space.lg, paddingBottom: space.huge, gap: space.xs },
+  transcriptBody: { paddingHorizontal: space.lg, paddingBottom: space.huge, gap: 2 },
   transcriptEmpty: { flex: 1, paddingHorizontal: space.lg, paddingTop: space.xl },
   unit: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center' },
   chipWord: {
@@ -1304,7 +1370,7 @@ const styles = StyleSheet.create({
     borderRadius: radius.control,
     borderWidth: 1,
     borderColor: 'transparent',
-    minHeight: MIN_TOUCH,
+    minHeight: WORD_ROW_HEIGHT,
     justifyContent: 'center',
   },
   wordUnderline: { borderBottomWidth: 0, borderColor: color.mute },

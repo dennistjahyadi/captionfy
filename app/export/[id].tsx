@@ -176,7 +176,8 @@ export default function Export() {
 
       <Label variant="label" tone="mute" style={styles.spec}>
         {size ? `${size.width} × ${size.height}` : 'Reading the video'}
-        {info ? ` · ${Math.round(info.fps)} fps` : ''} · no watermark
+        {info ? ` · ${Math.round(info.fps)} fps` : ''}
+        {tier.watermark ? ' · with a watermark' : ' · no watermark'}
       </Label>
 
       {rendering ? (

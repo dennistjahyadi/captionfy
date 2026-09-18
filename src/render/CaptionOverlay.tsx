@@ -14,7 +14,7 @@ import { BlurMask, Canvas, Group, rect, RoundedRect, Text } from '@shopify/react
 import { memo } from 'react';
 import { StyleSheet, View } from 'react-native';
 
-import type { CaptionBoxDraw, CaptionFrame, CaptionWordDraw } from '../domain';
+import type { CaptionBoxDraw, CaptionFrame, CaptionWordDraw, WatermarkDraw } from '../domain';
 import { faceKey } from './faces';
 import type { FontLookup } from './typefaces';
 
@@ -29,21 +29,58 @@ export const CaptionOverlay = memo(function CaptionOverlay({
   width,
   height,
   fonts,
+  watermark,
 }: {
   frame: CaptionFrame;
   width: number;
   height: number;
   fonts: FontLookup;
+  /**
+   * The free tier's mark, when the entitlement calls for one.
+   *
+   * On the overlay rather than inside `CaptionElements` on purpose: the style
+   * sheet draws nine tiles through those elements, and nine marks a hundred
+   * points tall would be noise about a question the tiles are not asking.
+   */
+  watermark?: WatermarkDraw;
 }) {
   return (
     // The overlay never takes a touch: taps on the video belong to the video.
     <View pointerEvents="none" style={[StyleSheet.absoluteFill, { width, height }]}>
       <Canvas style={{ width, height }}>
         <CaptionElements frame={frame} fonts={fonts} />
+        {watermark ? <Watermark mark={watermark} fonts={fonts} /> : null}
       </Canvas>
     </View>
   );
 });
+
+/**
+ * The mark, over the captions.
+ *
+ * Two draws, shadow then glyphs, which is the same pair `WordText` makes and the
+ * same pair `CaptionPainter` makes on the other side of the bridge. Nothing here
+ * decides where it goes; `layoutWatermark` did, against this same canvas.
+ */
+function Watermark({ mark, fonts }: { mark: WatermarkDraw; fonts: FontLookup }) {
+  const font = fonts(faceKey(mark.face), mark.fontSize);
+
+  return (
+    <>
+      <Text
+        x={mark.x + mark.shadow.dx}
+        y={mark.baseline + mark.shadow.dy}
+        text={mark.text}
+        font={font}
+        color={mark.shadow.color}
+      >
+        {mark.shadow.blur > 0 ? <BlurMask blur={mark.shadow.blur} style="normal" /> : null}
+      </Text>
+
+      <Text x={mark.x} y={mark.baseline} text={mark.text} font={font} color={mark.color} />
+    </>
+  );
+}
 
 /**
  * One frame's captions as Skia nodes, for whatever canvas the caller has.

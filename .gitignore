@@ -58,7 +58,14 @@ modules/*/android/.gradle/
 # is cheaper than every clone of this repository carrying them forever.
 /assets/models/
 
-# Test clips are third-party licensed audio. Fetch them, do not redistribute them.
+# Test clips. Two kinds, both out of git and for opposite reasons.
+#
+# `accent/` is third-party licensed audio from the Speech Accent Archive, CC
+# BY-NC-SA: fetch it with scripts/fetch-accent-samples.sh, do not redistribute it.
+#
+# `demo/` is the opposite — footage and voice this project generates for itself,
+# the only clip that may appear in a store listing. It is out of git because it
+# is tens of megabytes that scripts/make-demo-clip.py rebuilds byte for byte.
 /test-clips/
 
 # Competitor clips studied for the caption styles. Somebody else's footage:

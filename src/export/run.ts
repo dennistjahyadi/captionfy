@@ -15,7 +15,7 @@ import BurnIn, { type SavedFile, type VideoInfo } from '../../modules/burn-in';
 import ForegroundService from '../../modules/foreground-service';
 import { projectStyle, projectUnits, toSrt, type MeasureText, type Ms, type Project } from '../domain';
 import { loadEntitlement, saveEntitlement } from '../policy/entitlement-store';
-import { recordExport } from '../policy/free-tier';
+import { freeTierStatus, recordExport } from '../policy/free-tier';
 import { projectDirectory } from '../project/store';
 import { buildBurnPlan, exportSize } from '../render/burn';
 import { estimateExportBytes } from './limits';
@@ -148,9 +148,14 @@ export async function runExport(request: ExportRequest): Promise<ExportOutcome> 
   const planFile = new File(directory, 'plan.json');
   const outputFile = new File(directory, 'export.mp4');
 
+  // Read here rather than passed in by the screen, for the same reason the free
+  // export is spent here: this is the file's own record of what was paid for, and
+  // a screen that decided it could be a screen that got it wrong.
+  const watermark = freeTierStatus(loadEntitlement()).watermark;
+
   planFile.write(
     JSON.stringify(
-      buildBurnPlan(project, { ...size, fps, durationMs, reducedMotion }, measure)
+      buildBurnPlan(project, { ...size, fps, durationMs, reducedMotion, watermark }, measure)
     )
   );
 

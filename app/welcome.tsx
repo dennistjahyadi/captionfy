@@ -54,7 +54,7 @@ export default function Welcome() {
         </Label>
 
         <Label variant="body" tone="mute" style={styles.blurb}>
-          Everything runs on your phone. No account. No upload. No watermark.
+          Everything runs on your phone. No account. No upload. No subscription.
         </Label>
 
         <View style={styles.actions}>

@@ -18,10 +18,19 @@ export type FreeTierPolicy =
 /**
  * The policy in force. Change this line, not the code that reads it.
  *
- * Three, full quality, no watermark. Enough to caption a clip, post it, watch how
- * it lands and come back — which is the only demonstration this product has.
+ * Unlimited exports, full quality, carrying a small mark. It was three clean
+ * exports until it was not, and the argument that moved it is that **three was a
+ * wall in front of the wrong thing**. Checking that the captions match the audio
+ * never needed an export: the editor plays the real overlay through the real
+ * layout, free and unlimited, which is invariant 2 doing its second job. What the
+ * counter actually rationed was finished files — and it charged again for every
+ * re-export after a style tweak, so three went in an afternoon.
+ *
+ * A mark trades that wall for a visible one. Nobody is stopped, the thing being
+ * evaluated is still the real thing, and the unlock buys back the frame.
+ * `layoutWatermark` holds where it goes and why it is small.
  */
-export const FREE_TIER: FreeTierPolicy = { kind: 'exports', freeExports: 3 };
+export const FREE_TIER: FreeTierPolicy = { kind: 'watermark' };
 
 export interface Entitlement {
   /** True once the one-time purchase is restored or bought. */

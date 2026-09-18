@@ -19,6 +19,7 @@ import { deleteProject, listProjects, loadPipeline, thumbnailFile } from '../src
 import { loadSettings } from '../src/project/settings';
 import { makeThumbnail } from '../src/project/thumbnail';
 import { Label, PrimaryButton, Screen } from '../src/ui/atoms';
+import { Curtain } from '../src/ui/curtain';
 import { describeProject, plural } from '../src/ui/describe';
 import { FreeTierLine } from '../src/ui/tier';
 import { color, DEFAULT_ACCENT, MIN_TOUCH, radius, space } from '../src/ui/theme';
@@ -37,11 +38,22 @@ export default function Home() {
     useCallback(() => {
       setProjects(listProjects());
       setStatus(freeTierStatus(loadEntitlement()));
+      // The curtain stays down across the push to Processing, so that Home is
+      // not seen uncovering itself under the transition. Coming back is what
+      // lifts it.
+      setPicking(false);
     }, [])
   );
 
   if (!welcomeSeen) return <Redirect href="/welcome" />;
 
+  /**
+   * From the tap to the Processing screen, nothing else on Home can be touched.
+   *
+   * The picker copies the video into this app's cache before it returns, which
+   * is seconds on a long clip, and the project is then made synchronously. The
+   * curtain covers all of it; only cancelling or an error lifts it here.
+   */
   async function pickVideo() {
     setPicking(true);
     try {
@@ -50,7 +62,10 @@ export default function Home() {
         allowsMultipleSelection: false,
         quality: 1,
       });
-      if (result.canceled) return;
+      if (result.canceled) {
+        setPicking(false);
+        return;
+      }
 
       const asset = result.assets[0];
       // The notification is what the foreground service needs to keep running
@@ -62,9 +77,8 @@ export default function Home() {
       void makeThumbnail(project);
       router.push(`/processing/${project.id}`);
     } catch (error) {
-      Alert.alert('That video could not be opened', describe(error));
-    } finally {
       setPicking(false);
+      Alert.alert('That video could not be opened', describe(error));
     }
   }
 
@@ -153,6 +167,8 @@ export default function Home() {
           <ProjectRow project={item} onPress={() => open(item)} onLongPress={() => confirmDelete(item)} />
         )}
       />
+
+      {picking ? <Curtain title="Getting your video ready" note="Nothing is uploaded." /> : null}
     </Screen>
   );
 }

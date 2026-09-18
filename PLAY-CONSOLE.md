@@ -14,23 +14,29 @@ Everything here was checked against the code and the merged release manifest on
 Four things are wrong or missing right now. Two of them are policy violations if
 you upload as-is.
 
-### 1. The description in ASO.md does not match the app — violation
+### 1. ~~The description in ASO.md does not match the app~~ — closed
 
-`ASO.md`'s full description says *"free to use in full … free exports carry a
-small watermark … one purchase removes it forever."* The code ships something
-else. `src/policy/free-tier.ts:24`:
+It used to. This section said `ASO.md` promised a watermark tier the code did not
+have, and told you to change the listing or change the code. **The code changed.**
+`src/policy/free-tier.ts`:
 
 ```ts
-export const FREE_TIER: FreeTierPolicy = { kind: 'exports', freeExports: 3 };
+export const FREE_TIER: FreeTierPolicy = { kind: 'watermark' };
 ```
 
-Three exports, full quality, **no** watermark, and then export is blocked. Play's
-Store Listing policy treats a description promising a tier the app does not have
-as deceptive metadata. The full description below is rewritten to match the code.
-If you would rather ship the watermark tier, change the code first — the listing
-must not lead.
+Unlimited exports, full quality, carrying a small mark that the unlock removes —
+which is what `ASO.md` said all along. The argument for moving is in that file
+and in `layoutWatermark`: the three-export counter was a wall in front of the
+wrong thing, because checking that the captions match the audio never needed an
+export at all.
 
-It is also stale on the presets: the listing says four styles and
+**So the inversion is the thing to watch.** The full description further down
+this file was written against the three-export tier and is now the one that
+lies. It has been rewritten again, to the watermark tier. Whichever of these two
+files you paste from, paste from the one that agrees with `free-tier.ts`, and
+check it rather than remembering it.
+
+`ASO.md` is still stale on the presets: it says four styles and
 `src/domain/style.ts` has nine. Fixed below.
 
 ### 2. There is no privacy policy, and Play will not take the app without one
@@ -208,7 +214,7 @@ EXPORT
 Captions are burned into the video on your phone, at full quality, and saved straight to your gallery. Audio is copied across untouched, with no second compression pass. You can export a .srt subtitle file too.
 
 PAY ONCE
-The first three exports are free: full quality, no watermark, every caption style and every editing tool unlocked. After that, one purchase gives you unlimited exports forever. There is no subscription and there never will be.
+Wordburn is free to use in full: unlimited videos, unlimited exports, every caption style and every editing tool. Free exports carry a small watermark in the corner. One purchase removes it forever. There is no subscription and there never will be.
 
 An auto subtitle maker, caption generator and subtitle burner in one app, working entirely offline.
 
@@ -216,10 +222,13 @@ PLEASE NOTE
 Wordburn transcribes English. It does not translate and does not support other languages.
 ```
 
-What changed from `ASO.md`: four styles became nine, the watermark tier became
-the three-export tier, and the acoustic-emphasis paragraph was added because it
-is the one thing in the app that no competitor can do and it was not in the
-listing at all.
+What changed from `ASO.md`: four styles became nine, and the acoustic-emphasis
+paragraph was added because it is the one thing in the app that no competitor can
+do and it was not in the listing at all. The tier paragraph is `ASO.md`'s own
+again — it was rewritten here to the three-export counter while the code shipped
+that, and rewritten back when `FREE_TIER` moved to the mark. It now says what
+`free-tier.ts` does, with "unlimited exports" spelled out because that is the
+half of the trade a reader of "carries a watermark" does not otherwise hear.
 
 ### Graphics — you upload these, the extension cannot
 
@@ -227,14 +236,25 @@ listing at all.
 |---|---|---|
 | App icon 512×512 | `store/play-icon-512.png` | ✅ exists |
 | Feature graphic 1024×500 | `store/play-feature-graphic-1024x500.png` | ✅ exists |
-| Phone screenshots, 2–8, 9:16 | — | ❌ **not made yet** |
+| Phone screenshots, 2–8, 9:16 | `store/play-screenshots/*.png` | ⚠️ eight exist, three are stale — see below |
 | Tablet screenshots | — | not needed, `supportsTablet: false` |
 | Promo video | — | optional, skip |
 
-Screenshots are the one blocker in this section. `STORE-ASSETS.md` has the eight
-captures, their headlines and the plate to compose them on. Its shot 8 note is
-now settled: the free-tier line reads three exports, which is what the
-description above promises, so that screenshot is safe to take.
+Eight exist now, composed by `scripts/make-screenshots.py` over device captures
+in `store/shots/listing/`. **Three of them have to be retaken before upload**, and
+for two different reasons:
+
+- **7 (Export) and 8 (Home)** were shot on the three-export tier. They read
+  "no watermark" and "3 free exports left"; the app now says "with a watermark"
+  and "Free exports carry a small watermark". A screenshot promising the tier the
+  app no longer has is the same violation from the other direction.
+- **1 (Editor), 3 (Style) and 5 (Timing)** were shot before the stage rework
+  landed on 2026-09-18 and show the old layout with its own scrubber row. 4
+  (Word sheet) was shot after and shows the new one, so the set disagrees with
+  itself as well as with the app.
+
+None of the eight shows the watermark, because they all predate it, and the mark
+is now in every preview a free user sees. That is its own reason to reshoot.
 
 Minimum to publish is 2. Take 3, 1 and 7 if you are in a hurry — the style grid,
 the editor, the export.
@@ -471,7 +491,7 @@ Monetise → Products → In-app products → Create product.
 |---|---|
 | Product ID | `captions_unlock_v1` — matches `src/policy/store.ts:35`, and cannot be changed after creation |
 | Name (55 max) | `Wordburn Unlock` |
-| Description (200 max) | `Unlimited exports, forever. Every caption style, every editing tool, full quality, no watermark. One payment, no subscription.` |
+| Description (200 max) | `Removes the watermark from every export, forever. Full quality, every caption style, every editing tool. One payment, no subscription.` |
 | Type | **One-time product**, non-consumable — the code calls `finishTransaction({ isConsumable: false })` |
 | Status | Active |
 | Price | your call — see below |

@@ -25,4 +25,5 @@ export * from './text';
 export * from './timing';
 export * from './transcript';
 export * from './types';
+export * from './watermark';
 export * from './words';

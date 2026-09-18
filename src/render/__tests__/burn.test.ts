@@ -1,13 +1,14 @@
 import {
   computeAutoEmphasis,
   layoutCaptionFrame,
+  layoutWatermark,
   projectStyle,
   wordFeatures,
   type Canvas,
 } from '../../domain';
 import { evenWords, flatEnvelope, measureMono, project } from '../../domain/__fixtures__/project';
 import { buildBurnPlan, exportSize } from '../burn';
-import { faceKey } from '../faces';
+import { FACE_KEYS, faceKey } from '../faces';
 
 function ready(styleId = 'box') {
   const base = project({
@@ -26,6 +27,7 @@ const options = {
   fps: 30,
   durationMs: 3200,
   reducedMotion: false,
+  watermark: false,
 };
 
 describe('buildBurnPlan', () => {
@@ -181,5 +183,37 @@ describe('the new presets across the bridge', () => {
 
     expect(spotlight.entries.length).toBeLessThan(karaoke.entries.length);
     expect(spotlight.entries.length).toBeLessThan(frames);
+  });
+});
+
+describe('the free tier’s mark, across the bridge', () => {
+  it('is absent for anyone who has paid', () => {
+    expect(buildBurnPlan(ready(), options, measureMono).watermark).toBeUndefined();
+  });
+
+  it('is the same mark the preview lays out, in a face the module carries', () => {
+    const plan = buildBurnPlan(ready(), { ...options, watermark: true }, measureMono);
+    const canvas: Canvas = { width: options.width, height: options.height };
+    const expected = layoutWatermark(canvas, measureMono);
+
+    // Rounded to a hundredth of a pixel on the way out, like every other number
+    // in the plan: below that nothing is visible and the JSON only grows.
+    expect(plan.watermark!.text).toBe(expected.text);
+    expect(plan.watermark!.color).toBe(expected.color);
+    expect(plan.watermark!.x).toBeCloseTo(expected.x, 2);
+    expect(plan.watermark!.baseline).toBeCloseTo(expected.baseline, 2);
+    expect(plan.watermark!.size).toBeCloseTo(expected.fontSize, 2);
+    expect(plan.watermark!.shadow.blur).toBeCloseTo(expected.shadow.blur, 2);
+    expect(FACE_KEYS).toContain(plan.watermark!.face);
+  });
+
+  it('is written once for the whole video, not once per entry', () => {
+    // A mark repeated in every entry would grow the plan without telling the
+    // painter anything, and would defeat the shape comparison that dedupes them.
+    const plan = buildBurnPlan(ready('karaoke'), { ...options, watermark: true }, measureMono);
+    const marked = buildBurnPlan(ready('karaoke'), options, measureMono);
+
+    expect(plan.entries.length).toBe(marked.entries.length);
+    expect(JSON.stringify(plan.entries)).toBe(JSON.stringify(marked.entries));
   });
 });

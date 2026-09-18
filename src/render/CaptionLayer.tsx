@@ -12,7 +12,7 @@
  */
 import { memo, useEffect, useMemo, useRef, useState } from 'react';
 
-import type { MeasureText } from '../domain';
+import { layoutWatermark, type MeasureText } from '../domain';
 import type { Clock } from '../ui/clock';
 import { CaptionOverlay } from './CaptionOverlay';
 import type { FrameSource } from './frame';
@@ -26,6 +26,7 @@ export const CaptionLayer = memo(function CaptionLayer({
   width,
   height,
   reducedMotion,
+  watermark = false,
   onFps,
 }: {
   source: FrameSource;
@@ -35,6 +36,12 @@ export const CaptionLayer = memo(function CaptionLayer({
   width: number;
   height: number;
   reducedMotion: boolean;
+  /**
+   * Draw the free tier's mark. Invariant 5: the preview shows it because the
+   * exported file will, and finding it there afterwards is the surprise that
+   * invariant forbids.
+   */
+  watermark?: boolean;
   onFps?: (fps: number) => void;
 }) {
   const [tMs, setTMs] = useState(0);
@@ -43,9 +50,24 @@ export const CaptionLayer = memo(function CaptionLayer({
   const canvas = useMemo(() => ({ width, height }), [width, height]);
   const frame = source.frameAt(tMs, canvas, measure, { reducedMotion });
 
+  // Once per canvas, not once per frame: the mark does not move, and this runs
+  // inside the only component on the screen that redraws sixty times a second.
+  const mark = useMemo(
+    () => (watermark ? layoutWatermark(canvas, measure) : undefined),
+    [watermark, canvas, measure]
+  );
+
   useDrawCounter(onFps);
 
-  return <CaptionOverlay frame={frame} width={width} height={height} fonts={fonts} />;
+  return (
+    <CaptionOverlay
+      frame={frame}
+      width={width}
+      height={height}
+      fonts={fonts}
+      watermark={mark}
+    />
+  );
 });
 
 /** Counts committed draw lists per second. */

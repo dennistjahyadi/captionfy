@@ -36,7 +36,7 @@ internal class CaptionPainter(private val assets: AssetManager) {
   private val boxPaint = Paint(Paint.ANTI_ALIAS_FLAG)
   private val shadowPaint = Paint(Paint.ANTI_ALIAS_FLAG)
 
-  fun paint(bitmap: Bitmap, entry: BurnEntry) {
+  fun paint(bitmap: Bitmap, entry: BurnEntry, watermark: BurnWatermark? = null) {
     val canvas = Canvas(bitmap)
     canvas.drawColor(Color.TRANSPARENT, PorterDuff.Mode.CLEAR)
 
@@ -48,6 +48,38 @@ internal class CaptionPainter(private val assets: AssetManager) {
       word.box?.let { box -> canvas.withWord(word) { drawBox(canvas, box, word.opacity) } }
     }
     for (word in entry.words) drawWord(canvas, word)
+
+    // Last, over everything. This bitmap is cleared and repainted whenever the
+    // caption entry changes and reused in between, so drawing the mark here is
+    // what puts it on every frame of the file.
+    watermark?.let { mark -> drawWatermark(canvas, mark) }
+  }
+
+  /**
+   * The mark: shadow, then glyphs.
+   *
+   * The same two draws the preview's `Watermark` makes, from the same baseline,
+   * in the same face at the same size — positioned by `layoutWatermark` in JS
+   * against this export's canvas. Nothing here decides where it goes.
+   */
+  private fun drawWatermark(canvas: Canvas, mark: BurnWatermark) {
+    val typeface = typefaceFor(mark.face)
+
+    mark.shadow?.let { shadow ->
+      shadowPaint.typeface = typeface
+      shadowPaint.textSize = mark.size
+      shadowPaint.color = shadow.color
+      shadowPaint.alpha = alphaOf(shadow.color, 1f)
+      shadowPaint.maskFilter = blurFor(shadow.blur)
+      canvas.drawText(mark.text, mark.x + shadow.dx, mark.baseline + shadow.dy, shadowPaint)
+      shadowPaint.maskFilter = null
+    }
+
+    fill.typeface = typeface
+    fill.textSize = mark.size
+    fill.color = mark.color
+    fill.alpha = alphaOf(mark.color, 1f)
+    canvas.drawText(mark.text, mark.x, mark.baseline, fill)
   }
 
   private fun drawBox(canvas: Canvas, box: BurnBox, opacity: Float) {

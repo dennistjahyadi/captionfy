@@ -101,14 +101,30 @@ describe('recordUnlock', () => {
 });
 
 describe('the policy that actually ships', () => {
-  // The build prompt's table, pinned. Every screen reads this one object, so a
-  // stray edit here changes what four screens say without touching any of them.
-  it('is three free exports, full quality', () => {
-    expect(FREE_TIER).toEqual({ kind: 'exports', freeExports: 3 });
+  // Pinned. Every screen reads this one object, so a stray edit here changes what
+  // four screens say without touching any of them.
+  it('is unlimited exports carrying a mark', () => {
+    expect(FREE_TIER).toEqual({ kind: 'watermark' });
   });
 
-  it('states the count before any work starts', () => {
-    expect(freeTierStatus(fresh()).line).toBe('3 free exports left');
-    expect(freeTierStatus(fresh({ exportsUsed: 3 }))).toMatchObject({ blocked: true });
+  it('says so before any work starts, and never blocks', () => {
+    expect(freeTierStatus(fresh())).toEqual({
+      line: 'Free exports carry a small watermark',
+      blocked: false,
+      watermark: true,
+    });
+  });
+
+  it('stops marking the moment the unlock lands', () => {
+    expect(freeTierStatus(fresh({ unlocked: true })).watermark).toBe(false);
+  });
+
+  // Exporting five times on the free tier must not start a wall building behind
+  // the user's back: `exportsUsed` still counts, and nothing reads it for gating.
+  it('does not ration anything', () => {
+    expect(freeTierStatus(fresh({ exportsUsed: 99 }))).toMatchObject({
+      blocked: false,
+      watermark: true,
+    });
   });
 });

@@ -64,11 +64,35 @@ internal data class BurnWord(
 /** A draw list and the moment it starts applying. It holds until the next one. */
 internal data class BurnEntry(val tMs: Long, val plate: BurnBox?, val words: List<BurnWord>)
 
+/**
+ * The free tier's mark, positioned in JS like everything else here.
+ *
+ * Null for anyone who has paid. It sits on the plan rather than on each entry
+ * because it is the same mark for the whole video; the painter draws it after
+ * the captions on every repaint, which puts it on every frame.
+ */
+internal data class BurnWatermark(
+  val text: String,
+  val x: Float,
+  val baseline: Float,
+  val size: Float,
+  val face: String,
+  val color: Int,
+  /**
+   * Always written by `layoutWatermark`, and still nullable here.
+   *
+   * A plan missing it should cost the mark its shadow, not cost the user the
+   * whole export: the same reasoning `typefaceFor` uses when a face is missing.
+   */
+  val shadow: BurnShadow?,
+)
+
 internal data class BurnPlan(
   val width: Int,
   val height: Int,
   val fps: Int,
   val durationMs: Long,
+  val watermark: BurnWatermark?,
   val entries: List<BurnEntry>,
 ) {
   /** The entry showing at `tMs`, given the one showing now. Entries only move forward. */
@@ -109,9 +133,23 @@ internal object PlanReader {
       height = json.getInt("height"),
       fps = json.getInt("fps"),
       durationMs = json.getLong("durationMs"),
+      watermark = watermark(json.optJSONObject("watermark")),
       entries = entries,
     )
   }
+
+  private fun watermark(json: JSONObject?): BurnWatermark? =
+    json?.let {
+      BurnWatermark(
+        text = it.getString("text"),
+        x = it.getDouble("x").toFloat(),
+        baseline = it.getDouble("baseline").toFloat(),
+        size = it.getDouble("size").toFloat(),
+        face = it.getString("face"),
+        color = parseColor(it.getString("color")),
+        shadow = shadow(it.optJSONObject("shadow")),
+      )
+    }
 
   private fun words(array: JSONArray): List<BurnWord> =
     (0 until array.length()).map { index ->

@@ -198,11 +198,54 @@ properties rather than presets.
     shadows on every word, **23.6%** with all nine tiles live, against the 37%
     slice 10 measured for four tiles in four canvases.
 
+12. The free tier becomes a mark instead of a counter.
+    **Built and run end to end, but on an emulator, not the A54.** `FREE_TIER` is
+    `{ kind: 'watermark' }`: unlimited exports carrying a small wordmark that the
+    unlock removes. The type and the `freeTierStatus` branch were already there
+    and had been dead since slice 9; what was missing was anything that drew it.
+    `layoutWatermark` is that, and it is a sibling of `layoutCaptionFrame` rather
+    than part of it — see below for why.
+    Verified on an Android 16 emulator, **release build**, on the 0:19 demo clip:
+    Home reads "Free exports carry a small watermark" with no counter, Export
+    reads "1080 × 1920 · 30 fps · with a watermark" and offers Save to gallery
+    rather than a wall, and a 1080 × 1920 export rendered with the mark burned
+    in. Measured on the exported frame against the preview, as fractions of the
+    video's own rectangle: left 0.0611 against 0.0614, top 0.1375 against 0.1372,
+    bottom 0.1490 against 0.1481, right 0.3000 against 0.3069. The one edge that
+    moves is the right, by 7 px in a 1080 frame, which is the hinted advance
+    rounding the Export section already documents for captions — it accumulates
+    over the line, so it is larger for this wordmark than for the bare one it
+    replaced and still under one percent.
+    The mark sits inside `safeZoneUnion()` on all four sides and clears
+    `CAPTION_INSET.upperMiddle`, both asserted in `watermark.test.ts` rather than
+    left to the eye.
+    **Those fractions predate a nudge.** Reviewed on 2026-09-18 against the
+    editor's own safe-zone overlay, the mark was visibly reaching for the corner
+    and missing it, so `TOP` went 0.135 → 0.125 and `LEFT` 0.06 → 0.05. The
+    numbers above were measured before that and are the old position; what they
+    still say, and the only thing they were there to say, is that the preview and
+    the export agree to within the hinted-advance rounding. The corner clearance
+    is now asserted in `watermark.test.ts` too, so it cannot drift back out into
+    the middle of the band.
+    **Not run on the A54**, so by the line below this slice is not done.
+
 Every slice runs as a release build on the Galaxy A54 before it is called done.
 
 ## Known issues
 
-Three are left, and none of them can be closed from this machine.
+Four are left, and none of them can be closed from this machine.
+
+- **The watermark has never run on the A54.** Slice 12 was verified end to end on
+  an Android 16 emulator in a release build — the mark is burned into a real
+  exported file and measured against the preview — but the phone was not
+  connected, so by this file's own rule the slice is not done. What is unproven
+  there is what the emulator cannot answer: how the mark reads on a real panel at
+  arm's length, and whether an extra text draw per repaint costs the burn-in
+  anything measurable. It should not: it is two draws on a bitmap that is already
+  being repainted, and only when the entry changes.
+  Also unrun on any device: the store screenshots in `store/play-screenshots/`
+  predate all of this and three of the eight now contradict the app. See
+  `PLAY-CONSOLE.md`.
 
 Closed in slice 11: the five new presets, the shadow, the plate and the
 one-canvas tile grid all ran on the A54, in a release build, and both renderers
@@ -283,6 +326,32 @@ has to argue with that gap.
 - The style sheet's preview is the editor's own stage rather than a second copy
   inside the sheet. One video view, one overlay, one layout; the stage gives up
   height while that sheet is open so the captions are not behind it.
+- **The editor's stage is 38% of the screen, not 46%, and there is no controls
+  row.** Measured on the A54 the old layout gave the transcript 28% of the
+  screen, five rows, under a stage that was 44% black pillar either side of a
+  9:16 clip. Now the scrubber is a hairline on the stage's own bottom edge with
+  the transport in the corner over it, the timecode and undo/redo are in the
+  bar, and a transcript row is 36 points with a hit slop back to `MIN_TOUCH`.
+  The transcript has about 45% and ten rows; the clip previews at 191 points
+  wide rather than 231, which is the cost. Two other layouts were drawn at the
+  phone's size and turned down on 2026-09-18: a stage that crops to the caption
+  band (captions 1.8× bigger, but the whole frame is a drag away and the window
+  has to follow the style's position) and a video-first transcript sheet (the
+  short-form convention, but it covers the lower third, where the captions are,
+  and every editing surface here is already a sheet). `store/shots/editor.png`
+  predates this and wants retaking.
+- **Picking a video drops a curtain.** The picker copies the file into this
+  app's cache before it hands control back, seconds on a long clip, and Home
+  sat there fully tappable under a spinner on one button. `Curtain` covers the
+  screen from the tap until Processing is up, takes every touch and the back
+  button, and animates the product's own box highlight along "Getting your
+  video ready" on the native driver, so it keeps moving while the JS thread is
+  moving the file. It is a view in the screen rather than a `Modal`, because a
+  modal is a window above every screen and would have covered Processing too;
+  Home lifts it when it is next focused, not when it blurs, so it is never seen
+  uncovering itself under the transition. The editor's "Choose the video
+  again" uses the same one. Processing is untouched: its Cancel and its playing
+  video are deliberate.
 - The style sheet stores **choices**, not properties: a colour, a size, a
   position, a words-per-line, each only when it differs from the preset it was
   set on. That is what lets a colour follow the user from preset to preset while
@@ -335,7 +404,82 @@ has to argue with that gap.
   sentences for the spent state became one: `freeTierStatus` returns "Free
   exports used", the spec's own words for it on Export, and Home, Saved and
   Settings say the same. Two phrasings of one fact is the app disagreeing with
-  itself between screens.
+  itself between screens. That line is now "Free exports carry a small
+  watermark" on all of them, and nothing says "used", because nothing is spent.
+- **The free tier is a mark, not a counter, and the reason is that the counter
+  walled off the wrong thing.** Three clean exports sounds generous until you ask
+  what the trial is for. Checking that the captions match the audio does not need
+  an export: the editor plays the real overlay through the real layout, free and
+  forever, which is invariant 2 doing a second job nobody designed it for. What
+  three rationed was finished files — and `runExport` charges again for every
+  re-export, so a style tweak and a second save spent two of them. The mark trades
+  a wall nobody could see coming for one they can. `exportsUsed` still counts and
+  nothing reads it for gating; the free-tier test asserts that 99 exports still
+  do not block, so a counter cannot grow back by accident.
+- **The watermark is not part of `layoutCaptionFrame`.** It is `layoutWatermark`,
+  its own pure function of a canvas and a measurer, in its own file. A mark takes
+  no part in fitting, shrinking, revealing or emphasis, and threading an
+  entitlement flag into the caption layout would put billing inside the one
+  module allowed to know nothing but words and time. What it keeps is the part
+  that matters: preview and export call the same pure function over the same
+  injected measurer at their own two sizes, which is exactly how the captions
+  hold invariant 2, so the mark holds it for the same reason and not a new one.
+- **The mark is drawn on the editor's preview as well as into the file.** A
+  watermark that appeared only at export is precisely the surprise invariant 5
+  forbids, and the whole point of a free tier you can evaluate is that what you
+  are looking at is what you will get. It is on `CaptionOverlay` rather than
+  inside `CaptionElements`, so the style sheet's nine tiles do not each grow one:
+  a tile is a hundred points tall and is answering a question about the preset.
+  Settings' default-style screen does not get one either — it exports nothing.
+- **Top-left, and the corners were all wrong.** `safeZoneUnion()` leaves the
+  bottom 0.22 and the right 0.24 of a vertical frame under TikTok's action rail
+  and the caption tray, so a mark in either bottom corner is invisible where it
+  is meant to be seen and in the way while the user reviews. The band from 0.110
+  (the union's top) to 0.280 (`CAPTION_INSET.upperMiddle`, the highest caption
+  the style sheet can make) is the only place that is both on screen everywhere
+  and not already spoken for. `top` at 0.12 would clash, which is one more reason
+  `StylePicker` does not offer it. Bottom-left fails twice over: it is where the
+  captions are, because `lowerThird` sits directly on top of that same 0.22.
+  The convention the other apps follow — CapCut, Veed and Canva are all
+  bottom-right — was weighed and turned down for exactly this. Their mark is
+  mostly a nag aimed at the person who made the video, and being half under
+  TikTok's rail is a price they accept; a line that says "Captions by Wordburn"
+  is aimed at the viewer, and a credit nobody can read is not a credit.
+- **The mark is pinned to the safe zone, not placed in the frame.** `TOP` and
+  `LEFT` are 0.125 and 0.05, which is 0.015 of the height under the union's top
+  and 0.010 of the width inside its left — 29 px and 11 px on a 1080 × 1920
+  frame. They were 0.135 and 0.06, and that is a sixth of the band down and half
+  a point in from the margin: near enough the corner to be reaching for it and
+  far enough to miss, so the mark read as a label dropped into the shot rather
+  than a bug on it. Looked at on 2026-09-18 with the editor's own safe-zone
+  overlay, which is the picture that made it obvious. The clearance is not zero
+  on purpose — the union is a consensus of third-party measurements, so a
+  platform a point more aggressive than it still has to miss the mark.
+- **It says "Captions by Wordburn", not "Wordburn", and the brand alone was the
+  first version.** It failed the only test that matters: a viewer has no idea
+  what made the video. A coined word in a corner explains nothing, and this one
+  is misread in a specific direction — `Word-` is game-coded on app stores, which
+  is the constraint the icon was designed against in the first place, so
+  "Wordburn" over somebody's clip can read as a word game they were playing.
+  Naming the job fixes that, carries the term a viewer would search, and reads as
+  a credit rather than a stamp, which is the tone to want on a video whose maker
+  is being invited to keep using the app. Four versions were drawn over a real
+  exported frame and compared at 1:1 — the brand alone, the brand with the icon's
+  three pills, the credit, and the credit with the pills. The pills lost: they
+  look good and they do kill the word-game reading, but three bars with one
+  highlighted only decodes for somebody who already knows the brand, which is the
+  person who did not need telling.
+- **Small, and the size was measured rather than chosen.** The line in
+  Be Vietnam Pro ExtraBold at 0.012 of the canvas height is 264 px on a 1080
+  frame — 24% of the width, ending at 0.294 against the safe zone's 0.760, and
+  0.141 of the height against `upperMiddle`'s 0.280. That ratio is **smaller**
+  than the 0.018 the bare wordmark used: a longer line at the old size was a
+  third of the frame and shouted, and at this one it takes a quarter and reads as
+  fine print. Short-form plays full-screen, so a 1080-wide frame is about 1:1 on
+  the phone and a 17 px cap height is comfortably legible — which is why the
+  mock-ups were compared at 1:1 rather than shrunk to a feed that does not exist.
+  White at 82% over a soft dark shadow, because the shadow is what lets "subtle"
+  survive a white kitchen wall, and it is the same two draws a caption makes.
 - Welcome's headline is set in Spectral, the caption serif, which every other
   line of chrome is barred from using. It is the one screen with no video on it
   and the promise it makes is a promise about type.
@@ -426,6 +570,18 @@ costs an entry every frame. A revealing preset costs entries while a word is
 arriving and none once it has landed, which puts it between the two. The
 comparison is over the whole entry, card included: a plate that changed while
 the words did not would otherwise be dropped.
+
+**The free tier's mark rides on the plan, not in the entries.** One
+`watermark` object at the top of the file, absent entirely for anyone who has
+paid. Repeating it in every entry would grow the JSON by a thousand copies of the
+same thing and tell `CaptionPainter` nothing it did not know — worse, it would be
+compared as part of the shape that dedupes entries, so a constant would be
+carried through every comparison for nothing. The painter clears and repaints the
+overlay bitmap whenever the entry changes and the encoder reuses it in between,
+so drawing the mark last on each of those repaints is what puts it on every
+frame. `buildBurnPlan` builds it with the same `layoutWatermark` the preview
+called, over the same measurer, against the export's own canvas — the whole of
+why it lands in the same place in both.
 
 **A shadow's blur crosses as a sigma.** Skia's blur mask takes a Gaussian sigma
 and `android.graphics`'s `BlurMaskFilter` takes a radius, converting it itself
