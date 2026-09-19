@@ -29,6 +29,15 @@ VERSION_CODE=""
 _version_fail() { printf '\n\033[1;31mx\033[0m %s\n' "$1" >&2; exit 1; }
 _version_note() { printf '    %s\n' "$1"; }
 
+# The first line of whatever is piped in, and nothing else.
+#
+# Stands in for `| head -1` throughout this file. head leaves as soon as it has
+# its line, which closes the pipe and kills whatever is still writing with
+# SIGPIPE; every caller here runs under `set -o pipefail`, which then calls the
+# pipeline failed even though the line was read correctly. This reads its input
+# to the end first, so nothing upstream is ever cut off.
+_first_line() { local all; all="$(cat)"; printf '%s\n' "${all%%$'\n'*}"; }
+
 # ------------------------------------------------------------------ app.json
 
 version_read() {
@@ -57,8 +66,8 @@ version_sync_native() {
   local gradle="android/app/build.gradle" have_name have_code tmp
   [ -f "$gradle" ] || _version_fail "No $gradle. The native project has not been generated yet."
 
-  have_name="$(sed -n 's/^[[:space:]]*versionName "\(.*\)"$/\1/p' "$gradle" | head -1)"
-  have_code="$(sed -n 's/^[[:space:]]*versionCode \([0-9][0-9]*\)$/\1/p' "$gradle" | head -1)"
+  have_name="$(sed -n 's/^[[:space:]]*versionName "\(.*\)"$/\1/p' "$gradle" | _first_line)"
+  have_code="$(sed -n 's/^[[:space:]]*versionCode \([0-9][0-9]*\)$/\1/p' "$gradle" | _first_line)"
 
   [ -n "$have_name" ] && [ -n "$have_code" ] \
     || _version_fail "Could not find versionName/versionCode in $gradle. Has the AGP template changed?"
@@ -75,8 +84,8 @@ version_sync_native() {
       "$gradle" > "$tmp"
   mv "$tmp" "$gradle"
 
-  have_name="$(sed -n 's/^[[:space:]]*versionName "\(.*\)"$/\1/p' "$gradle" | head -1)"
-  have_code="$(sed -n 's/^[[:space:]]*versionCode \([0-9][0-9]*\)$/\1/p' "$gradle" | head -1)"
+  have_name="$(sed -n 's/^[[:space:]]*versionName "\(.*\)"$/\1/p' "$gradle" | _first_line)"
+  have_code="$(sed -n 's/^[[:space:]]*versionCode \([0-9][0-9]*\)$/\1/p' "$gradle" | _first_line)"
   [ "$have_name" = "$VERSION" ] && [ "$have_code" = "$VERSION_CODE" ] \
     || _version_fail "Tried to sync $gradle and it still reads $have_name ($have_code)."
 }
@@ -86,10 +95,19 @@ version_sync_native() {
 # An APK carries binary XML, which aapt2 reads. A bundle carries protobuf, which
 # it does not — hence the python next door. Both print "name code".
 version_of_apk() {
-  local apk="$1" aapt2 line
+  local apk="$1" aapt2 badging line
   aapt2="$(ls "$ANDROID_HOME"/build-tools/*/aapt2 2>/dev/null | sort -V | tail -1)"
   [ -n "$aapt2" ] || return 1
-  line="$("$aapt2" dump badging "$apk" 2>/dev/null | head -1)" || return 1
+
+  # Deliberately not `| head -1`. Callers run under `set -o pipefail`, badging
+  # prints a screenful, and head closing the pipe after the first line kills
+  # aapt2 with SIGPIPE — which pipefail then reports as a failed pipeline even
+  # though the line arrived whole. It is a race between how fast aapt2 writes and
+  # how fast head leaves, so it struck at random and more often the bigger the
+  # APK got. Take the whole thing, which is kilobytes, and cut the first line
+  # here where no pipe can close under it.
+  badging="$("$aapt2" dump badging "$apk" 2>/dev/null)" || return 1
+  line="${badging%%$'\n'*}"
   printf '%s %s\n' \
     "$(printf '%s' "$line" | sed -n "s/.*versionName='\([^']*\)'.*/\1/p")" \
     "$(printf '%s' "$line" | sed -n "s/.*versionCode='\([^']*\)'.*/\1/p")"
@@ -103,9 +121,14 @@ version_of_aab() {
 # whole reason this file exists, so it fails rather than warns.
 version_verify() {
   local artifact="$1" kind="$2" got
+  # `|| got=""` on both, because the caller runs under `set -e` and a bare
+  # assignment from a command substitution that returns non-zero kills the script
+  # where it stands — which is how the unreadable-version case below, written to
+  # warn and carry on, spent its whole life unreachable. A build that cannot be
+  # read back is a warning; a build that disagrees is fatal. Neither is a crash.
   case "$kind" in
-    apk) got="$(version_of_apk "$artifact")" ;;
-    aab) got="$(version_of_aab "$artifact")" ;;
+    apk) got="$(version_of_apk "$artifact")" || got="" ;;
+    aab) got="$(version_of_aab "$artifact")" || got="" ;;
   esac
 
   if [ -z "$got" ]; then
