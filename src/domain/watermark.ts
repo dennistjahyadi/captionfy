@@ -18,11 +18,11 @@
  * well as into the file, because a watermark that appeared only at export would
  * be exactly the surprise that invariant exists to forbid.
  */
-import type { Canvas, FaceSpec, MeasureText, ShadowDraw } from './layout';
+import type { BoxDraw, Canvas, FaceSpec, MeasureText, ShadowDraw } from './layout';
 import { SANS_FAMILY } from './style';
 
-/** One mark, ready to draw. Every number is in canvas pixels. */
-export interface WatermarkDraw {
+/** One line of the mark. Every number is in canvas pixels. */
+export interface WatermarkTextDraw {
   text: string;
   /** Left edge. */
   x: number;
@@ -36,7 +36,22 @@ export interface WatermarkDraw {
 }
 
 /**
- * What it says, and why it is a sentence rather than the brand.
+ * One mark, ready to draw: the icon, then the credit.
+ *
+ * Two lists rather than one shape, because that is what the two renderers
+ * already know how to draw — a `BoxDraw` is the same rounded rectangle a box
+ * highlight is, and a line is the same two draws a word is. Nothing downstream
+ * learns what a logo is.
+ */
+export interface WatermarkDraw {
+  /** The app icon's three pills, drawn under nothing and over nothing. */
+  pills: BoxDraw[];
+  /** The credit and the brand, in draw order. */
+  lines: WatermarkTextDraw[];
+}
+
+/**
+ * What it says, why it is a sentence rather than the brand, and why it stacks.
  *
  * `Wordburn` alone was the first version and it fails the only test that
  * matters: somebody who watches the video has no idea what made it. A coined
@@ -45,11 +60,14 @@ export interface WatermarkDraw {
  * the icon was designed against, so "Wordburn" over a video can read as a word
  * game somebody was playing rather than the thing that put the captions there.
  *
- * Naming the job fixes that and carries the term a viewer would search. It also
- * reads as a credit rather than a stamp, which is the tone to want on somebody
- * else's video when the whole offer is that they may keep using it.
+ * Naming the job fixes that and carries the term a viewer would search. Set as
+ * one long line it read as a sentence dropped into the frame; stacked, the
+ * quiet half is a label and the brand underneath is the name — which is the
+ * shape every platform's own mark uses, and the shape a viewer reads in one
+ * glance rather than one sentence.
  */
-export const WATERMARK_TEXT = 'Captions by Wordburn';
+export const WATERMARK_CREDIT = 'Captions by';
+export const WATERMARK_BRAND = 'Wordburn';
 
 /**
  * Where the mark sits, as fractions of the canvas.
@@ -60,7 +78,7 @@ export const WATERMARK_TEXT = 'Captions by Wordburn';
  *
  *   0.110  `safeZoneUnion().top` — above this the platform draws its own chrome
  *   0.125  the mark
- *   0.141  the mark's foot at the size below
+ *   0.154  the mark's foot at the sizes below
  *   0.280  `CAPTION_INSET.upperMiddle`, the top of the highest caption the style
  *          sheet can produce. `top` (0.12) exists in the domain and would clash,
  *          but `StylePicker` does not offer it, for its own safety reasons.
@@ -86,54 +104,178 @@ const LEFT = 0.05;
 
 /**
  * Small enough to read as a mark rather than a caption, large enough to survive
- * a feed. Measured against the real face rather than guessed: the line above in
- * Be Vietnam Pro ExtraBold at this ratio is 264 px on a 1080 frame, ending at
- * 0.294 of the width against the safe zone's 0.760 limit, and 0.141 of the
- * height against `CAPTION_INSET.upperMiddle`'s 0.280.
+ * a feed. Measured against the real faces rather than guessed: the whole badge
+ * at these ratios is 244 px across on a 1080 frame — 0.226 of the width, ending
+ * at 0.276 against the safe zone's 0.760 limit — and its foot lands at 0.154 of
+ * the height against `CAPTION_INSET.upperMiddle`'s 0.280.
  *
- * It is **smaller** than the 0.018 the bare wordmark used. A longer line at the
- * old size was a third of the frame and shouted; at this one it takes a quarter
- * and reads as fine print that happens to be legible. Short-form plays
- * full-screen, so a 1080-wide frame is about 1:1 on the phone and a 17 px cap
- * height is comfortably readable — the mock-ups this was chosen from were
- * compared at 1:1 for that reason.
+ * The brand line is 29.8 px there and the credit 19.1 px. Short-form plays
+ * full-screen, so a 1080-wide frame is about 1:1 on the phone and those are
+ * comfortably legible — which is why the mock-ups this was chosen from were
+ * compared at 1:1 rather than shrunk to a feed that does not exist. Stacking
+ * bought the badge a narrower footprint than the single line it replaced
+ * (0.226 against 0.247) while making the brand itself half again as big.
  */
-const SIZE_RATIO = 0.012;
+const BRAND_RATIO = 0.0155;
+/** Of the brand's size. Quiet enough to be a label, big enough to be read. */
+const CREDIT_RATIO = 0.64;
+/** Of the credit's size: the advance from the credit's cap line to the brand's. */
+const LINE_RATIO = 1.02;
 
 /**
- * White, a little under full strength, over a soft dark shadow.
+ * The icon, beside the words.
+ *
+ * `store/wordburn-mark-bare.svg` is three pills — a caption line with the word
+ * the speaker leaned on picked out in the accent — and these are its own
+ * rectangles normalised to their bounding box, x as fractions of the logo's
+ * width and everything else as fractions of its height. One drawing, described
+ * twice, would be two drawings.
+ *
+ * It is set against the height of the two lines rather than given a size of its
+ * own, so the badge stays one object at any canvas size. At full block height
+ * the logo is as wide as the brand and reads as the louder half; at a little
+ * over three quarters it supports the words instead, which is what a credit
+ * wants.
+ */
+const LOGO_ASPECT = 593.92 / 317.44;
+const LOGO_HEIGHT_RATIO = 0.78;
+/** Of the brand's size. Tight enough that the badge is one thing. */
+const LOGO_GAP_RATIO = 0.26;
+
+interface Pill {
+  /** Of the logo's width. */
+  x: number;
+  width: number;
+  /** Of the logo's height. */
+  y: number;
+  height: number;
+  accent: boolean;
+}
+
+const PILLS: Pill[] = [
+  { x: 0, width: 0.5759, y: 0, height: 0.2, accent: false },
+  { x: 0, width: 1, y: 0.329, height: 0.3419, accent: true },
+  { x: 0, width: 0.4724, y: 0.8, height: 0.2, accent: false },
+];
+
+/**
+ * White over a soft dark shadow, and the icon's own yellow.
  *
  * The shadow is what makes "subtle" survivable — the captions hold themselves
- * off the frame the same way, and at 82% over a blur the mark reads on a white
- * kitchen wall and on a night shot without being the brightest thing on either.
+ * off the frame the same way. It is heavier here than a caption's because the
+ * mark is a third of a caption's size and the hard case is a white kitchen wall,
+ * where the halo is the only thing separating a white mark from the frame: on
+ * the near-white still this was designed over, a lighter shadow lost the credit
+ * line entirely.
  */
-const COLOR = '#FFFFFFD1';
-const SHADOW_COLOR = '#00000099';
-/** Of the font size. `blur` is a Gaussian sigma, as everywhere in the draw list. */
-const SHADOW_BLUR_RATIO = 0.12;
+const BRAND_COLOR = '#FFFFFF';
+const CREDIT_COLOR = '#FFFFFFE0';
+const PILL_COLOR = '#FFFFFFB8';
+const PILL_ACCENT = '#FFE03D';
+const SHADOW_COLOR = '#0000009E';
+/** Of the element's size. `blur` is a Gaussian sigma, as everywhere in a draw list. */
+const SHADOW_BLUR_RATIO = 0.2;
 const SHADOW_DY_RATIO = 0.05;
 
-const FACE: FaceSpec = { family: SANS_FAMILY, weight: 'extrabold', italic: false };
+const BRAND_FACE: FaceSpec = { family: SANS_FAMILY, weight: 'extrabold', italic: false };
+const CREDIT_FACE: FaceSpec = { family: SANS_FAMILY, weight: 'semibold', italic: false };
 
 export function layoutWatermark(canvas: Canvas, measure: MeasureText): WatermarkDraw {
-  const fontSize = canvas.height * SIZE_RATIO;
+  const brandSize = canvas.height * BRAND_RATIO;
+  const creditSize = brandSize * CREDIT_RATIO;
+
   // Ascent rather than the font size: the domain's measurer reports it as a
   // positive distance above the baseline, so this puts the cap-height top of the
-  // mark on TOP rather than putting its baseline there and hanging it higher.
-  const { ascent } = measure(WATERMARK_TEXT, fontSize, FACE);
+  // credit on TOP rather than putting its baseline there and hanging it higher.
+  const credit = measure(WATERMARK_CREDIT, creditSize, CREDIT_FACE);
+  const brand = measure(WATERMARK_BRAND, brandSize, BRAND_FACE);
+
+  const top = canvas.height * TOP;
+  const left = canvas.width * LEFT;
+
+  const creditBaseline = top + credit.ascent;
+  const brandBaseline = top + creditSize * LINE_RATIO + brand.ascent;
+  const blockHeight = brandBaseline + brand.descent - top;
+
+  const logoHeight = blockHeight * LOGO_HEIGHT_RATIO;
+  const logoWidth = logoHeight * LOGO_ASPECT;
+  const logoTop = top + (blockHeight - logoHeight) / 2;
+  const textX = left + logoWidth + brandSize * LOGO_GAP_RATIO;
 
   return {
-    text: WATERMARK_TEXT,
-    x: canvas.width * LEFT,
-    baseline: canvas.height * TOP + ascent,
-    fontSize,
-    face: FACE,
-    color: COLOR,
-    shadow: {
-      color: SHADOW_COLOR,
-      blur: fontSize * SHADOW_BLUR_RATIO,
-      dx: 0,
-      dy: fontSize * SHADOW_DY_RATIO,
-    },
+    pills: PILLS.map((pill) => ({
+      x: left + logoWidth * pill.x,
+      y: logoTop + logoHeight * pill.y,
+      width: logoWidth * pill.width,
+      height: logoHeight * pill.height,
+      // A pill is a capsule: the radius is half its own height at every size.
+      radius: (logoHeight * pill.height) / 2,
+      color: pill.accent ? PILL_ACCENT : PILL_COLOR,
+      shadow: shadowFor(brandSize),
+    })),
+    lines: [
+      {
+        text: WATERMARK_CREDIT,
+        x: textX,
+        baseline: creditBaseline,
+        fontSize: creditSize,
+        face: CREDIT_FACE,
+        color: CREDIT_COLOR,
+        shadow: shadowFor(creditSize),
+      },
+      {
+        text: WATERMARK_BRAND,
+        x: textX,
+        baseline: brandBaseline,
+        fontSize: brandSize,
+        face: BRAND_FACE,
+        color: BRAND_COLOR,
+        shadow: shadowFor(brandSize),
+      },
+    ],
   };
+}
+
+function shadowFor(size: number): ShadowDraw {
+  return {
+    color: SHADOW_COLOR,
+    blur: size * SHADOW_BLUR_RATIO,
+    dx: 0,
+    dy: size * SHADOW_DY_RATIO,
+  };
+}
+
+/**
+ * The rectangle the whole badge occupies, for anything that has to reason about
+ * where it is rather than draw it — which in practice is the test that keeps it
+ * inside the safe zone and out of the captions.
+ */
+export function watermarkBounds(
+  mark: WatermarkDraw,
+  measure: MeasureText
+): { x: number; y: number; width: number; height: number } {
+  let left = Infinity;
+  let top = Infinity;
+  let right = -Infinity;
+  let bottom = -Infinity;
+
+  const consider = (x: number, y: number, width: number, height: number) => {
+    left = Math.min(left, x);
+    top = Math.min(top, y);
+    right = Math.max(right, x + width);
+    bottom = Math.max(bottom, y + height);
+  };
+
+  for (const pill of mark.pills) consider(pill.x, pill.y, pill.width, pill.height);
+  for (const line of mark.lines) {
+    const metrics = measure(line.text, line.fontSize, line.face);
+    consider(
+      line.x,
+      line.baseline - metrics.ascent,
+      metrics.width,
+      metrics.ascent + metrics.descent
+    );
+  }
+
+  return { x: left, y: top, width: right - left, height: bottom - top };
 }

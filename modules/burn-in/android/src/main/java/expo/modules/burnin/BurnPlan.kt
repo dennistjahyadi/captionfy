@@ -64,14 +64,8 @@ internal data class BurnWord(
 /** A draw list and the moment it starts applying. It holds until the next one. */
 internal data class BurnEntry(val tMs: Long, val plate: BurnBox?, val words: List<BurnWord>)
 
-/**
- * The free tier's mark, positioned in JS like everything else here.
- *
- * Null for anyone who has paid. It sits on the plan rather than on each entry
- * because it is the same mark for the whole video; the painter draws it after
- * the captions on every repaint, which puts it on every frame.
- */
-internal data class BurnWatermark(
+/** One line of the mark. */
+internal data class BurnMarkLine(
   val text: String,
   val x: Float,
   val baseline: Float,
@@ -85,6 +79,22 @@ internal data class BurnWatermark(
    * whole export: the same reasoning `typefaceFor` uses when a face is missing.
    */
   val shadow: BurnShadow?,
+)
+
+/**
+ * The free tier's mark, positioned in JS like everything else here.
+ *
+ * Null for anyone who has paid. It sits on the plan rather than on each entry
+ * because it is the same mark for the whole video; the painter draws it after
+ * the captions on every repaint, which puts it on every frame.
+ *
+ * The icon beside the words arrives as ordinary boxes, so the painter draws it
+ * with the same `drawBox` a box highlight goes through. A logo described in its
+ * own vocabulary would be a second drawing for this side to get wrong.
+ */
+internal data class BurnWatermark(
+  val pills: List<BurnBox>,
+  val lines: List<BurnMarkLine>,
 )
 
 internal data class BurnPlan(
@@ -140,14 +150,25 @@ internal object PlanReader {
 
   private fun watermark(json: JSONObject?): BurnWatermark? =
     json?.let {
+      val pillsJson = it.optJSONArray("pills")
+      val linesJson = it.getJSONArray("lines")
+
       BurnWatermark(
-        text = it.getString("text"),
-        x = it.getDouble("x").toFloat(),
-        baseline = it.getDouble("baseline").toFloat(),
-        size = it.getDouble("size").toFloat(),
-        face = it.getString("face"),
-        color = parseColor(it.getString("color")),
-        shadow = shadow(it.optJSONObject("shadow")),
+        pills = (0 until (pillsJson?.length() ?: 0)).mapNotNull { index ->
+          box(pillsJson?.getJSONObject(index))
+        },
+        lines = (0 until linesJson.length()).map { index ->
+          val line = linesJson.getJSONObject(index)
+          BurnMarkLine(
+            text = line.getString("text"),
+            x = line.getDouble("x").toFloat(),
+            baseline = line.getDouble("baseline").toFloat(),
+            size = line.getDouble("size").toFloat(),
+            face = line.getString("face"),
+            color = parseColor(line.getString("color")),
+            shadow = shadow(line.optJSONObject("shadow")),
+          )
+        },
       )
     }
 

@@ -14,7 +14,13 @@ import { BlurMask, Canvas, Group, rect, RoundedRect, Text } from '@shopify/react
 import { memo } from 'react';
 import { StyleSheet, View } from 'react-native';
 
-import type { CaptionBoxDraw, CaptionFrame, CaptionWordDraw, WatermarkDraw } from '../domain';
+import type {
+  BoxDraw,
+  CaptionFrame,
+  CaptionWordDraw,
+  WatermarkDraw,
+  WatermarkTextDraw,
+} from '../domain';
 import { faceKey } from './faces';
 import type { FontLookup } from './typefaces';
 
@@ -56,28 +62,44 @@ export const CaptionOverlay = memo(function CaptionOverlay({
 });
 
 /**
- * The mark, over the captions.
+ * The mark, over the captions: the icon's pills, then the credit, then the brand.
  *
- * Two draws, shadow then glyphs, which is the same pair `WordText` makes and the
- * same pair `CaptionPainter` makes on the other side of the bridge. Nothing here
- * decides where it goes; `layoutWatermark` did, against this same canvas.
+ * Every piece of it is a shape one of the components below already draws — a
+ * pill is the same rounded rectangle a box highlight is, and a line is the same
+ * shadow-then-glyphs pair `WordText` makes and `CaptionPainter` makes on the
+ * other side of the bridge. Nothing here decides where anything goes;
+ * `layoutWatermark` did, against this same canvas.
  */
 function Watermark({ mark, fonts }: { mark: WatermarkDraw; fonts: FontLookup }) {
-  const font = fonts(faceKey(mark.face), mark.fontSize);
+  return (
+    <>
+      {mark.pills.map((pill, index) => (
+        <Box key={`pill-${index}`} box={pill} />
+      ))}
+
+      {mark.lines.map((line) => (
+        <WatermarkLine key={line.text} line={line} fonts={fonts} />
+      ))}
+    </>
+  );
+}
+
+function WatermarkLine({ line, fonts }: { line: WatermarkTextDraw; fonts: FontLookup }) {
+  const font = fonts(faceKey(line.face), line.fontSize);
 
   return (
     <>
       <Text
-        x={mark.x + mark.shadow.dx}
-        y={mark.baseline + mark.shadow.dy}
-        text={mark.text}
+        x={line.x + line.shadow.dx}
+        y={line.baseline + line.shadow.dy}
+        text={line.text}
         font={font}
-        color={mark.shadow.color}
+        color={line.shadow.color}
       >
-        {mark.shadow.blur > 0 ? <BlurMask blur={mark.shadow.blur} style="normal" /> : null}
+        {line.shadow.blur > 0 ? <BlurMask blur={line.shadow.blur} style="normal" /> : null}
       </Text>
 
-      <Text x={mark.x} y={mark.baseline} text={mark.text} font={font} color={mark.color} />
+      <Text x={line.x} y={line.baseline} text={line.text} font={font} color={line.color} />
     </>
   );
 }
@@ -171,7 +193,7 @@ function WordText({ word, fonts }: { word: CaptionWordDraw; fonts: FontLookup })
 }
 
 /** A rounded rectangle and, where the style asked for one, the shadow under it. */
-function Box({ box }: { box: CaptionBoxDraw }) {
+function Box({ box }: { box: BoxDraw }) {
   return (
     <>
       {box.shadow ? (

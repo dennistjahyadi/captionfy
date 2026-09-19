@@ -75,7 +75,16 @@ export interface ShadowDraw {
   dy: number;
 }
 
-export interface CaptionBoxDraw {
+/**
+ * A rounded rectangle, ready to draw.
+ *
+ * Split out of `CaptionBoxDraw` because the free tier's mark is built from these
+ * too and a pill of a logo has no business carrying a caption's `layer`. One
+ * shape means one `Box` in the preview and one `drawBox` in the burn-in, which
+ * is the only reason either side can be trusted to draw the mark the way it
+ * draws a highlight.
+ */
+export interface BoxDraw {
   x: number;
   y: number;
   width: number;
@@ -83,6 +92,9 @@ export interface CaptionBoxDraw {
   radius: number;
   color: string;
   shadow?: ShadowDraw;
+}
+
+export interface CaptionBoxDraw extends BoxDraw {
   layer: Layer;
 }
 

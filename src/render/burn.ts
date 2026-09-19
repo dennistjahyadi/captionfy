@@ -21,7 +21,7 @@
  */
 import {
   layoutWatermark,
-  type CaptionBoxDraw,
+  type BoxDraw,
   type CaptionWordDraw,
   type Canvas,
   type MeasureText,
@@ -88,8 +88,8 @@ export interface BurnEntry {
   words: BurnWord[];
 }
 
-/** The free tier's mark. One per plan, because it does not move or change. */
-export interface BurnWatermark {
+/** One line of the free tier's mark. */
+export interface BurnMarkLine {
   text: string;
   x: number;
   baseline: number;
@@ -97,6 +97,17 @@ export interface BurnWatermark {
   face: string;
   color: string;
   shadow: BurnShadow;
+}
+
+/**
+ * The free tier's mark. One per plan, because it does not move or change.
+ *
+ * The icon's pills cross as ordinary boxes: the painter already draws those for
+ * a box highlight, so the mark costs the native side no drawing it did not have.
+ */
+export interface BurnWatermark {
+  pills: BurnBox[];
+  lines: BurnMarkLine[];
 }
 
 export interface BurnPlan {
@@ -172,13 +183,16 @@ export function buildBurnPlan(
 
 function toBurnWatermark(mark: WatermarkDraw): BurnWatermark {
   return {
-    text: mark.text,
-    x: round2(mark.x),
-    baseline: round2(mark.baseline),
-    size: round2(mark.fontSize),
-    face: faceKey(mark.face),
-    color: mark.color,
-    shadow: toBurnShadow(mark.shadow),
+    pills: mark.pills.map(toBurnBox),
+    lines: mark.lines.map((line) => ({
+      text: line.text,
+      x: round2(line.x),
+      baseline: round2(line.baseline),
+      size: round2(line.fontSize),
+      face: faceKey(line.face),
+      color: line.color,
+      shadow: toBurnShadow(line.shadow),
+    })),
   };
 }
 
@@ -204,7 +218,7 @@ function toBurnWord(word: CaptionWordDraw): BurnWord {
   };
 }
 
-function toBurnBox(box: CaptionBoxDraw): BurnBox {
+function toBurnBox(box: BoxDraw): BurnBox {
   return {
     x: round2(box.x),
     y: round2(box.y),

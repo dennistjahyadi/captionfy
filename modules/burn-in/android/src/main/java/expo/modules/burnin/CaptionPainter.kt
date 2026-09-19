@@ -56,30 +56,36 @@ internal class CaptionPainter(private val assets: AssetManager) {
   }
 
   /**
-   * The mark: shadow, then glyphs.
+   * The mark: the icon's pills, then each line as shadow and glyphs.
    *
-   * The same two draws the preview's `Watermark` makes, from the same baseline,
-   * in the same face at the same size — positioned by `layoutWatermark` in JS
-   * against this export's canvas. Nothing here decides where it goes.
+   * The same draws the preview's `Watermark` makes, in the same order, from the
+   * same baselines, in the same faces at the same sizes — a pill goes through
+   * the same `drawBox` a box highlight does. Everything was positioned by
+   * `layoutWatermark` in JS against this export's canvas; nothing here decides
+   * where any of it goes.
    */
   private fun drawWatermark(canvas: Canvas, mark: BurnWatermark) {
-    val typeface = typefaceFor(mark.face)
+    for (pill in mark.pills) drawBox(canvas, pill, 1f)
 
-    mark.shadow?.let { shadow ->
-      shadowPaint.typeface = typeface
-      shadowPaint.textSize = mark.size
-      shadowPaint.color = shadow.color
-      shadowPaint.alpha = alphaOf(shadow.color, 1f)
-      shadowPaint.maskFilter = blurFor(shadow.blur)
-      canvas.drawText(mark.text, mark.x + shadow.dx, mark.baseline + shadow.dy, shadowPaint)
-      shadowPaint.maskFilter = null
+    for (line in mark.lines) {
+      val typeface = typefaceFor(line.face)
+
+      line.shadow?.let { shadow ->
+        shadowPaint.typeface = typeface
+        shadowPaint.textSize = line.size
+        shadowPaint.color = shadow.color
+        shadowPaint.alpha = alphaOf(shadow.color, 1f)
+        shadowPaint.maskFilter = blurFor(shadow.blur)
+        canvas.drawText(line.text, line.x + shadow.dx, line.baseline + shadow.dy, shadowPaint)
+        shadowPaint.maskFilter = null
+      }
+
+      fill.typeface = typeface
+      fill.textSize = line.size
+      fill.color = line.color
+      fill.alpha = alphaOf(line.color, 1f)
+      canvas.drawText(line.text, line.x, line.baseline, fill)
     }
-
-    fill.typeface = typeface
-    fill.textSize = mark.size
-    fill.color = mark.color
-    fill.alpha = alphaOf(mark.color, 1f)
-    canvas.drawText(mark.text, mark.x, mark.baseline, fill)
   }
 
   private fun drawBox(canvas: Canvas, box: BurnBox, opacity: Float) {

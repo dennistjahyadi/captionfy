@@ -227,6 +227,17 @@ properties rather than presets.
     the export agree to within the hinted-advance rounding. The corner clearance
     is now asserted in `watermark.test.ts` too, so it cannot drift back out into
     the middle of the band.
+    **And they predate a redesign.** On 2026-09-19 the mark became a badge: the
+    icon's three pills, then "Captions by" over **Wordburn** stacked, instead of
+    one long line of type. Designed in the same headless harness, over a real
+    exported frame and a real near-white one, at 1:1. The whole badge is narrower
+    than the line it replaced — 0.226 of the width against 0.247 — while the
+    brand itself is half again as big, and it reaches 0.155 of the height rather
+    than 0.141, still less than half way to `upperMiddle`. Nothing measured on
+    the phone above is invalidated: the layout is the same pure function over the
+    same measurer at two sizes, so the preview-versus-export agreement is held by
+    the same mechanism. **Unmeasured on any device**, and that number has to be
+    taken again anyway — see Known issues.
     **Not run on the A54**, so by the line below this slice is not done.
 
 Every slice runs as a release build on the Galaxy A54 before it is called done.
@@ -240,9 +251,16 @@ Four are left, and none of them can be closed from this machine.
   exported file and measured against the preview — but the phone was not
   connected, so by this file's own rule the slice is not done. What is unproven
   there is what the emulator cannot answer: how the mark reads on a real panel at
-  arm's length, and whether an extra text draw per repaint costs the burn-in
-  anything measurable. It should not: it is two draws on a bitmap that is already
-  being repainted, and only when the entry changes.
+  arm's length, and whether the extra draws per repaint cost the burn-in anything
+  measurable. They should not: it is three boxes and four text draws on a bitmap
+  that is already being repainted, and only when the entry changes.
+  **The badge of 2026-09-19 has not run anywhere at all.** The stack, the pills
+  and the heavier shadow were designed in the headless harness and are covered by
+  `watermark.test.ts` and `burn.test.ts`, and the module's Kotlin compiles, but
+  no build has drawn them — not on the phone, not on an emulator, and not through
+  Skia, which is the one that matters: `layoutWatermark` is now measured against
+  two faces at two sizes rather than one, so the preview-against-export fractions
+  measured on the emulator have to be taken again before this is believed.
   Also unrun on any device: the store screenshots in `store/play-screenshots/`
   predate all of this and three of the eight now contradict the app. See
   `PLAY-CONSOLE.md`.
@@ -463,23 +481,36 @@ has to argue with that gap.
   "Wordburn" over somebody's clip can read as a word game they were playing.
   Naming the job fixes that, carries the term a viewer would search, and reads as
   a credit rather than a stamp, which is the tone to want on a video whose maker
-  is being invited to keep using the app. Four versions were drawn over a real
-  exported frame and compared at 1:1 — the brand alone, the brand with the icon's
-  three pills, the credit, and the credit with the pills. The pills lost: they
-  look good and they do kill the word-game reading, but three bars with one
-  highlighted only decodes for somebody who already knows the brand, which is the
-  person who did not need telling.
-- **Small, and the size was measured rather than chosen.** The line in
-  Be Vietnam Pro ExtraBold at 0.012 of the canvas height is 264 px on a 1080
-  frame — 24% of the width, ending at 0.294 against the safe zone's 0.760, and
-  0.141 of the height against `upperMiddle`'s 0.280. That ratio is **smaller**
-  than the 0.018 the bare wordmark used: a longer line at the old size was a
-  third of the frame and shouted, and at this one it takes a quarter and reads as
-  fine print. Short-form plays full-screen, so a 1080-wide frame is about 1:1 on
-  the phone and a 17 px cap height is comfortably legible — which is why the
-  mock-ups were compared at 1:1 rather than shrunk to a feed that does not exist.
-  White at 82% over a soft dark shadow, because the shadow is what lets "subtle"
-  survive a white kitchen wall, and it is the same two draws a caption makes.
+  is being invited to keep using the app.
+- **It is stacked, and the icon is back.** "Captions by" in SemiBold over
+  **Wordburn** in ExtraBold, with the icon's three pills to the left: the shape
+  every platform's own mark uses, and the shape a viewer takes in at a glance
+  rather than reading as a sentence. Set as one long line the same words were a
+  caption somebody had left in the corner.
+  The pills had lost a straight comparison against the single line, on the
+  grounds that three bars with one highlighted only decode for somebody who
+  already knows the brand. That argument does not survive the stack. It was
+  asking the pills to *say* something, and beside a line that already says the
+  whole thing they do the other job — they make the credit one object with an
+  edge instead of two sentences of loose type, which is the whole of why a
+  platform badge looks like a badge. Drawn against the stack at 0.78 of the
+  block's height and at its full height: full height makes the logo the louder
+  half and the words the caption to it, which is backwards.
+- **Small, and every ratio was measured rather than chosen.** The brand at 0.0155
+  of the canvas height is 29.8 px on a 1080 × 1920 frame and the credit at 0.64 of
+  that is 19.1 px; the whole badge is 244 px across — 0.226 of the width, ending
+  at 0.276 against the safe zone's 0.760 — and its foot lands at 0.155 against
+  `upperMiddle`'s 0.280. It is **narrower** than the 0.247 the single line took
+  while the brand itself is half again as big, which is what stacking buys.
+  Short-form plays full-screen, so a 1080-wide frame is about 1:1 on the phone
+  and both lines are comfortably legible there — which is why the mock-ups were
+  compared at 1:1 rather than shrunk to a feed that does not exist.
+  The brand is white, the credit 88%, the muted pills 72% and the accent pill the
+  icon's own yellow. The shadow is heavier than a caption's — a 0.2 sigma against
+  a caption's 0.12 — because the mark is a third of a caption's size and the hard
+  case is a white kitchen wall, where the halo is the only thing separating white
+  type from the frame. On the near-white still this was designed over, the
+  caption's shadow lost the credit line entirely.
 - Welcome's headline is set in Spectral, the caption serif, which every other
   line of chrome is barred from using. It is the one screen with no video on it
   and the promise it makes is a promise about type.
@@ -582,6 +613,13 @@ so drawing the mark last on each of those repaints is what puts it on every
 frame. `buildBurnPlan` builds it with the same `layoutWatermark` the preview
 called, over the same measurer, against the export's own canvas — the whole of
 why it lands in the same place in both.
+
+**The mark's icon crosses as boxes and its words as lines**, which is to say as
+things both renderers already draw. A pill is the same `BoxDraw` a box highlight
+is, so `Box` in the preview and `drawBox` in the painter take it unchanged, and
+a line is the same shadow-then-glyphs pair a word is. Describing a logo in a
+vocabulary of its own would have been a third drawing for the two sides to
+disagree about, for a picture that is three rounded rectangles.
 
 **A shadow's blur crosses as a sigma.** Skia's blur mask takes a Gaussian sigma
 and `android.graphics`'s `BlurMaskFilter` takes a radius, converting it itself

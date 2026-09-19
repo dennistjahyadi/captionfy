@@ -198,13 +198,29 @@ describe('the free tier’s mark, across the bridge', () => {
 
     // Rounded to a hundredth of a pixel on the way out, like every other number
     // in the plan: below that nothing is visible and the JSON only grows.
-    expect(plan.watermark!.text).toBe(expected.text);
-    expect(plan.watermark!.color).toBe(expected.color);
-    expect(plan.watermark!.x).toBeCloseTo(expected.x, 2);
-    expect(plan.watermark!.baseline).toBeCloseTo(expected.baseline, 2);
-    expect(plan.watermark!.size).toBeCloseTo(expected.fontSize, 2);
-    expect(plan.watermark!.shadow.blur).toBeCloseTo(expected.shadow.blur, 2);
-    expect(FACE_KEYS).toContain(plan.watermark!.face);
+    expect(plan.watermark!.lines).toHaveLength(expected.lines.length);
+    plan.watermark!.lines.forEach((line, index) => {
+      const same = expected.lines[index];
+      expect(line.text).toBe(same.text);
+      expect(line.color).toBe(same.color);
+      expect(line.x).toBeCloseTo(same.x, 2);
+      expect(line.baseline).toBeCloseTo(same.baseline, 2);
+      expect(line.size).toBeCloseTo(same.fontSize, 2);
+      expect(line.shadow.blur).toBeCloseTo(same.shadow.blur, 2);
+      expect(FACE_KEYS).toContain(line.face);
+    });
+
+    // The icon crosses as ordinary boxes, so the painter draws it through the
+    // same `drawBox` a box highlight goes through and learns nothing new.
+    expect(plan.watermark!.pills).toHaveLength(expected.pills.length);
+    plan.watermark!.pills.forEach((pill, index) => {
+      const same = expected.pills[index];
+      expect(pill.x).toBeCloseTo(same.x, 2);
+      expect(pill.y).toBeCloseTo(same.y, 2);
+      expect(pill.width).toBeCloseTo(same.width, 2);
+      expect(pill.height).toBeCloseTo(same.height, 2);
+      expect(pill.color).toBe(same.color);
+    });
   });
 
   it('is written once for the whole video, not once per entry', () => {
