@@ -71,3 +71,11 @@ modules/*/android/.gradle/
 # Competitor clips studied for the caption styles. Somebody else's footage:
 # what was learned from them is written down in CLAUDE.md instead.
 references/
+
+# The TikTok renders and everything they are built from that already lives
+# somewhere else. `marketing/remotion/public/` is copies — the app's own fonts
+# from assets/fonts and the demo clip from test-clips — so it is a second copy
+# of tracked-or-rebuildable bytes, and `sync-assets.sh` puts it back. `out/` is
+# the finished MP4s, which are a build artifact like any APK.
+marketing/remotion/public/
+marketing/remotion/out/
