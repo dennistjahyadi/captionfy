@@ -59,7 +59,7 @@ const CLOSE: ScriptLine[] = [
  * about recurring billing that the struck-through price used to make, with
  * nothing in it about anybody else's number.
  */
-const ChargeStack: React.FC = () => {
+export const ChargeStack: React.FC = () => {
   const frame = useCurrentFrame();
 
   const PILL_EVERY = 7;

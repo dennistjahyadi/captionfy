@@ -1,0 +1,70 @@
+{
+  "note": "Written by scripts/capture.mjs. Emulator recordings of the real app.",
+  "shots": {
+    "unlock": {
+      "id": "unlock",
+      "what": "The Unlock screen: 'Buy it once. Keep it forever.' and the four ticks. The price button is cropped out — the product is not in Play yet, so it spins.",
+      "file": "unlock.mp4",
+      "width": 1080,
+      "height": 2400,
+      "durationSec": 4
+    },
+    "style": {
+      "id": "style",
+      "what": "The style sheet: nine presets animating the user's own line, the scroll to the last three, the hue strip dragged, yellow picked back",
+      "file": "style.mp4",
+      "width": 1080,
+      "height": 2400,
+      "durationSec": 16
+    },
+    "dictionary": {
+      "id": "dictionary",
+      "what": "A word's sheet, 'Add to your words', the dictionary with the entry half written, Save, back in the editor",
+      "file": "dictionary.mp4",
+      "width": 1080,
+      "height": 2400,
+      "durationSec": 10
+    },
+    "saving": {
+      "id": "saving",
+      "what": "Export → Save to gallery → the render, about thirty seconds on this emulator → Saved, with the share buttons",
+      "file": "saving.mp4",
+      "width": 1080,
+      "height": 2400,
+      "durationSec": 36
+    },
+    "pick": {
+      "id": "pick",
+      "what": "Airplane mode on. Home → New video → the system picker → the curtain → Processing with the words arriving → the editor",
+      "file": "pick.mp4",
+      "width": 1080,
+      "height": 2400,
+      "durationSec": 40
+    },
+    "toggle": {
+      "id": "toggle",
+      "what": "The quick-settings shade pulled down over Home and the Airplane mode tile tapped. The physical action, on camera.",
+      "file": "toggle.mp4",
+      "width": 1080,
+      "height": 2400,
+      "durationSec": 7
+    },
+    "saved": {
+      "id": "saved",
+      "what": "The Saved screen: the tick, the filename, Share, and the one-time feedback card. No setup on purpose — it records whatever is on screen, and it is meant to be run right after the `saving` shot's export has actually finished, which on this emulator is 54 s, longer than that shot records.",
+      "file": "saved.mp4",
+      "width": 1080,
+      "height": 2400,
+      "durationSec": 4
+    }
+  },
+  "export": {
+    "file": "export.mp4",
+    "what": "A real Wordburn export. Captions burned in by the app's own module, not redrawn here.",
+    "sourceName": "Wordburn 2026-09-20 012610.mp4",
+    "width": 1080,
+    "height": 1920,
+    "durationSec": 19.783401,
+    "hasAudio": true
+  }
+}

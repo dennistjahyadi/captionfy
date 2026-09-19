@@ -1,0 +1,6 @@
+{
+  "name": "wordburn-marketing-pipeline",
+  "private": true,
+  "type": "module",
+  "description": "The phase scripts every video project runs: capture off an emulator, pull an export, stage for Remotion, render, storyboard, self-check, voice script. Run from inside a video folder. This file exists for its `type` field \u2014 `beats.js` is ESM and is imported both by these scripts and by webpack in ../remotion, and without it node reparses the file on every run and says so."
+}

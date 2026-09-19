@@ -10,20 +10,24 @@
 #
 # Run it before any render. `render.mjs` does.
 set -euo pipefail
-cd "$(dirname "$0")/.."
 
-project="$PWD"
-public="$project/../remotion/public"
+# The video being staged is the folder this was run from (render.mjs passes
+# it), and its media lands in `public/<subdir>/` — one subfolder per video, so
+# a render of one cannot pick up a recording that belongs to the other.
+project="${WB_PROJECT:-$PWD}"
+sub="${1:-film}"
+here="$(cd "$(dirname "$0")" && pwd)"
+public="$here/../remotion/public"
 
 # The app's own faces, and the demo clip the other three ads use.
-"$project/../remotion/sync-assets.sh" >/dev/null
+"$here/../remotion/sync-assets.sh" >/dev/null
 
-mkdir -p "$public/film"
+mkdir -p "$public/$sub"
 
 # A clean slate each time, except `preview.mp4` — that is the render being
 # sheeted by storyboard.mjs, not an input, and wiping it here would mean the
 # storyboard could only ever be built in the same command as the render.
-find "$public/film" -maxdepth 1 -type f ! -name 'preview.mp4' -delete
+find "$public/$sub" -maxdepth 1 -type f ! -name 'preview*.mp4' -delete
 
 shopt -s nullglob
 copied=0
@@ -31,18 +35,18 @@ for f in "$project"/input/app/*.mp4; do
   case "$(basename "$f")" in
     *.raw.mp4) continue ;;   # the un-normalised screenrecord capture, VFR, not for the timeline
   esac
-  cp "$f" "$public/film/"
+  cp "$f" "$public/$sub/"
   copied=$((copied + 1))
 done
 
 voice=0
 for f in "$project"/input/voice/*; do
-  cp "$f" "$public/film/"
+  cp "$f" "$public/$sub/"
   voice=$((voice + 1))
 done
 
-echo "public/film is ready — $copied app clip(s), $voice voice file(s)"
+echo "public/$sub is ready — $copied app clip(s), $voice voice file(s)"
 
 if [ "$copied" -eq 0 ]; then
-  echo "  ! No app clips. Boot an emulator and run:  node scripts/capture.mjs && node scripts/pull-export.mjs" >&2
+  echo "  ! No app clips. Boot an emulator and run:  node ../pipeline/capture.mjs && node ../pipeline/pull-export.mjs" >&2
 fi

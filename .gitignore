@@ -101,6 +101,14 @@ marketing/video-01-film/out/*
 !marketing/video-01-film/out/*.md
 !marketing/video-01-film/out/post.txt
 
+# Video 02, the same shape: recordings in, renders out, the two markdown
+# files and the post text the only source that lives in `out/`.
+marketing/video-02-tutorial/assets/
+marketing/video-02-tutorial/input/
+marketing/video-02-tutorial/out/*
+!marketing/video-02-tutorial/out/*.md
+!marketing/video-02-tutorial/out/post.txt
+
 # Creator deals: real handles, real fees, real sales. The .example.csv files are
 # the schema and are tracked; these two are other people's names and money.
 marketing/creators/creators.csv

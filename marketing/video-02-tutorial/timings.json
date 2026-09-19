@@ -1,0 +1,6 @@
+{
+  "source": "planned",
+  "note": "Phase 3 overwrites `lines` with the real length of each input/voice/body_N.mp3, measured by ffprobe, keyed by beat id. Until then the body runs on config.json's durationSec and `lines` stays null, so the silent cut is a plan and says so. Hooks are not re-timed by voice: three seconds is the hook's budget whatever is said over it.",
+  "lines": null,
+  "mix": { "ambienceDb": -22, "loudnessLufs": -14 }
+}

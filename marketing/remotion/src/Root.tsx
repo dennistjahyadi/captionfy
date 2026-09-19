@@ -7,6 +7,11 @@ import { PayOnce, PAY_ONCE_FRAMES } from './ads/PayOnce';
 import { Film } from './film/Film';
 import { SHEET, Storyboard } from './film/Storyboard';
 import { CONFIG, TOTAL_FRAMES as FILM_FRAMES } from './film/timeline';
+import { Body } from './tutorial/Body';
+import { Hook } from './tutorial/Hook';
+import { SHEET as TUTORIAL_SHEET, Storyboard as TutorialStoryboard } from './tutorial/Storyboard';
+import { Tutorial, TUTORIAL_FRAMES } from './tutorial/Tutorial';
+import { BODY_FRAMES, HOOKS, HOOK_FRAMES } from './tutorial/timeline';
 import { FORMAT } from './brand';
 
 export const RemotionRoot: React.FC = () => (
@@ -55,6 +60,39 @@ export const RemotionRoot: React.FC = () => (
       component={Storyboard}
       durationInFrames={1}
       {...SHEET}
+    />
+
+    {/*
+      Video 02 — six hooks, one tutorial. Organic 9:16. The render goes through
+      `tutorial-hook` (six times, one per hook id) and `tutorial-body` (once),
+      and ffmpeg joins them without re-encoding; `tutorial` is the whole thing
+      for the studio, so a join can be watched before it is made.
+    */}
+    <Composition
+      id="tutorial-body"
+      component={Body}
+      durationInFrames={BODY_FRAMES}
+      {...FORMAT}
+    />
+    <Composition
+      id="tutorial-hook"
+      component={Hook}
+      durationInFrames={HOOK_FRAMES}
+      defaultProps={{ hook: HOOKS[0].id }}
+      {...FORMAT}
+    />
+    <Composition
+      id="tutorial"
+      component={Tutorial}
+      durationInFrames={TUTORIAL_FRAMES}
+      defaultProps={{ hook: HOOKS[0].id }}
+      {...FORMAT}
+    />
+    <Composition
+      id="tutorial-storyboard"
+      component={TutorialStoryboard}
+      durationInFrames={1}
+      {...TUTORIAL_SHEET}
     />
   </>
 );

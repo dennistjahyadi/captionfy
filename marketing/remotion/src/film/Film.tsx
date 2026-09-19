@@ -2,7 +2,7 @@ import React from 'react';
 import { AbsoluteFill, Sequence, interpolate, useCurrentFrame } from 'remotion';
 
 import { useFonts } from '../useFonts';
-import { EndCard, ExportShot, Ground, Pointer, ScreenCard, Title } from './parts';
+import { EndCard, ExportShot, Ground, Pointer, ProjectProvider, ScreenCard, Title } from '../parts';
 import { BEATS, CONFIG, DISSOLVE, clipStart, exportStartFrame, pointerFor } from './timeline';
 
 /**
@@ -57,6 +57,7 @@ export const Film: React.FC<FilmProps> = ({ variant }) => {
   const variants = CONFIG.variants as Record<string, string>;
 
   return (
+    <ProjectProvider value={{ safe: CONFIG.safeBox, dir: 'film' }}>
     <AbsoluteFill>
       <Ground />
 
@@ -123,5 +124,6 @@ export const Film: React.FC<FilmProps> = ({ variant }) => {
         );
       })}
     </AbsoluteFill>
+    </ProjectProvider>
   );
 };

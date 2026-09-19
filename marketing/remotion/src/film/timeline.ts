@@ -1,13 +1,14 @@
 /**
  * What the composition needs to know about the film it is rendering.
  *
- * The arithmetic is `../../../video-01-film/beats.js`, shared with the
+ * The arithmetic is `../../../pipeline/beats.js`, shared with the
  * storyboard and the self-check so all three agree about where a cut lands.
  * This file is the bridge: it imports the video's own data across the folder
  * boundary rather than keeping a copy, because a copy of a version number
  * sitting in `android/app/build.gradle` is how this project learned that lesson.
  */
-import { buildBeats, beatMidpoints, timingSource, totalFrames } from '../../../video-01-film/beats.js';
+import { buildBeats, beatMidpoints, timingSource, totalFrames } from '../../../pipeline/beats.js';
+import { pointerFor as mapPointer } from '../parts';
 import shots from '../../../video-01-film/app-shots.json';
 import config from '../../../video-01-film/config.json';
 import timings from '../../../video-01-film/timings.json';
@@ -51,30 +52,13 @@ export const exportStartFrame = (beatId: string): number => {
 export const clipStart = (beat: { startSec?: number }): number =>
   Math.round((beat.startSec ?? 0) * FPS);
 
-/**
- * A pointer's position in the finished frame, mapped from where the thing it
- * points at actually sits in the recording.
- *
- * The aeroplane's coordinates were measured off `input/app/offline.start.png`
- * in the recording's own 1080 × 2400 space and live in `config.json`. Mapping
- * them through the card's crop and scale here is what keeps the ring on the
- * glyph when the framing changes — and the framing has already changed once,
- * which is how a hand-typed frame coordinate came to be pointing at nothing.
- */
+/** The aeroplane's ring, mapped through the offline card's framing. */
 export const pointerFor = (
   beat: { id: string; crop?: { y: number; h: number } },
   scale: number,
   top: number
-): { x: number; y: number; r: number } => {
+) => {
   const table = (config as { pointers?: Record<string, { deviceX: number; deviceY: number; r: number }> })
     .pointers;
-  const p = table?.[beat.id];
-  if (!p) return { x: -1000, y: -1000, r: 0 };
-
-  const cardWidth = 1080 * scale;
-  return {
-    x: 540 - cardWidth / 2 + p.deviceX * scale,
-    y: top + (p.deviceY - (beat.crop?.y ?? 0)) * scale,
-    r: p.r,
-  };
+  return mapPointer(table?.[beat.id], beat.crop, scale, top);
 };

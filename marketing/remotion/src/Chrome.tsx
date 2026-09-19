@@ -335,7 +335,12 @@ export const EndCard: React.FC<{ kicker: string; startFrame?: number }> = ({
  * runtime with nothing happening in it was paying for the brand with the reach.
  * The captions keep playing underneath this.
  */
-export const CtaOverlay: React.FC<{ at: number }> = ({ at }) => {
+export const CtaOverlay: React.FC<{ at: number; line?: string }> = ({
+  at,
+  // "On Google Play" is not true until the listing is live, which is why the
+  // organic posts pass their own line and this default is the paid ads' problem.
+  line = 'Android · on Google Play',
+}) => {
   const frame = useCurrentFrame() - at;
   const enter = interpolate(frame, [0, 12], [0, 1], {
     extrapolateLeft: 'clamp',
@@ -383,7 +388,7 @@ export const CtaOverlay: React.FC<{ at: number }> = ({ at }) => {
           borderRadius: 999,
         }}
       >
-        Android · on Google Play
+        {line}
       </div>
     </div>
   );

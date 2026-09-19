@@ -10,7 +10,7 @@
 import { writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
-import { PROJECT, readJson } from './lib.mjs';
+import { PROJECT, readJson } from '../../pipeline/lib.mjs';
 
 const shots = readJson(resolve(PROJECT, 'app-shots.json'));
 const rows = Object.values(shots.shots ?? {}).map(

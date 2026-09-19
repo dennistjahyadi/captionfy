@@ -10,7 +10,10 @@ import {
 
 import { ACCENT, ON_ACCENT, color, font } from '../brand';
 import { Mark } from '../Chrome';
-import { SAFE, SAFE_CENTRE, SAFE_WIDTH } from './timeline';
+import { useProject, useSafeBox } from './project';
+
+export { ProjectProvider, useProject, useSafeBox } from './project';
+export type { Project, SafeBox } from './project';
 
 const ease = (frame: number, a: number, b: number) =>
   interpolate(frame, [a, b], [0, 1], {
@@ -48,10 +51,12 @@ export const Ground: React.FC = () => (
  * `CaptionPainter` on the device. The only treatment is a vignette, and even
  * that is kept off the lower third where the captions live.
  */
-export const ExportShot: React.FC<{ startFrom: number }> = ({ startFrom }) => (
+export const ExportShot: React.FC<{ startFrom: number }> = ({ startFrom }) => {
+  const { dir } = useProject();
+  return (
   <AbsoluteFill>
     <OffthreadVideo
-      src={staticFile('film/export.mp4')}
+      src={staticFile(`${dir}/export.mp4`)}
       startFrom={startFrom}
       muted
       style={{ width: '100%', height: '100%', objectFit: 'cover' }}
@@ -63,7 +68,8 @@ export const ExportShot: React.FC<{ startFrom: number }> = ({ startFrom }) => (
       }}
     />
   </AbsoluteFill>
-);
+  );
+};
 
 /**
  * A slice of a screen recording, floating as a card.
@@ -84,9 +90,16 @@ export const ScreenCard: React.FC<{
   scale?: number;
   top: number;
   startFrom?: number;
-}> = ({ file, crop, scale = 0.78, top, startFrom = 0 }) => {
+  /**
+   * `rise` is the product film's gesture, eighteen frames of lift and a hair
+   * of scale. `cut` is for the organic posts, where the cut itself is the
+   * gesture and a card easing in is the tell of a template.
+   */
+  enter?: 'rise' | 'cut';
+}> = ({ file, crop, scale = 0.78, top, startFrom = 0, enter: mode = 'rise' }) => {
   const frame = useCurrentFrame();
-  const enter = ease(frame, 0, 18);
+  const { dir } = useProject();
+  const enter = mode === 'cut' ? 1 : ease(frame, 0, 18);
 
   const width = 1080 * scale;
   const height = crop.h * scale;
@@ -110,7 +123,7 @@ export const ScreenCard: React.FC<{
       }}
     >
       <OffthreadVideo
-        src={staticFile(`film/${file}`)}
+        src={staticFile(`${dir}/${file}`)}
         startFrom={startFrom}
         muted
         style={{
@@ -193,8 +206,10 @@ export const Title: React.FC<{
    * them, and it is the only place on an export beat a line can go.
    */
   pos?: 'top' | 'mid';
-}> = ({ text, at = 0, kicker, pos = 'top' }) => {
+  size?: number;
+}> = ({ text, at = 0, kicker, pos = 'top', size = 74 }) => {
   const frame = useCurrentFrame() - at;
+  const SAFE = useSafeBox();
   if (frame < 0) return null;
   const enter = ease(frame, 0, 20);
 
@@ -203,8 +218,8 @@ export const Title: React.FC<{
       style={{
         position: 'absolute',
         top: pos === 'mid' ? 700 : SAFE.y0 + 70,
-        left: SAFE_CENTRE - SAFE_WIDTH / 2,
-        width: SAFE_WIDTH,
+        left: SAFE.x0,
+        width: SAFE.x1 - SAFE.x0,
         textAlign: 'center',
         opacity: enter,
         transform: `translateY(${(1 - enter) * 18}px)`,
@@ -227,7 +242,7 @@ export const Title: React.FC<{
       <div
         style={{
           fontFamily: font.bold,
-          fontSize: 74,
+          fontSize: size,
           lineHeight: 1.16,
           letterSpacing: -2,
           color: color.paper,
@@ -251,6 +266,7 @@ export const Title: React.FC<{
  */
 export const EndCard: React.FC<{ cta: string }> = ({ cta }) => {
   const frame = useCurrentFrame();
+  const SAFE = useSafeBox();
   const rise = (d: number) => ease(frame, d, d + 14);
 
   return (
@@ -305,4 +321,29 @@ export const EndCard: React.FC<{ cta: string }> = ({ cta }) => {
       </div>
     </AbsoluteFill>
   );
+};
+
+/**
+ * A pointer's position in the finished frame, mapped from where the thing it
+ * points at actually sits in the recording.
+ *
+ * Coordinates are measured off a recording's own start frame in its 1080 × 2400
+ * space and live in the video's `config.json`. Mapping them through the card's
+ * crop and scale here is what keeps the ring on the glyph when the framing
+ * changes — and the framing has already changed once, which is how a hand-typed
+ * frame coordinate came to be pointing at nothing.
+ */
+export const pointerFor = (
+  p: { deviceX: number; deviceY: number; r: number } | undefined,
+  crop: { y: number; h: number } | undefined,
+  scale: number,
+  top: number
+): { x: number; y: number; r: number } => {
+  if (!p) return { x: -1000, y: -1000, r: 0 };
+  const cardWidth = 1080 * scale;
+  return {
+    x: 540 - cardWidth / 2 + p.deviceX * scale,
+    y: top + (p.deviceY - (crop?.y ?? 0)) * scale,
+    r: p.r,
+  };
 };

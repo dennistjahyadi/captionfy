@@ -1,13 +1,15 @@
 {
-  "name": "wordburn-video-01-airplane",
+  "name": "wordburn-video-01-film",
   "private": true,
   "type": "module",
-  "description": "Video 01 — \"Airplane Mode Test\". Data, scripts and media for one TikTok. No dependencies: node and ffmpeg only, and the Remotion install next door in ../remotion. This file exists for its `type` field — `beats.js` is ESM and is imported both by node scripts here and by webpack over there, and without it node reparses the file on every run and says so.",
+  "description": "Video 01 — the product film. Data and media for one paid 9:16 unit. No dependencies: node and ffmpeg only, the shared pipeline in ../pipeline and the Remotion install in ../remotion.",
   "scripts": {
-    "broll": "node scripts/fetch-broll.mjs",
-    "sync": "./scripts/sync-public.sh",
-    "render": "node scripts/render.mjs",
-    "storyboard": "node scripts/storyboard.mjs",
-    "check": "node scripts/selfcheck.mjs --phase=1"
+    "capture": "node ../pipeline/capture.mjs",
+    "pull": "node ../pipeline/pull-export.mjs",
+    "sync": "../pipeline/sync-public.sh film",
+    "render": "node ../pipeline/render.mjs",
+    "storyboard": "node ../pipeline/storyboard.mjs",
+    "check": "node ../pipeline/selfcheck.mjs --phase=1",
+    "credits": "node scripts/credits.mjs"
   }
 }

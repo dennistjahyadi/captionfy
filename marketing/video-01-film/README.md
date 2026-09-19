@@ -48,16 +48,23 @@ next to a start and end screenshot and the rule is that somebody looks.
 cd marketing/video-01-film
 
 ./run.sh --emulator                 # (from the repo root) boot a device with the app on it
-node scripts/capture.mjs            # → input/app/*.mp4, from shots.json
-node scripts/pull-export.mjs        # → input/app/export.mp4, after exporting in the app by hand
-node scripts/render.mjs             # → out/film_a.mp4
-node scripts/storyboard.mjs         # → out/storyboard.png
-node scripts/selfcheck.mjs --phase=1
+node ../pipeline/capture.mjs        # → input/app/*.mp4, from shots.json
+node ../pipeline/pull-export.mjs    # → input/app/export.mp4, after exporting in the app by hand
+node ../pipeline/render.mjs         # → out/film_a.mp4
+node ../pipeline/storyboard.mjs     # → out/storyboard.png
+node ../pipeline/selfcheck.mjs --phase=1
 node scripts/credits.mjs            # → CREDITS.md
 ```
 
-`node scripts/capture.mjs --probe` screenshots the device so coordinates can be
-read off it when a screen moves. `--list` shows the shots.
+`node ../pipeline/capture.mjs --probe` screenshots the device so coordinates
+can be read off it when a screen moves. `--list` shows the shots.
+
+**The scripts live in `../pipeline/` now**, shared with video 02, and take the
+video they are working on from the directory they are run in. They moved when
+the second video arrived, for the same reason `beats.js` was one file and not
+two: a copy of a pipeline drifts exactly the way a copy of a version number
+does. `credits.mjs` stayed, because it is about this film's footage in
+particular.
 
 ## What the emulator taught us
 
@@ -108,16 +115,16 @@ Newsprint. The claim is now made on screen rather than only in the voiceover.
 
 | Here | There |
 |---|---|
-| `config.json`, `timings.json`, `shots.json`, `app-shots.json` | `../remotion/src/film/` — the composition |
-| `beats.js` — the timeline arithmetic, imported by both sides | `../remotion/src/brand.ts` — palette, faces, format |
+| `config.json`, `timings.json`, `shots.json`, `app-shots.json` | `../remotion/src/film/` — the composition; `../remotion/src/parts/` — the pieces it shares with video 02 |
+| `../pipeline/beats.js` — the timeline arithmetic, imported by both sides | `../remotion/src/brand.ts` — palette, faces, format |
 | `input/`, `out/` — media in and out | `../remotion/public/film/` — the staged copy Remotion serves |
-| `scripts/` — capture, pull, sync, render, storyboard, check, credits | |
+| `../pipeline/` — capture, pull, sync, render, storyboard, check, voiceover; `scripts/credits.mjs` — this film's own | |
 
 One Remotion install, shared with the three ads in `../remotion/src/ads/`. A
 second would be a second React and, worse, a second set of brand tokens for the
 two to drift apart on.
 
-`beats.js` is imported by the composition *and* by the node scripts, so the film,
+`../pipeline/beats.js` is imported by the composition *and* by the node scripts, so the film,
 the storyboard and the self-check cannot disagree about where a cut lands —
 which is the failure `build-aab.sh` had when it printed back the version it had
 asked for rather than the one it got.
@@ -131,7 +138,7 @@ asked for rather than the one it got.
   Without it Remotion writes a silent AAC track and the film looks, to anything
   downstream, like it has already been through the voice pipeline.
 - **Variants b and c are unrendered.** They change one line of type on the
-  `claim` beat; `node scripts/render.mjs --variant=b` produces one.
+  `claim` beat; `node ../pipeline/render.mjs --variant=b` produces one.
 - **Nothing here has run on the A54.** It does not need to — this is a render,
   not the app — but the *recordings* are of an emulator, and an emulator's status
   bar, fonts and corner radii are not a Galaxy's. If that matters for a paid

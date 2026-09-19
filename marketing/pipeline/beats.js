@@ -14,7 +14,8 @@
  * @typedef {{ y: number, h: number }} Crop
  * @typedef {{ id: string, durationSec: number, source: string, what: string,
  *   vo: string, voInAt: number, title: (string|null), crop?: Crop,
- *   startSec?: number, titlePos?: string }} BeatSpec
+ *   startSec?: number, titlePos?: string, kicker?: string,
+ *   pointer?: string, segments?: Object[] }} BeatSpec
  * @typedef {{ format: { width: number, height: number, fps: number },
  *   safeBox: { x0: number, x1: number, y0: number, y1: number },
  *   beats: BeatSpec[], sources: Object, cta: string }} Config

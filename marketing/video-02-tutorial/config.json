@@ -1,0 +1,341 @@
+{
+  "id": "02-tutorial",
+  "kind": "six hooks, one tutorial",
+  "surface": "organic TikTok, 9:16",
+  "title": "Video 02 — six hooks, one tutorial · organic 9:16",
+  "publicDir": "tutorial",
+  "composition": {
+    "dir": "tutorial",
+    "hook": "tutorial-hook",
+    "body": "tutorial-body",
+    "storyboard": "tutorial-storyboard"
+  },
+  "format": {
+    "width": 1080,
+    "height": 1920,
+    "fps": 30
+  },
+  "cta": "Android · one payment",
+  "safeBox": {
+    "kind": "organic",
+    "note": "Organic, not paid. TikTok's own chrome leaves 211 px at the top and 422 at the bottom of a 1080 x 1920 frame, so anything that must be read sits between y 211 and 1498. If any of the six is ever run as a paid unit, `kind` becomes `paid`, y1 becomes 1128, and every title moves up with it because nothing is positioned by hand.",
+    "x0": 60,
+    "x1": 960,
+    "y0": 211,
+    "y1": 1498
+  },
+  "hookSec": 3,
+  "hooks": [
+    {
+      "id": "outcome",
+      "type": "outcome showcase — the payoff is the opening frame",
+      "kind": "export",
+      "startSec": 6.0,
+      "title": "these captions were made on a phone",
+      "titleAt": 0.2,
+      "titlePos": "mid",
+      "vo": "these captions were made on a phone."
+    },
+    {
+      "id": "airplane",
+      "type": "physical action — a pattern interrupt",
+      "kind": "screens",
+      "title": "airplane mode on. can it still caption?",
+      "titleAt": 0.2,
+      "segments": [
+        {
+          "file": "toggle.mp4",
+          "startSec": 3.4,
+          "durationSec": 1.8,
+          "crop": {
+            "y": 400,
+            "h": 1180
+          }
+        },
+        {
+          "file": "pick.mp4",
+          "startSec": 9.8,
+          "durationSec": 1.2,
+          "crop": {
+            "y": 0,
+            "h": 1180
+          },
+          "pointer": "airplane"
+        }
+      ],
+      "vo": "airplane mode on. watch.",
+      "segmentsNote": "The tile flips to On at 4.4 s of toggle.mp4, read off frames at 0.3 s steps, so the first segment starts a second before it."
+    },
+    {
+      "id": "pay-once",
+      "type": "contrarian, about this app only",
+      "kind": "pay-once",
+      "title": "most caption apps bill you monthly. this one bills you once.",
+      "titleAt": 0.2,
+      "segments": [
+        {
+          "file": "unlock.mp4",
+          "startSec": 0.4,
+          "durationSec": 3,
+          "crop": {
+            "y": 300,
+            "h": 600
+          },
+          "scale": 0.7,
+          "top": 1180
+        }
+      ],
+      "vo": "most caption apps bill you every month. this one, once."
+    },
+    {
+      "id": "emphasis",
+      "type": "demonstration of the one thing nobody else does",
+      "kind": "emphasis",
+      "startSec": 13.0,
+      "hitsSec": [
+        1.0
+      ],
+      "hitsNote": "Where in these three seconds the loud word takes the frame: the export from 13.0 s reads 'Then ask for 20%' and the box lands on the yellow 20% at 14.0 s. Read off out/exp-sheet.png (two frames a second) and not guessed; if the export is remade, read it again.",
+      "title": "it hears which word you leaned on",
+      "titleAt": 0.2,
+      "titlePos": "mid",
+      "vo": "it hears which word you leaned on."
+    },
+    {
+      "id": "no-account",
+      "type": "claim-first — three statements, not a list",
+      "kind": "screens",
+      "title": "no account. no upload. no server.",
+      "titleAt": 0.2,
+      "segments": [
+        {
+          "file": "home.mp4",
+          "startSec": 0.5,
+          "durationSec": 1.6,
+          "crop": {
+            "y": 0,
+            "h": 1180
+          }
+        },
+        {
+          "file": "pick.mp4",
+          "startSec": 9.8,
+          "durationSec": 1.4,
+          "crop": {
+            "y": 0,
+            "h": 1180
+          }
+        }
+      ],
+      "vo": "no account. no upload. no server."
+    },
+    {
+      "id": "styles",
+      "type": "outcome showcase, the other payoff",
+      "kind": "screens",
+      "title": "nine caption styles. all animating your own words.",
+      "titleAt": 0.2,
+      "segments": [
+        {
+          "file": "style.mp4",
+          "startSec": 2.6,
+          "durationSec": 3,
+          "crop": {
+            "y": 1080,
+            "h": 1320
+          }
+        }
+      ],
+      "vo": "nine looks. every one live."
+    }
+  ],
+  "beats": [
+    {
+      "id": "pick",
+      "durationSec": 2.5,
+      "source": "app:pick",
+      "what": "Home → New video → the system picker, the raw clip tapped",
+      "kicker": "how it works",
+      "title": "pick a video",
+      "vo": "pick a video.",
+      "voInAt": 0.2,
+      "titlePos": "top",
+      "startSec": 0.6,
+      "crop": {
+        "y": 0,
+        "h": 1180
+      }
+    },
+    {
+      "id": "transcribe",
+      "durationSec": 3.0,
+      "source": "app:pick",
+      "what": "Processing — 'Transcribing' with the aeroplane in the phone's own status bar, ringed — and the transcript landing in the editor",
+      "title": "it transcribes on the phone. nothing is uploaded.",
+      "vo": "it transcribes on the phone. nothing is uploaded.",
+      "voInAt": 0.2,
+      "titlePos": "top",
+      "pointer": "airplane",
+      "segments": [
+        {
+          "file": "pick.mp4",
+          "startSec": 9.5,
+          "durationSec": 3.0,
+          "crop": {
+            "y": 0,
+            "h": 1620
+          },
+          "scale": 0.62,
+          "top": 560,
+          "pointer": "airplane"
+        }
+      ],
+      "segmentsNote": "A taller band at a smaller scale, because the Processing screen's 'Transcribing' line sits at y 1440 and the aeroplane it is being ringed against sits at y 61 — a 1180 px band cannot hold both."
+    },
+    {
+      "id": "editor",
+      "durationSec": 2.5,
+      "source": "app:editor",
+      "what": "The editor playing: captions on the stage, the transcript under it, the loud words already bold",
+      "title": "timed to the word. the loud one gets big.",
+      "vo": "timed to the word. the loud one gets big.",
+      "voInAt": 0.2,
+      "titlePos": "top",
+      "startSec": 1.2,
+      "crop": {
+        "y": 290,
+        "h": 1180
+      }
+    },
+    {
+      "id": "fix",
+      "durationSec": 3.5,
+      "source": "app:fix",
+      "what": "The '1 to check' chip opens the flagged word; one tap and the chip is gone",
+      "title": "it flags what to check. one tap to fix.",
+      "vo": "it flags what to check. one tap to fix.",
+      "voInAt": 0.2,
+      "titlePos": "top",
+      "startSec": 1.2,
+      "crop": {
+        "y": 1200,
+        "h": 1180
+      }
+    },
+    {
+      "id": "timing",
+      "durationSec": 3.0,
+      "source": "app:timing",
+      "what": "The timing sheet: a handle dragged on the waveform, the neighbour following",
+      "title": "nudge any word. the rest stays put.",
+      "vo": "nudge any word. the rest stays put.",
+      "voInAt": 0.2,
+      "titlePos": "top",
+      "startSec": 1.8,
+      "crop": {
+        "y": 1220,
+        "h": 1180
+      }
+    },
+    {
+      "id": "styles",
+      "durationSec": 4.5,
+      "source": "app:style",
+      "what": "The style sheet: presets tapped, the scroll past six, the hue strip dragged",
+      "title": "nine looks. your colour, your size, your position.",
+      "vo": "nine looks. your colour, your size, your position.",
+      "voInAt": 0.2,
+      "titlePos": "top",
+      "startSec": 9.2,
+      "crop": {
+        "y": 1080,
+        "h": 1320
+      }
+    },
+    {
+      "id": "dictionary",
+      "durationSec": 2.5,
+      "source": "app:dictionary",
+      "what": "'Add to your words' from a word's sheet, the dictionary with the entry half written, Save",
+      "title": "teach it your words once",
+      "vo": "teach it your words once.",
+      "voInAt": 0.2,
+      "titlePos": "top",
+      "startSec": 3.6,
+      "crop": {
+        "y": 1220,
+        "h": 1180
+      }
+    },
+    {
+      "id": "export",
+      "durationSec": 3.5,
+      "source": "app:saving",
+      "what": "Export → Save to gallery → the progress bar, then a cut to Saved: the tick, Share, and the feedback card",
+      "title": "export in seconds. share anywhere.",
+      "vo": "export in seconds. share anywhere.",
+      "voInAt": 0.2,
+      "titlePos": "top",
+      "crop": {
+        "y": 0,
+        "h": 1180
+      },
+      "segments": [
+        {
+          "file": "saving.mp4",
+          "startSec": 1.4,
+          "durationSec": 2.0,
+          "crop": {
+            "y": 1250,
+            "h": 1150
+          }
+        },
+        {
+          "file": "saved.mp4",
+          "startSec": 0.3,
+          "durationSec": 1.5,
+          "crop": {
+            "y": 0,
+            "h": 1180
+          }
+        }
+      ],
+      "segmentsNote": "The first band is the bottom of the Export screen — the size line, Save to gallery, and the progress bar that replaces it — not the preview, which is a video the viewer has just watched three beats of."
+    },
+    {
+      "id": "close",
+      "durationSec": 2.5,
+      "source": "export",
+      "what": "The app's own exported file, full frame, the name and the store line over it — a running shot, not a card",
+      "title": null,
+      "vo": "wordburn. android. one payment.",
+      "voInAt": 0.2,
+      "titlePos": "mid"
+    }
+  ],
+  "sources": {
+    "export": {
+      "file": "export.mp4",
+      "what": "A real Wordburn export of the demo clip. 1080 x 1920, 30 fps, captions burned in by the app's own burn-in module. Pulled off the emulator by ../pipeline/pull-export.mjs after the `saving` shot made it.",
+      "startSec": {
+        "close": 5.5
+      }
+    }
+  },
+  "pointers": {
+    "airplane": {
+      "deviceX": 941,
+      "deviceY": 61,
+      "r": 44
+    }
+  },
+  "checks": {
+    "note": "What ../pipeline/selfcheck.mjs expects on disk after each phase. Every tutorial file is one hook (hookSec) followed by the body.",
+    "1": {
+      "audio": false
+    },
+    "3": {
+      "audio": true
+    }
+  }
+}

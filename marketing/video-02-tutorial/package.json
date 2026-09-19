@@ -1,0 +1,14 @@
+{
+  "name": "wordburn-video-02-tutorial",
+  "private": true,
+  "type": "module",
+  "description": "Video 02 — six hooks, one tutorial. Data and media for six organic TikToks that share a body. No dependencies: node and ffmpeg only, the pipeline in ../pipeline and the Remotion install in ../remotion.",
+  "scripts": {
+    "capture": "node ../pipeline/capture.mjs",
+    "pull": "node ../pipeline/pull-export.mjs",
+    "render": "node ../pipeline/render.mjs",
+    "storyboard": "node ../pipeline/storyboard.mjs",
+    "voice": "node ../pipeline/voiceover.mjs",
+    "check": "node ../pipeline/selfcheck.mjs --phase=1"
+  }
+}

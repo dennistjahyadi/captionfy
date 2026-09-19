@@ -1,10 +1,12 @@
 /**
  * Record the app on a booted emulator, one shot at a time.
  *
- *   node scripts/capture.mjs                 # every shot in shots.json
- *   node scripts/capture.mjs style editor    # only these
- *   node scripts/capture.mjs --probe         # screenshot now, to find coordinates
- *   node scripts/capture.mjs --list
+ *   node ../pipeline/capture.mjs                 # every shot in shots.json
+ *   node ../pipeline/capture.mjs style editor    # only these
+ *   node ../pipeline/capture.mjs --probe         # screenshot now, to find coordinates
+ *   node ../pipeline/capture.mjs --list
+ *
+ * Run from inside the video's folder: `shots.json` and `input/app/` are its.
  *
  * This is the step the original brief said a machine could not do. It can: the
  * emulator is an Android device with an adb socket, `screenrecord` is on it, and
@@ -92,6 +94,19 @@ const runStep = async (step) => {
     airplane(step.airplane);
     return sleep(step.after ?? 1500);
   }
+  if (step.shell) {
+    // A raw `adb shell` command, for the things that are neither a tap nor a
+    // key: pulling the quick-settings shade down (`cmd statusbar
+    // expand-settings`), putting it back. Args, not a string, so nothing here
+    // is ever re-parsed by a shell.
+    adb(['shell', ...step.shell]);
+    return sleep(step.after ?? 600);
+  }
+  if (step.text !== undefined) {
+    // `input text` takes the string as one argument and spells spaces as %s.
+    adb(['shell', 'input', 'text', String(step.text).replace(/ /g, '%s')]);
+    return sleep(step.after ?? 600);
+  }
   if (step.launch) {
     adb(['shell', 'am', 'force-stop', PKG]);
     // `am start` on the resolved component, not `monkey`. Monkey exits non-zero
@@ -145,7 +160,12 @@ const captureOne = async (shot) => {
   await setup(shot);
   screenshot(resolve(DIR, `${shot.id}.start.png`));
 
-  const limit = Math.ceil(shot.durationSec) + 3;
+  // Headroom past the shot's own length: the steps are timed by `after`s that
+  // sum to about the duration, plus the recorder's warm-up and the tail. The
+  // style shot's steps summed to a hair under duration + 3 and the recorder
+  // reached its limit first — which is not a failure, only a race the stop
+  // below has to be able to lose.
+  const limit = Math.ceil(shot.durationSec) + 8;
   const rec = spawn('adb', [
     'shell', 'screenrecord',
     '--time-limit', String(limit),
@@ -165,13 +185,24 @@ const captureOne = async (shot) => {
   // SIGINT makes screenrecord finalise the container. Killing it harder leaves
   // an mp4 with no moov atom, which ffprobe reports as "Invalid data" and which
   // looks exactly like a capture that never started.
-  adb(['shell', 'pkill', '-INT', 'screenrecord']);
-  await new Promise((r) => rec.on('exit', r));
+  try {
+    adb(['shell', 'pkill', '-INT', 'screenrecord']);
+  } catch {
+    // Already gone: it reached `--time-limit` on its own and finalised the
+    // file itself, which is the same outcome by another route.
+  }
+  await new Promise((r) => (rec.exitCode === null ? rec.on('exit', r) : r()));
   await sleep(1500);
 
   const raw = resolve(DIR, `${shot.id}.raw.mp4`);
   adb(['pull', RAW, raw], { stdio: 'ignore' });
   adb(['shell', 'rm', '-f', RAW]);
+
+  // Off camera, after the recorder has stopped: the undo that puts the project
+  // back the way the shot found it. A shot that confirms a flagged word or
+  // applies a timing change would otherwise leave every shot after it filmed
+  // on a different transcript.
+  for (const step of shot.teardown ?? []) await runStep(step);
 
   const out = resolve(DIR, `${shot.id}.mp4`);
   const still = stillCapture(raw);

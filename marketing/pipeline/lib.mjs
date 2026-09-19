@@ -1,59 +1,46 @@
-/** Shared plumbing for the phase scripts. No dependencies — node and ffmpeg only. */
+/**
+ * Shared plumbing for every video project's phase scripts. No dependencies —
+ * node and ffmpeg only.
+ *
+ * One copy, used by `video-01-film` and `video-02-tutorial` alike. It used to
+ * live inside video 01's own `scripts/`, and the second video would have meant a
+ * second copy — which is the two-copies problem this repository keeps refusing
+ * (fonts, `beats.js`, the version number in `build.gradle`). The project a
+ * script is working on is the directory it is run from: `cd` into the video's
+ * folder and `node ../pipeline/render.mjs`. `WB_PROJECT` overrides that.
+ */
 import { execFileSync } from 'node:child_process';
-import { existsSync, readFileSync, readdirSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 export const HERE = dirname(fileURLToPath(import.meta.url));
-/** `marketing/video-01-airplane` */
-export const PROJECT = resolve(HERE, '..');
 /** The shared Remotion install and the compositions. */
-export const REMOTION = resolve(PROJECT, '../remotion');
-export const REPO = resolve(PROJECT, '../..');
+export const REMOTION = resolve(HERE, '../remotion');
+export const REPO = resolve(HERE, '../..');
+
+/** The video being worked on: the folder with the `config.json` in it. */
+export const PROJECT = resolve(process.env.WB_PROJECT ?? process.cwd());
+if (!existsSync(resolve(PROJECT, 'config.json'))) {
+  console.error(
+    `${PROJECT} has no config.json.\n` +
+      'Run the pipeline from inside a video folder (marketing/video-0N-*/), or set WB_PROJECT.'
+  );
+  process.exit(1);
+}
 export const OUT = resolve(PROJECT, 'out');
 
 export const readJson = (path) => JSON.parse(readFileSync(path, 'utf8'));
 
 export const config = () => readJson(resolve(PROJECT, 'config.json'));
 export const timings = () => readJson(resolve(PROJECT, 'timings.json'));
-export const broll = () => readJson(resolve(PROJECT, 'broll.json'));
 
 /**
- * A key out of the repo root's env files, parsed by hand.
- *
- * No dotenv: this is one key. Nothing here ever prints a value — rule 4 of the
- * brief — so the only thing a caller gets back is the string it asked for.
- *
- * It looks in every local env file rather than only in `.env`, because the
- * repo already had `.env.signing.local` for the keystore passwords and that is
- * a perfectly reasonable place for a second local secret to land. Searching one
- * hard-coded filename meant a key that was genuinely on the machine reported as
- * missing, which sends somebody to fetch a second one.
+ * Where this project's media is staged for Remotion: `public/<publicDir>/`.
+ * Each video gets its own subfolder so a render of one cannot pick up a
+ * recording that belongs to the other.
  */
-const envFiles = () => {
-  const named = ['.env', '.env.local'];
-  const locals = existsSync(REPO)
-    ? readdirSync(REPO).filter((f) => /^\.env\..+\.local$/.test(f))
-    : [];
-  return [...named, ...locals.sort()].map((f) => resolve(REPO, f)).filter(existsSync);
-};
-
-export const env = (name) => {
-  if (process.env[name]) return process.env[name];
-
-  for (const file of envFiles()) {
-    for (const raw of readFileSync(file, 'utf8').split('\n')) {
-      const line = raw.trim();
-      if (!line || line.startsWith('#')) continue;
-      const eq = line.indexOf('=');
-      if (eq < 0) continue;
-      if (line.slice(0, eq).trim() !== name) continue;
-      const value = line.slice(eq + 1).trim().replace(/^["']|["']$/g, '');
-      if (value) return value;
-    }
-  }
-  return undefined;
-};
+export const publicDir = (cfg = config()) => cfg.publicDir ?? 'film';
 
 export const run = (cmd, args, opts = {}) =>
   execFileSync(cmd, args, { encoding: 'utf8', ...opts });
@@ -89,3 +76,9 @@ export const safeLabel = (s) =>
     .trim();
 
 export const FONT = resolve(REPO, 'assets/fonts/BeVietnamPro-SemiBold.ttf');
+
+/** `--name=value` off argv, or the fallback. */
+export const arg = (name, fallback) => {
+  const hit = process.argv.find((a) => a.startsWith(`--${name}=`));
+  return hit ? hit.slice(name.length + 3) : fallback;
+};
