@@ -227,17 +227,27 @@ properties rather than presets.
     the export agree to within the hinted-advance rounding. The corner clearance
     is now asserted in `watermark.test.ts` too, so it cannot drift back out into
     the middle of the band.
-    **And they predate a redesign.** On 2026-09-19 the mark became a badge: the
-    icon's three pills, then "Captions by" over **Wordburn** stacked, instead of
-    one long line of type. Designed in the same headless harness, over a real
-    exported frame and a real near-white one, at 1:1. The whole badge is narrower
-    than the line it replaced — 0.226 of the width against 0.247 — while the
-    brand itself is half again as big, and it reaches 0.155 of the height rather
-    than 0.141, still less than half way to `upperMiddle`. Nothing measured on
-    the phone above is invalidated: the layout is the same pure function over the
-    same measurer at two sizes, so the preview-versus-export agreement is held by
-    the same mechanism. **Unmeasured on any device**, and that number has to be
-    taken again anyway — see Known issues.
+    **And they predate a redesign, twice over.** On 2026-09-19 the mark became a
+    badge — the icon's three pills and "Captions by" over **Wordburn**, instead
+    of one long line of type — and then the icon went from beside the words to
+    above them, on the same day and for the same reason the stack happened at
+    all: three tiers on one left edge read as one object, where a row of logo and
+    type reads as two. `TOP` came down with it, 0.125 → 0.118, because a stack is
+    taller than a row and the inset that read as pinned under two lines read as
+    hanging under three. 0.110 is the floor: the safe zone is where the platforms
+    start drawing.
+    Both were designed in the same headless harness, over a real exported frame
+    and a real near-white one, at 1:1, and then **run and measured on an Android
+    16 emulator in a release build** — the first time any of it had been drawn by
+    Skia or by the painter. The badge is 0.137 of the width against the 0.221 the
+    row took and the 0.247 the single line took, its foot lands at 0.166 against
+    `upperMiddle`'s 0.280, and its top at 0.118 is 0.008 under the safe line.
+    Preview against export on the exported file, as fractions of each canvas:
+    left 0.0500 against 0.0508, top 0.1182 against 0.1187, bottom 0.1661 against
+    0.1659 — every one inside a single export pixel. The right edge is the one
+    that moves, 0.1870 against 0.1738, and it is the hinted-advance rounding the
+    Export section documents: see Known issues, because it is now bigger than
+    that section claims.
     **Not run on the A54**, so by the line below this slice is not done.
 
 Every slice runs as a release build on the Galaxy A54 before it is called done.
@@ -254,13 +264,17 @@ Four are left, and none of them can be closed from this machine.
   arm's length, and whether the extra draws per repaint cost the burn-in anything
   measurable. They should not: it is three boxes and four text draws on a bitmap
   that is already being repainted, and only when the entry changes.
-  **The badge of 2026-09-19 has not run anywhere at all.** The stack, the pills
-  and the heavier shadow were designed in the headless harness and are covered by
-  `watermark.test.ts` and `burn.test.ts`, and the module's Kotlin compiles, but
-  no build has drawn them — not on the phone, not on an emulator, and not through
-  Skia, which is the one that matters: `layoutWatermark` is now measured against
-  two faces at two sizes rather than one, so the preview-against-export fractions
-  measured on the emulator have to be taken again before this is believed.
+  **The badge of 2026-09-19 has run on an emulator and nowhere else.** Both
+  renderers drew it in a release build on an Android 16 emulator — the pills, the
+  stack, the shorter top inset — and the four fractions were taken again off a
+  real exported file against the preview. Three of the four agree inside one
+  export pixel. The fourth is the right edge, and it has grown: **0.0132 of the
+  width, 14 px in a 1080 frame, where the Export section below says the hinted
+  advances round to under one percent.** It is stable across luminance thresholds
+  and it is the documented mechanism rather than a new one — a 512-wide preview
+  canvas rounds a 30 px face's advances further from a 1080-wide export's than
+  the 668-wide canvas did — but the sentence claiming "under one percent" is
+  wrong for this mark and wants rewriting once the A54 has had its turn.
   Also unrun on any device: the store screenshots in `store/play-screenshots/`
   predate all of this and three of the eight now contradict the app. See
   `PLAY-CONSOLE.md`.
@@ -464,15 +478,17 @@ has to argue with that gap.
   TikTok's rail is a price they accept; a line that says "Captions by Wordburn"
   is aimed at the viewer, and a credit nobody can read is not a credit.
 - **The mark is pinned to the safe zone, not placed in the frame.** `TOP` and
-  `LEFT` are 0.125 and 0.05, which is 0.015 of the height under the union's top
-  and 0.010 of the width inside its left — 29 px and 11 px on a 1080 × 1920
+  `LEFT` are 0.118 and 0.05, which is 0.008 of the height under the union's top
+  and 0.010 of the width inside its left — 15 px and 11 px on a 1080 × 1920
   frame. They were 0.135 and 0.06, and that is a sixth of the band down and half
   a point in from the margin: near enough the corner to be reaching for it and
   far enough to miss, so the mark read as a label dropped into the shot rather
   than a bug on it. Looked at on 2026-09-18 with the editor's own safe-zone
-  overlay, which is the picture that made it obvious. The clearance is not zero
-  on purpose — the union is a consensus of third-party measurements, so a
-  platform a point more aggressive than it still has to miss the mark.
+  overlay, which is the picture that made it obvious; `TOP` came down again on
+  2026-09-19, from 0.125, when the icon moved over the words and made the block
+  a tier taller. The clearance is not zero on purpose — the union is a consensus
+  of third-party measurements, so a platform a point more aggressive than it
+  still has to miss the mark, and 0.110 is the floor rather than a suggestion.
 - **It says "Captions by Wordburn", not "Wordburn", and the brand alone was the
   first version.** It failed the only test that matters: a viewer has no idea
   what made the video. A coined word in a corner explains nothing, and this one
@@ -483,28 +499,38 @@ has to argue with that gap.
   a credit rather than a stamp, which is the tone to want on a video whose maker
   is being invited to keep using the app.
 - **It is stacked, and the icon is back.** "Captions by" in SemiBold over
-  **Wordburn** in ExtraBold, with the icon's three pills to the left: the shape
-  every platform's own mark uses, and the shape a viewer takes in at a glance
-  rather than reading as a sentence. Set as one long line the same words were a
-  caption somebody had left in the corner.
+  **Wordburn** in ExtraBold: the shape every platform's own mark uses, and the
+  shape a viewer takes in at a glance rather than reading as a sentence. Set as
+  one long line the same words were a caption somebody had left in the corner.
   The pills had lost a straight comparison against the single line, on the
   grounds that three bars with one highlighted only decode for somebody who
   already knows the brand. That argument does not survive the stack. It was
   asking the pills to *say* something, and beside a line that already says the
   whole thing they do the other job — they make the credit one object with an
   edge instead of two sentences of loose type, which is the whole of why a
-  platform badge looks like a badge. Drawn against the stack at 0.78 of the
-  block's height and at its full height: full height makes the logo the louder
-  half and the words the caption to it, which is backwards.
+  platform badge looks like a badge.
+- **The icon sits above the words, not beside them.** Beside them it was a third
+  column and the badge read as a picture with a caption next to it; over them it
+  is the top tier of one block on one left edge, which is the same reason the
+  words were stacked in the first place. It also stops the mark reaching
+  rightward, where TikTok's rail starts at 0.760 and where a credit has nothing
+  to gain. Sized at 1.15 of the brand rather than against the height of both
+  lines, because the line it sits over is the one it has to agree with: at that
+  ratio the widest pill lands about where "Captions by" ends. Bigger and the
+  logo is the loudest thing in a credit, which is backwards.
 - **Small, and every ratio was measured rather than chosen.** The brand at 0.0155
   of the canvas height is 29.8 px on a 1080 × 1920 frame and the credit at 0.64 of
-  that is 19.1 px; the whole badge is 244 px across — 0.226 of the width, ending
-  at 0.276 against the safe zone's 0.760 — and its foot lands at 0.155 against
-  `upperMiddle`'s 0.280. It is **narrower** than the 0.247 the single line took
-  while the brand itself is half again as big, which is what stacking buys.
+  that is 19.1 px; the whole badge is 148 px across — 0.137 of the width, ending
+  at 0.187 against the safe zone's 0.760 — and its foot lands at 0.166 against
+  `upperMiddle`'s 0.280. It is **narrower** than both the row it replaced (0.221)
+  and the single line before that (0.247), while the brand itself is half again
+  as big as the line's, which is what stacking buys. It spends that on height,
+  0.048 against the row's 0.023, and height is the cheap direction here: the band
+  is 0.170 deep and nothing else is in it.
   Short-form plays full-screen, so a 1080-wide frame is about 1:1 on the phone
   and both lines are comfortably legible there — which is why the mock-ups were
-  compared at 1:1 rather than shrunk to a feed that does not exist.
+  compared at 1:1 rather than shrunk to a feed that does not exist. Every number
+  in this paragraph was read back off a real exported frame, not off the layout.
   The brand is white, the credit 88%, the muted pills 72% and the accent pill the
   icon's own yellow. The shadow is heavier than a caption's — a 0.2 sigma against
   a caption's 0.12 — because the mark is a third of a caption's size and the hard

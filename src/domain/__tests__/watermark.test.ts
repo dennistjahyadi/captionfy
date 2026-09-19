@@ -65,10 +65,21 @@ describe('what it says', () => {
     expect(mark.lines[1].fontSize).toBeGreaterThan(mark.lines[0].fontSize);
   });
 
-  it('draws the icon to the left of the words and nowhere near them', () => {
+  it('draws the icon above the words and on their left edge', () => {
+    const capLine = mark.lines[0].baseline - measureMono(
+      mark.lines[0].text,
+      mark.lines[0].fontSize,
+      mark.lines[0].face
+    ).ascent;
+
     for (const pill of mark.pills) {
-      expect(pill.x + pill.width).toBeLessThan(mark.lines[0].x);
+      // Clear of the type, not merely ordered before it: a pill overlapping the
+      // credit's cap line is a logo sitting on the words.
+      expect(pill.y + pill.height).toBeLessThan(capLine);
+      expect(pill.x).toBeGreaterThanOrEqual(mark.lines[0].x);
     }
+    // The widest pill starts where the words start. Three tiers, one edge.
+    expect(Math.min(...mark.pills.map((pill) => pill.x))).toBe(mark.lines[0].x);
   });
 
   it('picks one pill out in the accent, as the icon does', () => {
@@ -121,7 +132,9 @@ describe('where it sits', () => {
   it('is a credit and not a caption', () => {
     // An icon and two lines is more mark than one line was, so what keeps it
     // quiet is the type size and the footprint together. A third of the frame is
-    // the ceiling; well under the smallest caption is the point.
+    // the ceiling; well under the smallest caption is the point. With the icon
+    // over the words rather than beside them the badge is as wide as its longest
+    // line, which is 0.143 — this number is the ceiling, not the target.
     expect(right - left).toBeLessThan(0.33);
     for (const line of mark.lines) {
       // Half, where the single line was held to 0.4. Stacking spends width on

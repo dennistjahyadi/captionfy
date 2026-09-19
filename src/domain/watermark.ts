@@ -36,7 +36,7 @@ export interface WatermarkTextDraw {
 }
 
 /**
- * One mark, ready to draw: the icon, then the credit.
+ * One mark, ready to draw: the icon above, then the credit.
  *
  * Two lists rather than one shape, because that is what the two renderers
  * already know how to draw — a `BoxDraw` is the same rounded rectangle a box
@@ -77,8 +77,8 @@ export const WATERMARK_BRAND = 'Wordburn';
  * Shorts and not already spoken for:
  *
  *   0.110  `safeZoneUnion().top` — above this the platform draws its own chrome
- *   0.125  the mark
- *   0.154  the mark's foot at the sizes below
+ *   0.118  the mark
+ *   0.170  the mark's foot at the sizes below
  *   0.280  `CAPTION_INSET.upperMiddle`, the top of the highest caption the style
  *          sheet can produce. `top` (0.12) exists in the domain and would clash,
  *          but `StylePicker` does not offer it, for its own safety reasons.
@@ -94,27 +94,38 @@ export const WATERMARK_BRAND = 'Wordburn';
  * in from the margin — near enough the corner to be reaching for it and far
  * enough to miss, so the mark read as floating in the frame rather than pinned
  * to it. A corner bug is a corner bug: it takes the margin it is given and
- * clears it by a hair. What is left here is 0.015 of the height under the safe
- * line and 0.010 of the width inside it, which on a 1080 × 1920 frame is 29 px
+ * clears it by a hair. What is left here is 0.008 of the height under the safe
+ * line and 0.010 of the width inside it, which on a 1080 × 1920 frame is 15 px
  * and 11 px — enough that a platform a point more aggressive than the union
  * still misses it, and not enough to look like a choice.
+ *
+ * `TOP` was 0.125 and came down when the icon moved above the words: a stack is
+ * taller than a row, so the same inset that read as pinned under a two-line
+ * badge read as hanging under a three-tier one, and the extra height grows
+ * downward into the band rather than up into the chrome. 0.110 is the floor and
+ * not a suggestion — the union is where the platforms start drawing.
  */
-const TOP = 0.125;
+const TOP = 0.118;
 const LEFT = 0.05;
 
 /**
  * Small enough to read as a mark rather than a caption, large enough to survive
  * a feed. Measured against the real faces rather than guessed: the whole badge
- * at these ratios is 244 px across on a 1080 frame — 0.226 of the width, ending
- * at 0.276 against the safe zone's 0.760 limit — and its foot lands at 0.154 of
+ * at these ratios is 154 px across on a 1080 frame — 0.143 of the width, ending
+ * at 0.193 against the safe zone's 0.760 limit — and its foot lands at 0.170 of
  * the height against `CAPTION_INSET.upperMiddle`'s 0.280.
  *
  * The brand line is 29.8 px there and the credit 19.1 px. Short-form plays
  * full-screen, so a 1080-wide frame is about 1:1 on the phone and those are
  * comfortably legible — which is why the mock-ups this was chosen from were
- * compared at 1:1 rather than shrunk to a feed that does not exist. Stacking
- * bought the badge a narrower footprint than the single line it replaced
- * (0.226 against 0.247) while making the brand itself half again as big.
+ * compared at 1:1 rather than shrunk to a feed that does not exist.
+ *
+ * The badge is as wide as its longest line and no wider, now that the icon sits
+ * over the words instead of beside them: 0.143 of the frame against the 0.226
+ * the row took and the 0.247 the single line took before that. It spends that on
+ * height — 0.052 against 0.023 — which is the cheaper of the two, because the
+ * band it lives in is 0.170 deep and the margin it was crowding is the right
+ * one, where TikTok's rail starts at 0.760.
  */
 const BRAND_RATIO = 0.0155;
 /** Of the brand's size. Quiet enough to be a label, big enough to be read. */
@@ -123,7 +134,7 @@ const CREDIT_RATIO = 0.64;
 const LINE_RATIO = 1.02;
 
 /**
- * The icon, beside the words.
+ * The icon, above the words.
  *
  * `store/wordburn-mark-bare.svg` is three pills — a caption line with the word
  * the speaker leaned on picked out in the accent — and these are its own
@@ -131,16 +142,18 @@ const LINE_RATIO = 1.02;
  * width and everything else as fractions of its height. One drawing, described
  * twice, would be two drawings.
  *
- * It is set against the height of the two lines rather than given a size of its
- * own, so the badge stays one object at any canvas size. At full block height
- * the logo is as wide as the brand and reads as the louder half; at a little
- * over three quarters it supports the words instead, which is what a credit
- * wants.
+ * Beside the words the logo had to be measured against the height of both of
+ * them or it would have looked dropped in; over them it takes its size from the
+ * brand alone, which is the line it sits on top of and the line it shares a left
+ * edge with. At 1.15 the widest pill lands about where "Captions by" ends, so
+ * the three tiers read as one block with one edge rather than as a picture and
+ * some type. Bigger than that and the logo is the loudest thing in the badge,
+ * which is backwards for a credit.
  */
 const LOGO_ASPECT = 593.92 / 317.44;
-const LOGO_HEIGHT_RATIO = 0.78;
-/** Of the brand's size. Tight enough that the badge is one thing. */
-const LOGO_GAP_RATIO = 0.26;
+const LOGO_HEIGHT_RATIO = 1.15;
+/** Of the brand's size: the drop from the logo's foot to the credit's cap line. */
+const LOGO_GAP_RATIO = 0.3;
 
 interface Pill {
   /** Of the logo's width. */
@@ -185,22 +198,25 @@ export function layoutWatermark(canvas: Canvas, measure: MeasureText): Watermark
   const creditSize = brandSize * CREDIT_RATIO;
 
   // Ascent rather than the font size: the domain's measurer reports it as a
-  // positive distance above the baseline, so this puts the cap-height top of the
-  // credit on TOP rather than putting its baseline there and hanging it higher.
+  // positive distance above the baseline, so the gap below the logo is a real
+  // gap to the credit's cap line rather than a baseline dropped an arbitrary way.
   const credit = measure(WATERMARK_CREDIT, creditSize, CREDIT_FACE);
   const brand = measure(WATERMARK_BRAND, brandSize, BRAND_FACE);
 
   const top = canvas.height * TOP;
   const left = canvas.width * LEFT;
 
-  const creditBaseline = top + credit.ascent;
-  const brandBaseline = top + creditSize * LINE_RATIO + brand.ascent;
-  const blockHeight = brandBaseline + brand.descent - top;
-
-  const logoHeight = blockHeight * LOGO_HEIGHT_RATIO;
+  // The logo first, then the words under it, all on one left edge. `TOP` is the
+  // top of the logo rather than of the type, because the pills are what the eye
+  // finds first and the mark is pinned by what it is, not by what it says.
+  const logoHeight = brandSize * LOGO_HEIGHT_RATIO;
   const logoWidth = logoHeight * LOGO_ASPECT;
-  const logoTop = top + (blockHeight - logoHeight) / 2;
-  const textX = left + logoWidth + brandSize * LOGO_GAP_RATIO;
+  const logoTop = top;
+
+  const textTop = logoTop + logoHeight + brandSize * LOGO_GAP_RATIO;
+  const creditBaseline = textTop + credit.ascent;
+  const brandBaseline = textTop + creditSize * LINE_RATIO + brand.ascent;
+  const textX = left;
 
   return {
     pills: PILLS.map((pill) => ({
