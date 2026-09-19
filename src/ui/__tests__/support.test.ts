@@ -23,8 +23,11 @@ describe('feedbackSubject', () => {
 });
 
 describe('feedbackBody', () => {
-  it('asks one question, about something that already happened', () => {
-    expect(feedbackBody(build)).toContain('What were you trying to do');
+  it('opens three doors rather than one, so a compliment is not off-topic', () => {
+    const body = feedbackBody(build);
+    expect(body).toContain('What’s working well?');
+    expect(body).toContain('What could be better?');
+    expect(body).toContain('features you’d love to see?');
   });
 
   it('signs off with the build, so nobody has to ask', () => {

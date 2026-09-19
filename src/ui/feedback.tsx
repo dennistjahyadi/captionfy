@@ -98,12 +98,14 @@ export function FeedbackCard({ accent, onAnswered }: { accent: string; onAnswere
 
   return (
     <View style={styles.card}>
-      <Label variant="heading">What’s missing?</Label>
+      <Label variant="heading">Give feedback</Label>
       <Label variant="body" tone="mute">
-        Wordburn can’t see anything you do — no account, no upload, nothing sent anywhere. So the
-        only way I find out what’s wrong with it is if you tell me.
+        Share your ideas, suggestions, or anything you think could make Wordburn better. I read
+        every message.
       </Label>
-      <Label variant="body">What were you trying to do that this couldn’t?</Label>
+      <Label variant="body">
+        What’s working well? What could be better? Any features you’d love to see?
+      </Label>
 
       <View style={styles.actions}>
         <QuietButton title="Email me" accent={accent} onPress={email} />
@@ -133,8 +135,8 @@ export function askHowToSendFeedback(): void {
   const build = buildInfo();
 
   Alert.alert(
-    'Tell me what’s missing',
-    `There’s no analytics in this app, so mail is the only way I hear anything. Keep “${SUBJECT_TAG}” in the subject and I’ll spot it.`,
+    'Give feedback',
+    `Share your ideas, suggestions, or anything you think could make Wordburn better. I read every message. Keep “${SUBJECT_TAG}” in the subject and I’ll spot it.`,
     [
       {
         text: 'Email',

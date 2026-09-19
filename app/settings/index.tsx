@@ -71,7 +71,7 @@ export default function Settings() {
         {/* Permanent, and the half of this feature that matters. The card on Saved
             is one nudge at a good moment; this is the channel it points at, and it
             is here for the person who thinks of something a fortnight later. */}
-        <Row title="Tell me what’s missing" detail="Email or TikTok" onPress={askHowToSendFeedback} />
+        <Row title="Give feedback" detail="Email or TikTok" onPress={askHowToSendFeedback} />
         <Divider />
         <Row title="About" onPress={about} />
       </View>

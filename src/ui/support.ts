@@ -54,10 +54,15 @@ export function feedbackSubject({ version }: BuildInfo): string {
 /**
  * A prompt and a signature, and nothing that pretends to be a form.
  *
- * One question, about something that already happened. "What features would you
- * like" asks the user to do the design; asking what they were trying to do asks
- * them to remember, which they can. The footer is the build, so the answer to
- * "which version" is already in the mail rather than in a reply.
+ * Three openings rather than one, and deliberately wide: an earlier draft asked
+ * only what the user had just failed to do, which is the sharper question and
+ * the one a bug report wants, but it also tells somebody with a compliment or a
+ * feature in mind that they have written to the wrong address. A blank mail is
+ * worth more than a well-aimed silence, so the prompt invites all three and the
+ * triage happens on the way in rather than at the door.
+ *
+ * The footer is the build, so the answer to "which version" is already in the
+ * mail rather than in a reply.
  */
 export function feedbackBody(build: BuildInfo): string {
   const facts = [`${SUBJECT_TAG} ${build.version}`];
@@ -65,7 +70,7 @@ export function feedbackBody(build: BuildInfo): string {
   if (build.model) facts.push(build.model);
 
   return [
-    'What were you trying to do that Wordburn couldn’t?',
+    'What’s working well? What could be better? Any features you’d love to see?',
     '',
     '',
     '—',
