@@ -26,7 +26,7 @@ import { color, DEFAULT_ACCENT, MIN_TOUCH, radius, space } from '../src/ui/theme
 /** Four, in the order somebody weighing it up would ask them. */
 const PROMISES = [
   'Unlimited exports, full quality, no watermark',
-  'All four caption styles',
+  'All caption styles',
   'Unlimited dictionary words',
   'No subscription, no account, ever',
 ];
