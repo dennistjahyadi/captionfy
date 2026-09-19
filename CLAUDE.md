@@ -254,7 +254,7 @@ Every slice runs as a release build on the Galaxy A54 before it is called done.
 
 ## Known issues
 
-Four are left, and none of them can be closed from this machine.
+Five are left, and none of them can be closed from this machine.
 
 - **The watermark has never run on the A54.** Slice 12 was verified end to end on
   an Android 16 emulator in a release build — the mark is burned into a real
@@ -285,6 +285,18 @@ were checked against each other on an exported file. The blur conversion is
 right, the shadow costs the overlay nothing measurable, and nine tiles in one
 canvas beat the four the old grid drew in four.
 
+- **The feedback card has never been drawn on any device.** Typecheck and 477
+  unit tests pass and the pure half — both URLs, the encoding round trip and the
+  once-ever rule — is covered in `support.test.ts`, but nothing here has been run:
+  not the card on Saved, not the Settings row, and neither `Linking` call. Three
+  things only a phone can answer. Whether the mail app takes a prefilled subject
+  and body at all, which is the whole design and is per-app behaviour. Whether
+  `Platform.constants.Model` and `.Release` are populated in a release build.
+  And whether the three wrapped actions still read as three actions at 130% font
+  scale, which is the scale everything else in the app was checked at. Reaching
+  TikTok's own DM screen is the same half-proof Instagram got in slice 10 — a
+  machine should stop at somebody's real account — and TikTok proper is still not
+  installed on the A54.
 - **Nobody has ever bought anything.** Play Billing connects, and the product
   query answers — with nothing, because `captions_unlock_v1` does not exist in
   any Play Console. So `buyUnlock`, the purchase sheet, the pending state, the
@@ -552,6 +564,50 @@ has to argue with that gap.
   instruction under a title and a blurb, on a screen with one action, is a
   sentence nobody reads. Looked at on the phone with the projects hidden before
   deciding.
+- **The feedback ask is one card at a good moment, not a popup at a random one.**
+  An app with no account, no server and no analytics has no telemetry to read, so
+  the only way a defect is ever heard about is if somebody writes in — which is
+  the argument for asking, and also the honest reason the card gives. What it is
+  not is a dialog on a timer: it sits on Saved, the end of the only path that
+  produces a file, where the user has just been handed what they came for and
+  there is no work to interrupt. It asks **one** question and it is about the
+  past — "what were you trying to do that this could not" — because people are
+  poor at designing features and good at remembering friction. Shown after the
+  **second** finished export, once ever, and `markFeedbackAsked` fires on the
+  dismiss as well as on the two ways out: a card that comes back until it is
+  obeyed is a nag, and the Settings row is permanent for anybody who thinks of
+  something a fortnight later.
+- **It counts `settings.exportsMade`, not `entitlement.exportsUsed`.** The two
+  numbers look interchangeable and are not: `recordExport` deliberately leaves an
+  unlocked user's count where it was, because that one is about what is owed, so
+  gating the card on it would have asked everybody except the people who paid —
+  exactly backwards. `exportsMade` lives in `settings.json`, which is the file for
+  what is true of the app rather than of a clip, and it is incremented in
+  `runExport` beside the entitlement write rather than on the Saved screen, which
+  can come back into focus and would have counted again.
+- **One ask per screen, and on that one export the card takes the tier line's
+  place.** Stacking a request for help on top of a request for money makes both
+  read as the same thing. The unlock nudge is on every other export this person
+  will ever make, so it can lose exactly one impression. Answering the card leaves
+  the slot empty for the rest of the visit rather than falling back to the tier
+  line: an upsell appearing the instant somebody declines to write in would read
+  as the price of saying no.
+- **The address is personal and that is the point.** `leandrosdennis@gmail.com`
+  rather than a role address on the app's own domain, because `hello@` reads as a
+  company with a support rota and this is one person who answers. The cost is real
+  and accepted: it cannot be handed to anybody else later. The subject is
+  prefilled `Wordburn <version> — feedback` **and** the card says to keep the word
+  in it, because a mail app is free to drop a `mailto` subject and a report titled
+  "Hi" is one that will not be found twice. The body carries the version, the
+  Android release and the model off `Platform.constants`, so the first reply is an
+  answer rather than a question about which build it was. TikTok is the second
+  route and labelled by job — mail for something broken, a DM for a request —
+  since a DM carries no version and can be closed by an account setting.
+- **`canOpenURL` is not the check.** On Android 11 and up it answers for
+  `mailto:` only when the manifest declares a matching `<queries>` intent, so
+  guarding with it reports "no mail app" on phones that have one. `openURL` inside
+  a `try` is the check, and the fallback alert hands over the address itself: a
+  dead button on the one screen asking for help is worse than no button.
 - **Invariant 4 is about editing surfaces, and Export is not one.** The editor
   pauses its player when the screen loses focus. Every editing surface is a
   sheet over that screen and a sheet does not take the route's focus, so they

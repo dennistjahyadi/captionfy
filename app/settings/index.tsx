@@ -1,7 +1,7 @@
 /**
  * Settings.
  *
- * Four rows and an honest About. Everything here is either the user's own words,
+ * Five rows and an honest About. Everything here is either the user's own words,
  * what they have paid for, or what the app is — there are no preferences, because
  * a caption app with a preferences screen has usually failed to decide something.
  */
@@ -19,6 +19,7 @@ import { loadEntitlement } from '../../src/policy/entitlement-store';
 import { freeTierStatus } from '../../src/policy/free-tier';
 import { Divider, Label, QuietButton, Screen } from '../../src/ui/atoms';
 import { plural } from '../../src/ui/describe';
+import { askHowToSendFeedback } from '../../src/ui/feedback';
 import { MIN_TOUCH, space } from '../../src/ui/theme';
 
 export default function Settings() {
@@ -66,6 +67,11 @@ export default function Settings() {
           detail={styleName}
           onPress={() => router.push('/settings/style')}
         />
+        <Divider />
+        {/* Permanent, and the half of this feature that matters. The card on Saved
+            is one nudge at a good moment; this is the channel it points at, and it
+            is here for the person who thinks of something a fortnight later. */}
+        <Row title="Tell me what’s missing" detail="Email or TikTok" onPress={askHowToSendFeedback} />
         <Divider />
         <Row title="About" onPress={about} />
       </View>

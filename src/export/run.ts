@@ -16,6 +16,7 @@ import ForegroundService from '../../modules/foreground-service';
 import { projectStyle, projectUnits, toSrt, type MeasureText, type Ms, type Project } from '../domain';
 import { loadEntitlement, saveEntitlement } from '../policy/entitlement-store';
 import { freeTierStatus, recordExport } from '../policy/free-tier';
+import { recordExportMade } from '../project/settings';
 import { projectDirectory } from '../project/store';
 import { buildBurnPlan, exportSize } from '../render/burn';
 import { estimateExportBytes } from './limits';
@@ -183,8 +184,12 @@ export async function runExport(request: ExportRequest): Promise<ExportOutcome> 
     const srt = alsoSrt ? await saveSrt(project, directory, name) : null;
 
     // Invariant 5, the far end of it: a free export is spent when the user has
-    // the file, and not a moment earlier.
+    // the file, and not a moment earlier. The second line counts the same event
+    // for a different reason — `recordExport` leaves an unlocked user alone,
+    // because that number is about what is owed, and the feedback card needs to
+    // know how much the app has been used by somebody who owes nothing.
     saveEntitlement(recordExport(loadEntitlement()));
+    recordExportMade();
 
     return {
       video,
