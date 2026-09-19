@@ -237,7 +237,7 @@ description:
 |---|---|---|
 | 1 | Editor, box highlight mid-word | **Captions, burned in** |
 | 2 | Processing, progress running | **Transcribed on your phone** |
-| 3 | Style sheet, tiles live | **Nine styles, word by word** |
+| 3 | Style sheet, tiles live | **Eighteen styles, word by word** |
 | 4 | Word sheet open on a flagged word | **Fix a word without moving its timing** |
 | 5 | Timing sheet, waveform and handles | **Drag the timing on the waveform** |
 | 6 | Dictionary list | **Teach it how you spell your name** |

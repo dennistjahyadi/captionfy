@@ -489,15 +489,56 @@ rather than done.
 
 Release → Internal testing / Production → Release notes, `<en-GB>` block.
 
-### First release, 500 max
+The limit is 500 characters per language, and it is counted with the line
+breaks. Nothing has ever been on a track, so 1.0.2 is still the first release
+however many bundles are in `build/`.
+
+**The block that used to be here said "Three exports free".** That was the
+counter tier, and `FREE_TIER` has been a watermark since slice 12 — release
+notes are store metadata like any other field, so a promise of three free
+exports over an app that has no counter is the same violation the full
+description was fixed for in section 1. Whatever ships here has to agree with
+`src/policy/free-tier.ts`.
+
+### First release — 479/500
 
 ```
 The first release of Wordburn.
 
-Pick a video and get captions, transcribed on your phone with nothing uploaded anywhere. Nine caption styles, word-level editing that never breaks your timing, a personal dictionary for the words it gets wrong, and captions burned into the file at full quality.
+Pick a video and get captions, transcribed on your phone. No account, no upload, no server — it works in airplane mode.
 
-Three exports free. One purchase unlocks the rest, forever.
+Eighteen caption styles. Word-level editing that never moves your timing. A personal dictionary for the words it mishears. Captions burned into the file at full quality, straight to your gallery, plus a .srt if you want one.
+
+Free and unlimited, with a small watermark. One purchase removes it, forever.
+
+English only for now.
 ```
+
+Eighteen styles, not four and not the nine this line said before slice 14:
+`STYLE_PRESETS` in `src/domain/style.ts`. The English
+line is last for the same reason `ASO.md` carries its PLEASE NOTE block — a
+wrong-market install that rates one star costs more than the words save.
+
+### Short variant — 320/500
+
+For the internal-testing track, where the notes are read by people who already
+know what the app is, and as the fallback if the long one has to lose a line.
+
+```
+The first release of Wordburn.
+
+Captions for your video, transcribed on your phone. Nothing is uploaded and no account is needed. Eighteen styles, word-level editing, a personal dictionary, and captions burned in at full quality.
+
+Free and unlimited with a small watermark; one purchase removes it. English only for now.
+```
+
+### After the first release
+
+Write what changed for the user, not what changed in the repository. Play shows
+this text to people deciding whether to update, and a line like "bumped the
+minSdk" is a line that costs an update. The two rules worth keeping: never
+describe a tier the code does not have, and never name a fix nobody outside
+this machine ever saw.
 
 ---
 
