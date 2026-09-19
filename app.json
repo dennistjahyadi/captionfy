@@ -3,7 +3,7 @@
     "name": "Wordburn",
     "slug": "wordburn",
     "scheme": "wordburn",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "newArchEnabled": true,
@@ -12,7 +12,7 @@
       "bundleIdentifier": "com.wordburn.app"
     },
     "android": {
-      "versionCode": 1,
+      "versionCode": 101,
       "package": "com.wordburn.app",
       "adaptiveIcon": {
         "backgroundColor": "#0F0E0D",
@@ -56,7 +56,8 @@
       "expo-font",
       "expo-iap",
       "./plugins/with-bundled-models.js",
-      "./plugins/with-release-signing.js"
+      "./plugins/with-release-signing.js",
+      "./plugins/with-debug-symbols.js"
     ],
     "experiments": {
       "typedRoutes": true

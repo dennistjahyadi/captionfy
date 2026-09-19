@@ -374,6 +374,22 @@ explicitly out of scope for this form.
 If it helps to have it in writing for the reviewer, the summary line is: *no data
 leaves the device.*
 
+**Crash reporting was asked for and answered with Android vitals, which is why
+that paragraph is still true.** Quality → Android vitals → Crashes & ANRs
+collects crashes and ANRs from users who turned on diagnostics sharing. It needs
+no SDK linked into the app, so nothing extra leaves anybody's phone and the
+answer above stays "No" as written. Most of what can crash here is native —
+whisper.cpp, ggml, Skia, and the burn-in module's GL and MediaCodec pipeline — so
+`plugins/with-debug-symbols.js` sets `debugSymbolLevel 'SYMBOL_TABLE'` on the
+release build and the symbols ride up with the bundle. Play strips them before
+delivery: the upload grows, the install does not. Without them a native crash is
+a column of hex addresses.
+
+A linked crash reporter — Crashlytics or anything like it — would flip this form
+to "Yes" for crash logs and a device identifier, and would need a line in the
+privacy policy. If one is ever added, the honest shape is off by default, with a
+switch in Settings, so this page can still be filled in as it stands.
+
 ### Government apps
 
 > **No**
