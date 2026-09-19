@@ -1,6 +1,12 @@
 import { measureMono, project, word } from '../__fixtures__/project';
 import { layoutCaptionFrame, type Canvas, type CaptionFrame } from '../layout';
-import { CAPTION_INSET, EDITORIAL_MAX_ROWS, resolveStyle, type StyleProps } from '../style';
+import {
+  CAPTION_BAND,
+  CAPTION_INSET,
+  EDITORIAL_MAX_ROWS,
+  resolveStyle,
+  type StyleProps,
+} from '../style';
 import type { Project } from '../types';
 
 const canvas: Canvas = { width: 1080, height: 1920 };
@@ -118,10 +124,16 @@ describe('placement', () => {
     });
   });
 
-  it('sits in the upper middle, below the top chrome', () => {
+  it('sits in the upper band, below the top chrome', () => {
     const frame = frameAt(1500);
-    expect(rowTops(frame)[0]).toBeCloseTo(canvas.height * CAPTION_INSET.upperMiddle);
-    expect(rowTops(frame)[0]).toBeGreaterThan(canvas.height * CAPTION_INSET.top);
+    const tops = rowTops(frame);
+    const bottom = Math.max(...frame.words.map((w) => w.y + w.height));
+
+    // The band is where the middle of the block lands, so what is asserted is
+    // the block rather than its first row: three rows of different sizes make
+    // a first row that moves with the type.
+    expect((tops[0] + bottom) / 2).toBeCloseTo(canvas.height * CAPTION_BAND.upper);
+    expect(tops[0]).toBeGreaterThan(canvas.height * CAPTION_BAND.top);
   });
 
   it('centres instead when the style asks for it', () => {

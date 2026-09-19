@@ -1,10 +1,13 @@
 import { measureMono, project, word } from '../__fixtures__/project';
 import { layoutCaptionFrame, type Canvas } from '../layout';
 import {
+  CAPTION_BAND,
   CAPTION_INSET,
   NO_SHADOW,
   OWN_COLOR,
+  POSITION_RANGE,
   resolveStyle,
+  safeZoneUnion,
   TEXT_SIZE_RATIO,
   type StyleOverrides,
 } from '../style';
@@ -88,22 +91,32 @@ describe('placement', () => {
     expect(first.x + last.x + last.width).toBeCloseTo(canvas.width);
   });
 
-  it('sits above the platform chrome in the lower third', () => {
-    const frame = frameAt(500);
+  it('centres the block on the fraction the style names', () => {
+    for (const position of [CAPTION_BAND.top, CAPTION_BAND.middle, CAPTION_BAND.lower, 0.62]) {
+      const drawn = frameAt(500, { position }).words[0];
+      expect(drawn.y + drawn.height / 2).toBeCloseTo(canvas.height * position);
+    }
+  });
+
+  it('clears the platform chrome in the lower band', () => {
+    const frame = frameAt(500, { position: CAPTION_BAND.lower });
     const bottom = frame.words[0].y + frame.words[0].height;
-    expect(bottom).toBeCloseTo(canvas.height * (1 - CAPTION_INSET.bottom));
+    expect(bottom).toBeLessThan(canvas.height * (1 - safeZoneUnion().bottom));
   });
 
-  it('sits under the top inset at the top', () => {
-    expect(frameAt(500, { position: 'top' }).words[0].y).toBeCloseTo(
-      canvas.height * CAPTION_INSET.top
-    );
+  it('keeps the block on the canvas at either end of the range', () => {
+    for (const position of [POSITION_RANGE.min, POSITION_RANGE.max]) {
+      const drawn = frameAt(500, { position }).words[0];
+      expect(drawn.y).toBeGreaterThanOrEqual(0);
+      expect(drawn.y + drawn.height).toBeLessThanOrEqual(canvas.height);
+    }
   });
 
-  it('centres the block vertically in the middle', () => {
-    const frame = frameAt(500, { position: 'middle' });
-    const drawn = frame.words[0];
-    expect(drawn.y + drawn.height / 2).toBeCloseTo(canvas.height / 2);
+  it('reads a position written before positions were numbers', () => {
+    // Every project on a phone today carries one of the four old names.
+    const named = frameAt(500, { position: 'lowerThird' as never }).words[0];
+    const numbered = frameAt(500, { position: CAPTION_BAND.lower }).words[0];
+    expect(named.y).toBeCloseTo(numbered.y);
   });
 
   it('puts the baseline inside the row', () => {
@@ -210,6 +223,91 @@ describe('highlight modes', () => {
 
   it('karaoke: a word is fully filled the moment it ends', () => {
     expect(frameAt(1000, { highlightMode: 'karaoke' }).words[1].fill).toBe(1);
+  });
+
+  it('snap: a word crosses between the two colours whole, at its own start', () => {
+    const snapped = {
+      highlightMode: 'snap' as const,
+      textColor: '#FFFFFF8C',
+      spokenColor: '#FFFFFF',
+    };
+
+    // 700 ms is the middle of the second word: the first has been said, the
+    // second is being said, the third has not. A karaoke fill would have the
+    // middle one half a colour; this one is already the whole of it.
+    const frame = frameAt(700, snapped);
+    expect(frame.words.map((w) => w.color)).toEqual(['#FFFFFF', '#FFFFFF', '#FFFFFF8C']);
+    expect(frame.words.every((w) => w.fillColor === w.color)).toBe(true);
+
+    // And the word that has not been reached is the quiet colour right up to
+    // the instant it is.
+    expect(frameAt(999, snapped).words[2].color).toBe('#FFFFFF8C');
+    expect(frameAt(1000, snapped).words[2].color).toBe('#FFFFFF');
+  });
+
+  it('snap: leaves the big word quiet until it has been said', () => {
+    // A word wearing the accent before the voice reaches it is the one word on
+    // the line the viewer has already read.
+    const snapped = {
+      highlightMode: 'snap' as const,
+      textColor: '#FFFFFF8C',
+      spokenColor: '#FFFFFF',
+      emphasis: { color: '#FFE03D' },
+    };
+    const big = (tMs: number) =>
+      layoutCaptionFrame(project({ words }), style(snapped), tMs, canvas, measureMono, {
+        emphasisIds: new Set(['w3']),
+      }).words[2];
+
+    expect(big(500).color).toBe('#FFFFFF8C');
+    expect(big(1100).color).toBe('#FFE03D');
+  });
+
+  it('active: lights the word being said and leaves nothing behind it', () => {
+    const marked = {
+      highlightMode: 'active' as const,
+      highlightColor: '#FFD60A',
+      textColor: '#FFFFFF',
+    };
+
+    // The difference from snap, which is the whole reason this mode exists: the
+    // word that has already been said is white again, not yellow.
+    expect(frameAt(700, marked).words.map((w) => w.color)).toEqual([
+      '#FFFFFF',
+      '#FFD60A',
+      '#FFFFFF',
+    ]);
+
+    // And the mark moves on the instant the next word starts.
+    expect(frameAt(999, marked).words.map((w) => w.color)).toEqual([
+      '#FFFFFF',
+      '#FFD60A',
+      '#FFFFFF',
+    ]);
+    expect(frameAt(1000, marked).words.map((w) => w.color)).toEqual([
+      '#FFFFFF',
+      '#FFFFFF',
+      '#FFD60A',
+    ]);
+  });
+
+  it('active: keeps the big word the accent throughout', () => {
+    // Its size has already said it is different. A word that lost its colour the
+    // moment it was said would read as the emphasis switching off.
+    const marked = {
+      highlightMode: 'active' as const,
+      highlightColor: '#FFD60A',
+      textColor: '#FFFFFF',
+      emphasis: { color: '#FF5A5F' },
+    };
+    const big = (tMs: number) =>
+      layoutCaptionFrame(project({ words }), style(marked), tMs, canvas, measureMono, {
+        emphasisIds: new Set(['w2']),
+      }).words[1];
+
+    expect(big(200).color).toBe('#FF5A5F');
+    expect(big(700).color).toBe('#FF5A5F');
+    expect(big(1100).color).toBe('#FF5A5F');
   });
 
   it('fade: dims the words still to come', () => {
@@ -415,8 +513,8 @@ describe('plate', () => {
 
 describe('a big word in a band of its own', () => {
   const detached = {
-    position: 'lowerThird' as const,
-    emphasis: { ownRow: true, scale: 2, band: 'top' as const },
+    position: CAPTION_BAND.lower,
+    emphasis: { ownRow: true, scale: 2, band: CAPTION_BAND.top },
   };
 
   const banded = (overrides = {}) =>
@@ -429,26 +527,21 @@ describe('a big word in a band of its own', () => {
     const big = frame.words.find((w) => w.emphasised)!;
     const rest = frame.words.filter((w) => !w.emphasised);
 
-    expect(big.y).toBeCloseTo(canvas.height * CAPTION_INSET.top);
+    expect(big.y + big.height / 2).toBeCloseTo(canvas.height * CAPTION_BAND.top);
     for (const word of rest) expect(word.y).toBeGreaterThan(canvas.height * 0.6);
   });
 
   it('does not let the banded row push the block around', () => {
-    // The block sits where it would with no big word in it at all.
-    const withBand = banded();
-    const inline = layoutCaptionFrame(
-      project({ words }),
-      style({ position: 'lowerThird', emphasis: { ownRow: true, scale: 2 } }),
-      1100,
-      canvas,
-      measureMono,
-      { emphasisIds: new Set(['w2']) }
-    );
+    // The block is the rows that are in it. A word pinned to a band of its own
+    // is somewhere else on the screen and takes no part in deciding where the
+    // rest of the line sits, so what is left is centred on the style's own
+    // position exactly as if the big word had never been in it.
+    const rest = banded().words.filter((w) => !w.emphasised);
+    const top = Math.min(...rest.map((w) => w.y));
+    const bottom = Math.max(...rest.map((w) => w.y + w.height));
 
-    const lowest = (frame: typeof withBand) =>
-      Math.max(...frame.words.map((w) => w.y + w.height));
-    expect(lowest(withBand)).toBeCloseTo(lowest(inline));
-    expect(withBand.words.filter((w) => !w.emphasised).length).toBe(2);
+    expect((top + bottom) / 2).toBeCloseTo(canvas.height * CAPTION_BAND.lower);
+    expect(rest.length).toBe(2);
   });
 
   it('leaves a banded word outside the card', () => {

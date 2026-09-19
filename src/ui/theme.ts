@@ -24,7 +24,15 @@ export const color = {
   good: '#3DDC84',
 } as const;
 
-/** What a caption colour looks like in the chrome, and what reads on top of it. */
+/**
+ * What a caption colour looks like in the chrome, and the dark half of what may
+ * be read on top of it.
+ *
+ * `ON_ACCENT` was the whole answer until the default caption colour became a
+ * blue chosen for white type on video. It is one of the two candidates
+ * `readableOn` picks between now — `color.paper` is the other — rather than a
+ * constant that assumes every accent is pale.
+ */
 export const DEFAULT_ACCENT = '#FFE03D';
 export const ON_ACCENT = '#111111';
 

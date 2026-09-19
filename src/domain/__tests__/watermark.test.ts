@@ -1,6 +1,12 @@
 import { measureMono } from '../__fixtures__/project';
 import type { Canvas } from '../layout';
-import { CAPTION_INSET, safeZoneUnion, TEXT_SIZE_RATIO } from '../style';
+import {
+  CAPTION_BAND,
+  EDITORIAL_MAX_ROWS,
+  LINE_HEIGHT_RATIO,
+  safeZoneUnion,
+  TEXT_SIZE_RATIO,
+} from '../style';
 import {
   layoutWatermark,
   watermarkBounds,
@@ -121,12 +127,19 @@ describe('where it sits', () => {
     expect(left - safe.left).toBeGreaterThan(0);
   });
 
-  it('clears the highest caption the style sheet can produce', () => {
-    // `StylePicker` offers upperMiddle, middle and lowerThird; upperMiddle is the
-    // topmost of them. A mark that reached into that band would be sitting on the
-    // captions in four of the nine presets. Stacking cost the badge height, so
-    // this is the assertion that keeps the stack from growing into the captions.
-    expect(bottom).toBeLessThan(CAPTION_INSET.upperMiddle);
+  it('clears the highest caption a tap can produce', () => {
+    // `StylePicker` offers Upper, Middle and Lower as chips, and Upper is the
+    // topmost of them. A mark that reached into that band would be sitting on
+    // the captions in every preset written to sit there. Stacking cost the badge height,
+    // so this is the assertion that keeps the stack from growing into them.
+    //
+    // The band is a centre, so the block reaches up from it by half its own
+    // height, and the tallest one any preset can make is Editorial's three rows
+    // at size L. The slider and the drag go higher still — deliberately, and
+    // the mark is drawn on the preview so that putting a caption under it is a
+    // thing the user can see themselves doing.
+    const tallestBlock = TEXT_SIZE_RATIO.L * LINE_HEIGHT_RATIO * EDITORIAL_MAX_ROWS;
+    expect(bottom).toBeLessThan(CAPTION_BAND.upper - tallestBlock / 2);
   });
 
   it('is a credit and not a caption', () => {

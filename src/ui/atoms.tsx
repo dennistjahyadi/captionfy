@@ -17,7 +17,8 @@ import {
   type ViewStyle,
 } from 'react-native';
 
-import { color, MIN_TOUCH, radius, space, type } from './theme';
+import { readableOn } from './color';
+import { color, MIN_TOUCH, ON_ACCENT, radius, space, type } from './theme';
 
 type Variant = keyof typeof type;
 
@@ -55,6 +56,12 @@ export function PrimaryButton({
   busy?: boolean;
   disabled?: boolean;
 }) {
+  // The one filled thing in the chrome wearing the caption's own colour, so the
+  // label is chosen against it rather than assumed to be ink. Every accent this
+  // app could make was light until the default became a blue picked for white
+  // type on video, where dark ink is 3.55:1.
+  const label = readableOn(accent, ON_ACCENT, color.paper);
+
   return (
     <Pressable
       accessibilityRole="button"
@@ -66,9 +73,9 @@ export function PrimaryButton({
       ]}
     >
       {busy ? (
-        <ActivityIndicator color="#111111" />
+        <ActivityIndicator color={label} />
       ) : (
-        <Text style={[type.heading, styles.primaryLabel]}>{title}</Text>
+        <Text style={[type.heading, { color: label }]}>{title}</Text>
       )}
     </Pressable>
   );
@@ -125,7 +132,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingHorizontal: space.xl,
   },
-  primaryLabel: { color: '#111111' },
   quiet: {
     minHeight: MIN_TOUCH,
     alignItems: 'center',

@@ -7,8 +7,8 @@
  * (invariant 2). It is a renderer for a frame, not a caption renderer.
  *
  * `CaptionElements` is the drawing without a canvas around it, so that the style
- * sheet can put nine of them in one canvas instead of nine. The overlay itself
- * is that plus the canvas and the view it sits in.
+ * sheet can put every preset's tile in one canvas rather than one canvas each.
+ * The overlay itself is that plus the canvas and the view it sits in.
  */
 import { BlurMask, Canvas, Group, rect, RoundedRect, Text } from '@shopify/react-native-skia';
 import { memo } from 'react';
@@ -45,7 +45,7 @@ export const CaptionOverlay = memo(function CaptionOverlay({
    * The free tier's mark, when the entitlement calls for one.
    *
    * On the overlay rather than inside `CaptionElements` on purpose: the style
-   * sheet draws nine tiles through those elements, and nine marks a hundred
+   * sheet draws every preset's tile through those elements, and a mark a hundred
    * points tall would be noise about a question the tiles are not asking.
    */
   watermark?: WatermarkDraw;

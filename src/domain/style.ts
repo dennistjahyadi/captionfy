@@ -34,9 +34,46 @@ const DEFAULT_MAX_ROWS = 2;
  */
 export const EDITORIAL_MAX_ROWS = 3;
 
-export type HighlightMode = 'karaoke' | 'box' | 'fade' | 'none';
+/**
+ * How the word being spoken is marked.
+ *
+ * `snap` is `karaoke` without the sweep: the word changes colour whole, the
+ * instant it is reached, and the line in front of it waits in the unspoken
+ * colour. It is the mechanism of the reference clip in
+ * `references/kitverify-offer-portrait.mp4` and of most of what the caption
+ * apps ship as their own default, and it is a mode rather than a preset flag
+ * because the only thing it changes is when the colour arrives.
+ *
+ * `active` is the other half of that pair and the one this app was missing: the
+ * mark travels with the voice and leaves nothing behind it. Every word on the
+ * line is `textColor` except the one being said, which is `highlightColor`, so
+ * a viewer's eye is pulled to a single moving word rather than to a growing
+ * block of colour. It is what the "bold yellow word" archetype every short-form
+ * app documents actually does, and `snap` cannot express it: `snap` says how far
+ * the speaker has got, `active` says where the speaker is.
+ *
+ * Like `snap` it cost the export nothing. The burn-in draws whatever colour the
+ * draw list names, so a new mode is a branch in `colorOf` and nowhere else.
+ */
+export type HighlightMode = 'karaoke' | 'snap' | 'active' | 'box' | 'fade' | 'none';
 export type TextSize = 'S' | 'M' | 'L';
-export type CaptionPosition = 'top' | 'upperMiddle' | 'middle' | 'lowerThird';
+/**
+ * Where the caption block sits: the fraction of the canvas height its centre
+ * lands on, 0 at the top edge and 1 at the bottom.
+ *
+ * It was four named bands, and four is not enough. "Lower" was one number and
+ * the whole complaint about it was that a lower third that clears TikTok's tray
+ * on one clip sits on somebody's face in the next; the same is true upward.
+ * A fraction takes no more room in a project file, says exactly the same thing
+ * about the four old names — `CAPTION_BAND` is them — and lets the user put the
+ * line anywhere between and past them.
+ *
+ * The centre, not an edge, because that is what a finger dragging a block of
+ * text is holding. The old names anchored differently from each other (`top` by
+ * its top, `lowerThird` by its bottom, `middle` by its middle), which is
+ * invisible until something has to interpolate between two of them.
+ */
+export type CaptionPosition = number;
 export type CaptionAlign = 'left' | 'center';
 export type FontWeight = 'regular' | 'medium' | 'semibold' | 'bold' | 'extrabold';
 
@@ -208,9 +245,15 @@ export interface StyleProps {
   highlightMode: HighlightMode;
   /** The one place this design is allowed to be loud. */
   highlightColor: string;
-  /** Words not currently highlighted. */
+  /**
+   * Words this style is not marking.
+   *
+   * The quiet half of the pair the sheet offers: the line under the box, the
+   * words still to come in `karaoke` and `snap`, and simply the caption where
+   * nothing is marked at all. `captionTextColor` is the reader.
+   */
   textColor: string;
-  /** Words already spoken, in karaoke mode. */
+  /** Words already spoken, in the two modes that colour them: `karaoke` and `snap`. */
   spokenColor: string;
   outlineColor: string;
   /** Outline width as a fraction of the font size, so it scales with the canvas. */
@@ -273,15 +316,47 @@ export const TEXT_SIZE_RATIO: Record<TextSize, number> = { S: 0.036, M: 0.046, L
 export const LINE_HEIGHT_RATIO = 1.24;
 
 /**
- * Where captions may sit, as fractions of the canvas.
+ * The left and right margins, as fractions of the canvas.
  *
  * The horizontal inset is symmetric for centred text and modest. TikTok's action
  * rail eats far more of the right edge than this, but insetting centred text by
  * the rail width pushes every caption visibly off centre. Left-aligned text is a
  * different case: it starts at the margin and grows rightward straight into the
  * rail, so it gets `railRight` instead.
+ *
+ * Vertical placement is not in here any more. It is a number on the style —
+ * see `CaptionPosition` — and `CAPTION_BAND` is the three or four places worth
+ * offering a tap for.
  */
-export const CAPTION_INSET = { x: 0.08, railRight: 0.2, top: 0.12, upperMiddle: 0.28, bottom: 0.22 };
+export const CAPTION_INSET = { x: 0.08, railRight: 0.2 };
+
+/**
+ * The bands the style sheet offers as one tap, and the presets are written in.
+ *
+ * They are ordinary `CaptionPosition` values with nothing special about them:
+ * the slider and the drag reach every number between and either side, and a
+ * preset is free to sit at 0.62 if that is where it looks right. These are here
+ * so that "Lower" means the same thing in nine presets and so that a drag has
+ * something to snap to.
+ *
+ * `top` is not offered as a tap. It is where the free tier's mark lives (see
+ * `watermark.ts`), so it is somewhere to arrive at deliberately rather than by
+ * reaching for the first chip in a row.
+ */
+export const CAPTION_BAND = { top: 0.15, upper: 0.31, middle: 0.5, lower: 0.75 };
+
+/** How close a drag has to land to a band before it is taken as that band. */
+export const BAND_SNAP = 0.012;
+
+/**
+ * How far a caption may be pushed, as a fraction of the canvas.
+ *
+ * Not the safe zone: that is a warning drawn over the preview and a caption is
+ * allowed to sit outside it. This is only the promise that a block still has
+ * some of itself on screen, so a slider dragged to its end cannot produce a
+ * frame with no captions in it and no way to tell why.
+ */
+export const POSITION_RANGE = { min: 0.06, max: 0.94 };
 
 /**
  * Platform chrome, as fractions of the canvas, for the safe-zone overlay only.
@@ -335,9 +410,24 @@ export const SERIF_FAMILY = 'Spectral';
 /**
  * The preset a new project starts on.
  *
- * One constant, because this is the thing to A/B against Editorial.
+ * Focus, and it is first in the list as well, so the tile a new user taps is the
+ * look they are already in. It was Read along, and before that Box highlight;
+ * the argument that moved it is in `references/deep-research-report.md` and it is not a
+ * popularity one. A default is not a favourite. It is the look that has to
+ * survive footage nobody has seen, a creator in a niche nobody chose it for, a
+ * phone at arm's length and a viewer who has motion turned off — and the
+ * property that buys all four is *controlled* contrast: white type on a dark
+ * card that the app puts there, rather than white type hoping the frame behind
+ * it is dark.
+ *
+ * Read along is the look this one is built from and it keeps everything that
+ * was right about it: the whole line on screen so the eye can be a word ahead of
+ * the voice, and one restrained cue for where the voice is. What it changes is
+ * that the cue is a pill rather than a colour change — a shape survives a frame
+ * the colour does not — and that the line no longer relies on the video being
+ * dark enough for a shadow to be enough.
  */
-export const DEFAULT_STYLE_ID = 'box';
+export const DEFAULT_STYLE_ID = 'focus';
 
 /** The accent yellow every preset shares until the user picks another. */
 const ACCENT = '#FFE03D';
@@ -347,21 +437,193 @@ const INK = '#141110';
 const PAPER = '#FFFFFFF7';
 
 /**
- * The nine presets.
+ * The default's blue, darkened from the one the research measured.
  *
- * Four were the v1 set. Four more came out of watching what the apps this one
+ * White on the `#4F6BFF` in the reference shot is 4.30:1, which misses WCAG's
+ * 4.5:1 for body text and only passes as large text. Captions are large text on
+ * a phone and would have scraped through, but the default is the one preset
+ * that has to be right at any size the size control can reach, and two points of
+ * blue is not a design decision worth failing a threshold over. This is 5.32:1
+ * against white, measured rather than eyeballed.
+ */
+const FOCUS_BLUE = '#2F5FEA';
+
+/**
+ * The card under the default's line: near-black at 78%.
+ *
+ * Opaque would be a subtitle bar on top of the video. Transparent would be the
+ * thing this preset exists to stop being. At 78% the footage is still legible
+ * through it and the type has a known background whatever is behind it.
+ */
+const NIGHT = '#111111C7';
+
+/** The warm charcoal Clarity prints on: 7.48:1 under white. */
+const CHARCOAL = '#59544FE6';
+
+/** The yellow of the archetype every short-form app ships some version of. */
+const BOLD_YELLOW = '#FFD60A';
+
+/** Core's structural accent, and the one warm colour in a business-shaped look. */
+const CORAL = '#FF5A5F';
+
+/** Rocket's keyword lavender, and Neon glow's halo. */
+const LAVENDER = '#C8B8FF';
+const HOT_PINK = '#FF5CE1';
+
+/**
+ * A word that has not been said yet, in the presets that leave it on screen.
+ *
+ * White at 55%, not grey, so it stays a dimmer version of the word it becomes
+ * rather than a different colour that happens to be near it — and so a picked
+ * text colour dims the same way whatever it is.
+ */
+const UNSAID = '#FFFFFF8C';
+
+/**
+ * The eighteen presets.
+ *
+ * Four were the v1 set. Six more came out of watching what the apps this one
  * competes with actually ship — the clips in `references/` — and taking the
  * mechanisms apart rather than the pictures: every one of them builds the line a
  * word at a time, every one of them holds the type off the frame with a shadow
  * rather than a stroke, and every one of them has a second size that is three or
- * four times the first. Those are now properties any preset can take, so what is
- * below is nine arrangements of one vocabulary and not nine special cases.
+ * four times the first. Those are all properties any preset can take, so what is
+ * below is eighteen arrangements of one vocabulary and not eighteen special
+ * cases.
  *
- * The picker was budgeted for eight without a redesign. The ninth arrived with
- * the grid moved into one canvas, which is what took the ceiling off: a tenth
- * costs a row of buttons and one more translated group.
+ * The last eight came from `references/deep-research-report.md`, which took the category
+ * leader's published style catalogue apart the same way — not by copying the
+ * pictures, which are somebody else's, but by naming the behaviour each look
+ * relies on and asking which property of this file already says it. Seven of the
+ * eight needed nothing new. The eighth wanted a mark that moves with the voice
+ * and leaves nothing behind it, and that became `highlightMode: 'active'`,
+ * which is the test this file sets itself: a look it cannot reach should become
+ * a property rather than a branch.
+ *
+ * Two things in those looks this app still cannot set, both already written down
+ * as gaps: letter spacing, which would have to go through the measurer to
+ * survive invariant 2, and a condensed display face, which is another font file
+ * against what is left of the APK's headroom. Rocket in particular is a
+ * condensed poster face in the original and an extra-bold grotesk here.
+ *
+ * Line height is the third. It is one ratio for the whole app, and the research
+ * asks for a tighter one on several of these; a global changed for one preset is
+ * a global changed for ten, so it stays where it is until it is a property.
+ *
+ * The picker was budgeted for eight tiles without a redesign, and the grid
+ * moving into one canvas took the ceiling off. Eighteen is past what that
+ * redesign anticipated in *scrolling* rather than in drawing — see the note in
+ * `StylePicker`.
  */
 export const STYLE_PRESETS: { id: string; name: string; props: StyleProps }[] = [
+  {
+    id: 'focus',
+    name: 'Focus',
+    props: {
+      // The default. Read along's mechanism — the whole line present, one word
+      // marked — with the two things a look has to have when nobody has chosen
+      // it: a background the app controls rather than one it hopes for, and a
+      // mark that is a shape before it is a colour.
+      highlightMode: 'box',
+      // The word sitting on the pill. White on this blue is 5.32:1.
+      highlightColor: '#FFFFFF',
+      textColor: '#FFFFFF',
+      spokenColor: '#FFFFFF',
+      // The card is the edge here, so a stroke would only close up the counters.
+      outlineColor: '#00000000',
+      outlineRatio: 0,
+      boxColor: FOCUS_BLUE,
+      boxShadow: NO_SHADOW,
+      textSize: 'M',
+      position: CAPTION_BAND.lower,
+      align: 'center',
+      maxWordsPerLine: 4,
+      maxRows: DEFAULT_MAX_ROWS,
+      fontFamily: SANS_FAMILY,
+      weight: 'bold',
+      upcomingOpacity: 1,
+      uppercase: false,
+      reveal: 'line',
+      // Kept under the card as well as over it: the card is 78% and the frame
+      // behind it can be anything.
+      shadow: { color: '#000000A6', blurRatio: 0.16, dxRatio: 0, dyRatio: 0.035 },
+      // The one piece of movement, and it is three percent of a word's own size
+      // over a sixth of a second. Every word waits a shade under full size and
+      // settles as it is reached, which is a second cue for where the voice is
+      // for anybody who cannot separate the blue from the white. It scales about
+      // the word's own centre, so nothing on the line moves sideways, and
+      // reduced motion turns it off without taking the colour with it.
+      entrance: { scaleFrom: 0.97, dyRatio: 0, opacityFrom: 1, ms: 160 },
+      plate: { color: NIGHT, padXRatio: 0.16, padYRatio: 0.08, radiusRatio: 0.14, shadow: NO_SHADOW },
+      emphasis: {
+        // White and slightly bigger. The default may not have an opinion about
+        // the speaker's loudest word beyond letting it be felt, and a blue word
+        // off the pill would be the one unreadable thing on a dark card.
+        color: '#FFFFFF',
+        scale: 1.12,
+        fontFamily: SANS_FAMILY,
+        weight: 'bold',
+        italic: false,
+        ownRow: false,
+        minScale: 1,
+        fallbackScale: 1,
+        riseFrom: 1,
+        riseMs: 0,
+      },
+    },
+  },
+  {
+    id: 'readalong',
+    name: 'Read along',
+    props: {
+      // The whole line waits on screen, dim, and each word turns solid the
+      // instant it is said. Two colours and no movement at all: nothing shifts
+      // under the reader, so the eye can be a word ahead of the voice, which is
+      // the entire point of putting a sentence on a video somebody is watching
+      // at speed.
+      highlightMode: 'snap',
+      highlightColor: '#FFFFFF',
+      textColor: UNSAID,
+      spokenColor: '#FFFFFF',
+      // The shadow is the edge. A stroke at this weight closes up the counters
+      // of a word set in white at speed.
+      outlineColor: '#00000000',
+      outlineRatio: 0,
+      boxColor: '#00000000',
+      boxShadow: NO_SHADOW,
+      textSize: 'M',
+      position: CAPTION_BAND.lower,
+      align: 'center',
+      maxWordsPerLine: 4,
+      maxRows: DEFAULT_MAX_ROWS,
+      fontFamily: SANS_FAMILY,
+      weight: 'extrabold',
+      // The dim is a colour here, not an opacity, because the user is given
+      // both colours and an opacity on top of one of them would mean the swatch
+      // they picked is not the colour they get.
+      upcomingOpacity: 1,
+      uppercase: false,
+      reveal: 'line',
+      shadow: { color: '#000000A6', blurRatio: 0.18, dxRatio: 0, dyRatio: 0.04 },
+      entrance: NO_ENTRANCE,
+      plate: NO_PLATE,
+      emphasis: {
+        // A touch bigger and nothing else. The word the speaker leaned on
+        // should be felt rather than decorated, which is the same restraint
+        // Focus inherited when it took this preset's place at the front.
+        color: '#FFFFFF',
+        scale: 1.14,
+        fontFamily: SANS_FAMILY,
+        weight: 'extrabold',
+        italic: false,
+        ownRow: false,
+        minScale: 1,
+        fallbackScale: 1,
+        riseFrom: 1,
+        riseMs: 0,
+      },
+    },
+  },
   {
     id: 'box',
     name: 'Box highlight',
@@ -375,7 +637,7 @@ export const STYLE_PRESETS: { id: string; name: string; props: StyleProps }[] = 
       boxColor: ACCENT,
       boxShadow: NO_SHADOW,
       textSize: 'M',
-      position: 'lowerThird',
+      position: CAPTION_BAND.lower,
       align: 'center',
       maxWordsPerLine: MAX_WORDS_PER_LINE,
       maxRows: DEFAULT_MAX_ROWS,
@@ -414,7 +676,7 @@ export const STYLE_PRESETS: { id: string; name: string; props: StyleProps }[] = 
       boxColor: '#00000000',
       boxShadow: NO_SHADOW,
       textSize: 'M',
-      position: 'lowerThird',
+      position: CAPTION_BAND.lower,
       align: 'center',
       maxWordsPerLine: MAX_WORDS_PER_LINE,
       maxRows: DEFAULT_MAX_ROWS,
@@ -456,7 +718,7 @@ export const STYLE_PRESETS: { id: string; name: string; props: StyleProps }[] = 
       boxColor: '#00000000',
       boxShadow: NO_SHADOW,
       textSize: 'S',
-      position: 'upperMiddle',
+      position: CAPTION_BAND.upper,
       align: 'left',
       maxWordsPerLine: 5,
       maxRows: EDITORIAL_MAX_ROWS,
@@ -495,7 +757,7 @@ export const STYLE_PRESETS: { id: string; name: string; props: StyleProps }[] = 
       boxColor: '#00000000',
       boxShadow: NO_SHADOW,
       textSize: 'S',
-      position: 'lowerThird',
+      position: CAPTION_BAND.lower,
       align: 'center',
       maxWordsPerLine: 5,
       maxRows: DEFAULT_MAX_ROWS,
@@ -537,7 +799,7 @@ export const STYLE_PRESETS: { id: string; name: string; props: StyleProps }[] = 
       boxColor: '#00000000',
       boxShadow: NO_SHADOW,
       textSize: 'S',
-      position: 'lowerThird',
+      position: CAPTION_BAND.lower,
       align: 'center',
       maxWordsPerLine: 3,
       maxRows: 2,
@@ -559,7 +821,7 @@ export const STYLE_PRESETS: { id: string; name: string; props: StyleProps }[] = 
         weight: 'extrabold',
         italic: false,
         ownRow: true,
-        band: 'top',
+        band: CAPTION_BAND.top,
         minScale: 2,
         fallbackScale: 1.6,
         riseFrom: 0.92,
@@ -581,7 +843,7 @@ export const STYLE_PRESETS: { id: string; name: string; props: StyleProps }[] = 
       boxColor: '#00000000',
       boxShadow: NO_SHADOW,
       textSize: 'S',
-      position: 'upperMiddle',
+      position: CAPTION_BAND.upper,
       align: 'left',
       maxWordsPerLine: 5,
       maxRows: EDITORIAL_MAX_ROWS,
@@ -626,7 +888,7 @@ export const STYLE_PRESETS: { id: string; name: string; props: StyleProps }[] = 
       boxColor: '#00000000',
       boxShadow: NO_SHADOW,
       textSize: 'S',
-      position: 'upperMiddle',
+      position: CAPTION_BAND.upper,
       align: 'center',
       maxWordsPerLine: 5,
       maxRows: EDITORIAL_MAX_ROWS,
@@ -675,7 +937,7 @@ export const STYLE_PRESETS: { id: string; name: string; props: StyleProps }[] = 
       boxColor: '#00000000',
       boxShadow: NO_SHADOW,
       textSize: 'M',
-      position: 'lowerThird',
+      position: CAPTION_BAND.lower,
       align: 'center',
       maxWordsPerLine: 3,
       maxRows: 2,
@@ -720,7 +982,7 @@ export const STYLE_PRESETS: { id: string; name: string; props: StyleProps }[] = 
       // white card.
       boxShadow: { color: INK, blurRatio: 0, dxRatio: 0.03, dyRatio: 0.03 },
       textSize: 'S',
-      position: 'upperMiddle',
+      position: CAPTION_BAND.upper,
       align: 'center',
       maxWordsPerLine: 3,
       maxRows: 2,
@@ -757,10 +1019,361 @@ export const STYLE_PRESETS: { id: string; name: string; props: StyleProps }[] = 
       },
     },
   },
+  {
+    id: 'bold',
+    name: 'Bold yellow',
+    props: {
+      // The archetype: white caps, one yellow word, a hard dark edge. It is the
+      // look most creator captions are a version of, and it is the reason
+      // `active` exists — the mark is *where the voice is*, not how far it has
+      // got, so nothing is left coloured behind it and there is exactly one
+      // place on the frame for the eye to be.
+      highlightMode: 'active',
+      highlightColor: BOLD_YELLOW,
+      textColor: '#FFFFFF',
+      // Unused under `active` and set honestly anyway: a word that has been said
+      // goes back to being a word.
+      spokenColor: '#FFFFFF',
+      // The one preset that keeps a real stroke. The archetype is a stroke, and
+      // yellow on white needs a dark edge to be a colour rather than a glare.
+      outlineColor: '#111111',
+      outlineRatio: 0.05,
+      boxColor: '#00000000',
+      boxShadow: NO_SHADOW,
+      textSize: 'M',
+      position: CAPTION_BAND.lower,
+      align: 'center',
+      maxWordsPerLine: 4,
+      maxRows: DEFAULT_MAX_ROWS,
+      fontFamily: SANS_FAMILY,
+      weight: 'extrabold',
+      upcomingOpacity: 1,
+      uppercase: true,
+      reveal: 'line',
+      shadow: { color: '#000000A6', blurRatio: 0.14, dxRatio: 0, dyRatio: 0.04 },
+      // The pop, and it is the second cue the colour needs: the word grows into
+      // its place as it is reached. Six percent rather than the ten a tap
+      // animation would use, because every word on the line is wearing the
+      // other end of it at once.
+      entrance: { scaleFrom: 0.94, dyRatio: 0, opacityFrom: 1, ms: 150 },
+      plate: NO_PLATE,
+      emphasis: {
+        color: BOLD_YELLOW,
+        scale: 1.2,
+        fontFamily: SANS_FAMILY,
+        weight: 'extrabold',
+        italic: false,
+        ownRow: false,
+        minScale: 1,
+        fallbackScale: 1,
+        riseFrom: 1,
+        riseMs: 0,
+      },
+    },
+  },
+  {
+    id: 'core',
+    name: 'Core',
+    props: {
+      // The business default: nothing marks the word being spoken because the
+      // reveal is the mark, and the only colour on the frame is the one word the
+      // speaker leaned on. Sentence case, four words, a shadow and a short rise
+      // — the look of a caption somebody chose rather than one an app added.
+      highlightMode: 'none',
+      highlightColor: '#FFFFFF',
+      textColor: '#FFFFFF',
+      spokenColor: '#FFFFFF',
+      outlineColor: '#00000000',
+      outlineRatio: 0,
+      boxColor: '#00000000',
+      boxShadow: NO_SHADOW,
+      textSize: 'M',
+      position: CAPTION_BAND.lower,
+      align: 'center',
+      maxWordsPerLine: 4,
+      maxRows: DEFAULT_MAX_ROWS,
+      fontFamily: SANS_FAMILY,
+      // The one preset set below extra-bold, which is most of why it reads as
+      // professional rather than as a creator caption.
+      weight: 'semibold',
+      upcomingOpacity: 1,
+      uppercase: false,
+      reveal: 'word',
+      shadow: { color: '#000000B3', blurRatio: 0.18, dxRatio: 0, dyRatio: 0.04 },
+      entrance: { scaleFrom: 1, dyRatio: 0.1, opacityFrom: 0, ms: 220 },
+      plate: NO_PLATE,
+      emphasis: {
+        color: CORAL,
+        scale: 1.25,
+        fontFamily: SANS_FAMILY,
+        weight: 'extrabold',
+        italic: false,
+        ownRow: false,
+        minScale: 1,
+        fallbackScale: 1,
+        riseFrom: 0.94,
+        riseMs: 180,
+      },
+    },
+  },
+  {
+    id: 'clarity',
+    name: 'Clarity',
+    props: {
+      // The card does the work. A warm charcoal at 90% under the whole line
+      // gives white type a 7.5:1 background whatever the video is doing, which
+      // is the one thing no transparent caption can promise, and the line reads
+      // by opacity so nothing on the card changes colour.
+      highlightMode: 'fade',
+      highlightColor: '#FFFFFF',
+      textColor: '#FFFFFF',
+      spokenColor: '#FFFFFF',
+      outlineColor: '#00000000',
+      outlineRatio: 0,
+      boxColor: '#00000000',
+      boxShadow: NO_SHADOW,
+      textSize: 'S',
+      position: CAPTION_BAND.lower,
+      align: 'center',
+      maxWordsPerLine: 5,
+      maxRows: DEFAULT_MAX_ROWS,
+      fontFamily: SANS_FAMILY,
+      weight: 'bold',
+      upcomingOpacity: 0.5,
+      uppercase: false,
+      // The card is the size of the whole line from the moment it appears, for
+      // the same reason Newsprint's is: a plate that grew a word at a time would
+      // be the only thing on screen the eye follows.
+      reveal: 'line',
+      shadow: NO_SHADOW,
+      entrance: NO_ENTRANCE,
+      plate: {
+        color: CHARCOAL,
+        padXRatio: 0.3,
+        padYRatio: 0.13,
+        radiusRatio: 0.09,
+        shadow: { color: '#00000059', blurRatio: 0.2, dxRatio: 0, dyRatio: 0.08 },
+      },
+      emphasis: {
+        color: ACCENT,
+        scale: 1.25,
+        fontFamily: SANS_FAMILY,
+        weight: 'extrabold',
+        italic: false,
+        ownRow: false,
+        minScale: 1,
+        fallbackScale: 1,
+        riseFrom: 1,
+        riseMs: 0,
+      },
+    },
+  },
+  {
+    id: 'negative',
+    name: 'Negative',
+    props: {
+      // The inversion, and the most legible thing this app can draw: white caps
+      // on a near-black card, and the word being said swaps the two round — ink
+      // on a white pill. Both pairs are 21:1, which is as far as contrast goes.
+      highlightMode: 'box',
+      highlightColor: '#000000',
+      textColor: '#FFFFFF',
+      spokenColor: '#FFFFFF',
+      outlineColor: '#00000000',
+      outlineRatio: 0,
+      boxColor: '#FFFFFF',
+      boxShadow: NO_SHADOW,
+      textSize: 'S',
+      position: CAPTION_BAND.lower,
+      align: 'center',
+      maxWordsPerLine: 4,
+      maxRows: DEFAULT_MAX_ROWS,
+      fontFamily: SANS_FAMILY,
+      weight: 'bold',
+      upcomingOpacity: 1,
+      uppercase: true,
+      reveal: 'line',
+      shadow: NO_SHADOW,
+      entrance: NO_ENTRANCE,
+      // Square-ish corners. A rounded card is a label; this one is a block of
+      // ink, and the pill inside it is the only soft shape in the preset.
+      plate: { color: '#000000F2', padXRatio: 0.24, padYRatio: 0.13, radiusRatio: 0.04, shadow: NO_SHADOW },
+      emphasis: {
+        // Weight and size only, like Clean subtitle. A third colour in a preset
+        // whose whole argument is two of them would be a different preset.
+        color: '#FFFFFF',
+        scale: 1.15,
+        fontFamily: SANS_FAMILY,
+        weight: 'extrabold',
+        italic: false,
+        ownRow: false,
+        minScale: 1,
+        fallbackScale: 1,
+        riseFrom: 1,
+        riseMs: 0,
+      },
+    },
+  },
+  {
+    id: 'sonnet',
+    name: 'Sonnet',
+    props: {
+      // The slow one. A serif, a long soft arrival, a wide shadow and no colour
+      // at all: the emphasis is italic and larger rather than gold, which is the
+      // one preset here where the big word is a typographic decision instead of
+      // a paint one. Reflective footage, read at the speed it was spoken.
+      highlightMode: 'none',
+      highlightColor: '#FFFFFF',
+      textColor: '#FFFFFF',
+      spokenColor: '#FFFFFF',
+      outlineColor: '#00000000',
+      outlineRatio: 0,
+      boxColor: '#00000000',
+      boxShadow: NO_SHADOW,
+      textSize: 'S',
+      position: CAPTION_BAND.lower,
+      align: 'center',
+      maxWordsPerLine: 4,
+      maxRows: DEFAULT_MAX_ROWS,
+      fontFamily: SERIF_FAMILY,
+      weight: 'extrabold',
+      upcomingOpacity: 1,
+      uppercase: false,
+      reveal: 'word',
+      // Wider and softer than anything else here. A serif has thin strokes and a
+      // hard-edged shadow under one reads as a second, blurrier serif.
+      shadow: { color: '#00000099', blurRatio: 0.26, dxRatio: 0, dyRatio: 0.05 },
+      // Nearly four hundred milliseconds, against the hundred-and-something
+      // every other revealing preset uses. Slowness is the whole content of this
+      // look and it is the one property that says so.
+      entrance: { scaleFrom: 1, dyRatio: 0.05, opacityFrom: 0, ms: 380 },
+      plate: NO_PLATE,
+      emphasis: {
+        color: '#FFFFFF',
+        scale: 1.5,
+        fontFamily: SERIF_FAMILY,
+        weight: 'extrabold',
+        italic: true,
+        ownRow: false,
+        minScale: 1.2,
+        fallbackScale: 1,
+        riseFrom: 0.96,
+        riseMs: 380,
+      },
+    },
+  },
+  {
+    id: 'neonglow',
+    name: 'Neon glow',
+    props: {
+      // The other neon, and the reason it is a second preset rather than a tweak
+      // to the first: this one has no fill. Every word bleeds a halo of its own
+      // colour, so the line glows white and the word being said glows pink, and
+      // the mark is the halo changing colour rather than a fill crossing a word.
+      highlightMode: 'active',
+      highlightColor: HOT_PINK,
+      textColor: '#FFFFFF',
+      spokenColor: '#FFFFFF',
+      // A hairline, for the same reason Neon has one: inside a bloom the glyphs
+      // need something holding their shape, which is a neon tube's dark rim.
+      outlineColor: '#000000',
+      outlineRatio: 0.02,
+      boxColor: '#00000000',
+      boxShadow: NO_SHADOW,
+      textSize: 'M',
+      position: CAPTION_BAND.lower,
+      align: 'center',
+      maxWordsPerLine: 3,
+      maxRows: 2,
+      fontFamily: SANS_FAMILY,
+      weight: 'extrabold',
+      upcomingOpacity: 1,
+      uppercase: true,
+      reveal: 'word',
+      // `OWN_COLOR` resolves against each word's own colour, so the halo follows
+      // the swatch on the lit word and stays white under the rest of the line
+      // without either being written down twice.
+      shadow: { color: OWN_COLOR, blurRatio: 0.26, dxRatio: 0, dyRatio: 0 },
+      entrance: { scaleFrom: 0.94, dyRatio: 0, opacityFrom: 0, ms: 230 },
+      plate: NO_PLATE,
+      emphasis: {
+        color: HOT_PINK,
+        scale: 1.6,
+        fontFamily: SANS_FAMILY,
+        weight: 'extrabold',
+        italic: false,
+        ownRow: false,
+        minScale: 1.2,
+        fallbackScale: 1,
+        riseFrom: 0.88,
+        riseMs: 230,
+        shadow: { color: OWN_COLOR, blurRatio: 0.4, dxRatio: 0, dyRatio: 0 },
+      },
+    },
+  },
+  {
+    id: 'rocket',
+    name: 'Rocket',
+    props: {
+      // The loud one, and the only preset in this file that is deliberately bad
+      // at being a default: two words at a time, all caps, a hard zoom in a
+      // tenth of a second, and a lavender word twice the size of the line it
+      // came out of. Reduced motion takes the zoom and the rise off it and
+      // leaves a perfectly good caption, which is the whole reason the entrance
+      // is computed in the layout rather than driven by an animator.
+      highlightMode: 'none',
+      highlightColor: '#FFFFFF',
+      textColor: '#FFFFFF',
+      spokenColor: '#FFFFFF',
+      outlineColor: '#00000000',
+      outlineRatio: 0,
+      boxColor: '#00000000',
+      boxShadow: NO_SHADOW,
+      textSize: 'M',
+      position: CAPTION_BAND.lower,
+      align: 'center',
+      maxWordsPerLine: 2,
+      maxRows: 2,
+      fontFamily: SANS_FAMILY,
+      weight: 'extrabold',
+      upcomingOpacity: 1,
+      uppercase: true,
+      reveal: 'word',
+      shadow: { color: '#000000CC', blurRatio: 0.12, dxRatio: 0, dyRatio: 0.03 },
+      // Arriving too big and slamming down, in a hundred milliseconds. Every
+      // other entrance here is a settle; this one is a hit.
+      entrance: { scaleFrom: 1.3, dyRatio: 0, opacityFrom: 0, ms: 100 },
+      plate: NO_PLATE,
+      emphasis: {
+        color: LAVENDER,
+        scale: 2.2,
+        fontFamily: SANS_FAMILY,
+        weight: 'extrabold',
+        italic: false,
+        ownRow: true,
+        minScale: 1.4,
+        fallbackScale: 1.2,
+        riseFrom: 1.35,
+        riseMs: 100,
+        shadow: { color: OWN_COLOR, blurRatio: 0.34, dxRatio: 0, dyRatio: 0 },
+      },
+    },
+  },
 ];
 
 /** The six swatches offered next to the custom colour picker. */
 export const HIGHLIGHT_SWATCHES = [ACCENT, '#3DDC84', '#FF5A5F', '#4D9BFF', '#C77DFF', '#FFFFFF'];
+
+/**
+ * The six offered for the words that are not being marked.
+ *
+ * A different six, because this control is answering a different question. The
+ * body of a caption is white or near-white in almost every video ever posted,
+ * and the interesting choices are how far down it goes — so the row runs white,
+ * dimmed white, ink, and then the three accents that are worth setting a whole
+ * line in.
+ */
+export const TEXT_SWATCHES = ['#FFFFFF', UNSAID, INK, ACCENT, '#3DDC84', '#4D9BFF'];
 
 export function presetById(styleId: string): StyleProps {
   const preset = STYLE_PRESETS.find((entry) => entry.id === styleId);
@@ -788,14 +1401,67 @@ export function resolveStyle(styleId: string, overrides: StyleOverrides = {}): S
     },
     maxWordsPerLine: Math.min(5, Math.max(1, Math.round(merged.maxWordsPerLine))),
     maxRows: Math.max(1, Math.round(merged.maxRows)),
+    position: captionPosition(merged.position, base.position),
     upcomingOpacity: Math.min(1, Math.max(0, merged.upcomingOpacity)),
     emphasis: {
       ...merged.emphasis,
       scale: Math.max(1, merged.emphasis.scale),
       minScale: Math.min(Math.max(1, merged.emphasis.minScale), Math.max(1, merged.emphasis.scale)),
       fallbackScale: Math.max(1, merged.emphasis.fallbackScale),
+      band:
+        merged.emphasis.band === undefined
+          ? undefined
+          : captionPosition(merged.emphasis.band, CAPTION_BAND.top),
     },
   };
+}
+
+/**
+ * The four names positions used to have, and what each one now means.
+ *
+ * Every project written before this change carries one of these strings in its
+ * overrides, and so does `settings.json`. They are read here rather than
+ * migrated on disk: a migration is a pass over every file that has to be got
+ * right once, and this is four words in the one function every style already
+ * goes through.
+ */
+const LEGACY_BANDS: Record<string, number> = {
+  top: CAPTION_BAND.top,
+  upperMiddle: CAPTION_BAND.upper,
+  middle: CAPTION_BAND.middle,
+  lowerThird: CAPTION_BAND.lower,
+};
+
+/**
+ * A position, whatever it arrives as.
+ *
+ * Rounded to a thousandth of the frame — two export pixels on a 1080-wide
+ * frame, and finer than a finger can mean — so that a drag writes one tidy
+ * number rather than sixteen decimal places, and so that two drags that landed
+ * in the same place compare equal and `styleChoices` reports nothing chosen.
+ */
+/**
+ * A position a finger chose, taken as a band when it lands near one.
+ *
+ * A drag that can produce 0.748 can never produce 0.75 again, and the three
+ * chips would then never light up once one had been touched. Snapping is what
+ * lets the shortcuts and the free control be the same setting: land close
+ * enough to a band and you are on it, which is also how "put it back where it
+ * was" stays a thing a thumb can do.
+ */
+export function snapPosition(value: number): CaptionPosition {
+  for (const band of Object.values(CAPTION_BAND)) {
+    if (Math.abs(value - band) <= BAND_SNAP) return band;
+  }
+  return captionPosition(value, CAPTION_BAND.lower);
+}
+
+export function captionPosition(value: unknown, fallback: CaptionPosition): CaptionPosition {
+  if (typeof value === 'string') return LEGACY_BANDS[value] ?? fallback;
+  if (typeof value !== 'number' || !Number.isFinite(value)) return fallback;
+
+  const held = Math.min(POSITION_RANGE.max, Math.max(POSITION_RANGE.min, value));
+  return Math.round(held * 1000) / 1000;
 }
 
 /**
@@ -810,8 +1476,36 @@ export function resolveStyle(styleId: string, overrides: StyleOverrides = {}): S
  */
 export function accentColor(style: StyleProps): string {
   if (style.highlightMode === 'box') return style.boxColor;
-  if (style.highlightMode === 'karaoke') return style.highlightColor;
+  if (marksBySpokenColor(style)) return style.highlightColor;
   return style.emphasis.color;
+}
+
+/**
+ * The colour of the words this style is not marking.
+ *
+ * The other half of the pair, and the half that was missing: one control cannot
+ * describe a caption whose whole design is two colours. In every preset it is
+ * the same property — `textColor` is what an unmarked word is drawn in, whether
+ * that means "waiting to be said" in `snap` and `karaoke`, "off the box" in box
+ * highlight, or simply "the caption" where nothing is marked at all.
+ */
+export function captionTextColor(style: StyleProps): string {
+  return style.textColor;
+}
+
+/**
+ * Whether the mark is a colour on the word itself, rather than a box or nothing.
+ *
+ * The three that are: `karaoke` sweeps it across, `snap` puts it on whole, and
+ * `active` puts it on and takes it off again. All three answer the swatch by
+ * painting `highlightColor`, so all three are the same case here.
+ */
+function marksBySpokenColor(style: StyleProps): boolean {
+  return (
+    style.highlightMode === 'karaoke' ||
+    style.highlightMode === 'snap' ||
+    style.highlightMode === 'active'
+  );
 }
 
 /**
@@ -829,10 +1523,22 @@ export function highlightColorOverrides(style: StyleProps, color: string): Style
   const emphasis = { color };
 
   if (style.highlightMode === 'box') return { boxColor: color, emphasis };
-  if (style.highlightMode === 'karaoke') {
+  if (marksBySpokenColor(style)) {
     return { highlightColor: color, spokenColor: color, emphasis };
   }
   return { emphasis };
+}
+
+/**
+ * What picking a text colour changes, which is one property in every preset.
+ *
+ * Simpler than its opposite number above because there is nothing to decide:
+ * an unmarked word is `textColor` wherever it appears. It is a function all the
+ * same, so that the sheet writes both colours the same way and so that a preset
+ * that one day paints its quiet words somewhere else has one place to say so.
+ */
+export function textColorOverrides(_style: StyleProps, color: string): StyleOverrides {
+  return { textColor: color };
 }
 
 /**
@@ -845,8 +1551,10 @@ export function highlightColorOverrides(style: StyleProps, color: string): Style
  * from the preset it was set on is a choice.
  */
 export interface StyleChoices {
-  /** Whatever `accentColor` would report: the one colour the picker offers. */
+  /** Whatever `accentColor` would report: the colour this preset marks with. */
   color?: string;
+  /** Whatever `captionTextColor` would report: the words it is not marking. */
+  textColor?: string;
   textSize?: TextSize;
   position?: CaptionPosition;
   maxWordsPerLine?: number;
@@ -859,6 +1567,7 @@ export function styleChoices(styleId: string, overrides: StyleOverrides = {}): S
 
   return {
     color: chosen(accentColor(style), accentColor(preset)),
+    textColor: chosen(captionTextColor(style), captionTextColor(preset)),
     textSize: chosen(style.textSize, preset.textSize),
     position: chosen(style.position, preset.position),
     maxWordsPerLine: chosen(style.maxWordsPerLine, preset.maxWordsPerLine),
@@ -887,6 +1596,9 @@ export function styleOverridesFor(styleId: string, choices: StyleChoices): Style
   }
   if (choices.color !== undefined && choices.color !== accentColor(preset)) {
     Object.assign(overrides, highlightColorOverrides(preset, choices.color));
+  }
+  if (choices.textColor !== undefined && choices.textColor !== captionTextColor(preset)) {
+    Object.assign(overrides, textColorOverrides(preset, choices.textColor));
   }
 
   return overrides;

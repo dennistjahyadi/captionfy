@@ -180,9 +180,14 @@ export function useProjectEditor(
         present,
         future: current.future.map((step) => ({ ...step, project: change(step.project) })),
       });
-      // Written at once rather than debounced: a style change is one deliberate
-      // tap, not a stream of keystrokes.
-      save(present, true);
+      // Debounced like every other write. This was immediate, on the grounds
+      // that a style change is one deliberate tap — and it stopped being true
+      // the moment the sheet grew a control you drag. The hue strip already
+      // wrote the whole project file on every frame of a drag and the position
+      // dial would have doubled it. Nothing is at risk: the debounce is flushed
+      // when the screen unmounts and when the app leaves the foreground, which
+      // is the pair of moments invariant 3 is actually about.
+      save(present, false);
     },
     [save]
   );

@@ -1,5 +1,8 @@
 import {
   accentColor,
+  captionPosition,
+  captionTextColor,
+  CAPTION_BAND,
   DEFAULT_STYLE_ID,
   highlightColorOverrides,
   isPaintable,
@@ -11,6 +14,8 @@ import {
   styleChoices,
   styleOverridesFor,
   STYLE_PRESETS,
+  textColorOverrides,
+  POSITION_RANGE,
 } from '../style';
 
 const RED = '#FF5A5F';
@@ -80,6 +85,7 @@ describe('styleChoices and styleOverridesFor', () => {
     for (const preset of STYLE_PRESETS) {
       expect(styleChoices(preset.id, {})).toEqual({
         color: undefined,
+        textColor: undefined,
         textSize: undefined,
         position: undefined,
         maxWordsPerLine: undefined,
@@ -88,7 +94,13 @@ describe('styleChoices and styleOverridesFor', () => {
   });
 
   it('round trip a choice through the overrides a project stores', () => {
-    const choices = { color: RED, textSize: 'L' as const, position: 'middle' as const, maxWordsPerLine: 2 };
+    const choices = {
+      color: RED,
+      textColor: '#111111',
+      textSize: 'L' as const,
+      position: 0.62,
+      maxWordsPerLine: 2,
+    };
     const overrides = styleOverridesFor('box', choices);
 
     expect(styleChoices('box', overrides)).toEqual(choices);
@@ -100,6 +112,7 @@ describe('styleChoices and styleOverridesFor', () => {
     expect(
       styleOverridesFor('box', {
         color: accentColor(preset),
+        textColor: captionTextColor(preset),
         textSize: preset.textSize,
         position: preset.position,
         maxWordsPerLine: preset.maxWordsPerLine,
@@ -162,16 +175,22 @@ describe('safeZoneUnion', () => {
 
   it('agrees with where the layout puts a lower third', () => {
     // The overlay would be a liar if the default position sat outside it.
-    expect(presetById('box').position).toBe('lowerThird');
-    expect(safeZoneUnion().bottom).toBeLessThanOrEqual(0.22);
+    expect(presetById(DEFAULT_STYLE_ID).position).toBe(CAPTION_BAND.lower);
+    expect(safeZoneUnion().bottom).toBeLessThanOrEqual(1 - CAPTION_BAND.lower);
   });
 });
 
 describe('the preset roster', () => {
-  it('holds nine, each with its own id and name', () => {
-    expect(STYLE_PRESETS).toHaveLength(9);
-    expect(new Set(STYLE_PRESETS.map((preset) => preset.id)).size).toBe(9);
-    expect(new Set(STYLE_PRESETS.map((preset) => preset.name)).size).toBe(9);
+  it('holds eighteen, each with its own id and name', () => {
+    expect(STYLE_PRESETS).toHaveLength(18);
+    expect(new Set(STYLE_PRESETS.map((preset) => preset.id)).size).toBe(18);
+    expect(new Set(STYLE_PRESETS.map((preset) => preset.name)).size).toBe(18);
+  });
+
+  it('opens on the one new users land in', () => {
+    // First tile, first thing tapped, and the look every clip starts in until
+    // somebody chooses otherwise.
+    expect(STYLE_PRESETS[0].id).toBe(DEFAULT_STYLE_ID);
   });
 
   it('starts new projects on one that exists', () => {
@@ -227,6 +246,127 @@ describe('a highlight that survives the colour it is given', () => {
     expect(style.boxColor).toBe('#FFFFFF');
     expect(isPaintable(style.boxShadow.color)).toBe(true);
     expect(style.boxShadow.dxRatio).toBeGreaterThan(0);
+  });
+});
+
+describe('two colours, not one', () => {
+  it('names the marked colour and the quiet one separately in every preset', () => {
+    for (const preset of STYLE_PRESETS) {
+      const style = resolveStyle(
+        preset.id,
+        Object.assign(
+          highlightColorOverrides(preset.props, RED),
+          textColorOverrides(preset.props, '#123456')
+        )
+      );
+
+      expect(accentColor(style)).toBe(RED);
+      expect(captionTextColor(style)).toBe('#123456');
+    }
+  });
+
+  it('leaves the highlight alone when only the text colour is picked', () => {
+    // The two controls are two questions. Answering one may not silently
+    // re-answer the other, which is the whole reason there are two.
+    for (const id of ['readalong', 'box', 'karaoke', 'clean']) {
+      const preset = presetById(id);
+      const style = resolveStyle(id, textColorOverrides(preset, '#123456'));
+
+      expect(accentColor(style)).toBe(accentColor(preset));
+      expect(style.boxColor).toBe(preset.boxColor);
+    }
+  });
+
+  it('carries both across a preset switch', () => {
+    const chosen = styleChoices(
+      'readalong',
+      styleOverridesFor('readalong', { color: RED, textColor: '#123456' })
+    );
+    const style = resolveStyle('box', styleOverridesFor('box', chosen));
+
+    expect(accentColor(style)).toBe(RED);
+    expect(captionTextColor(style)).toBe('#123456');
+  });
+});
+
+describe('the preset new users land in', () => {
+  const style = presetById(DEFAULT_STYLE_ID);
+
+  it('puts its own background behind the type', () => {
+    // The whole argument for this one being the default. Every other preset
+    // asks the video to be dark enough; this one stops asking, because nobody
+    // has looked at the footage a first export is made from.
+    expect(isPaintable(style.plate.color)).toBe(true);
+    expect(style.plate.padXRatio).toBeGreaterThan(0);
+    expect(style.plate.padYRatio).toBeGreaterThan(0);
+  });
+
+  it('marks the word being said with a shape, not only a colour', () => {
+    // Colour alone is one cue, and one cue fails for anybody who cannot
+    // separate these two. The pill is the second, and the settle is a third.
+    expect(style.highlightMode).toBe('box');
+    expect(isPaintable(style.boxColor)).toBe(true);
+    expect(style.entrance.ms).toBeGreaterThan(0);
+    expect(style.entrance.scaleFrom).toBeLessThan(1);
+  });
+
+  it('holds the whole line so the eye can run ahead of the voice', () => {
+    expect(style.reveal).toBe('line');
+    expect(style.upcomingOpacity).toBe(1);
+  });
+
+  it('moves nothing sideways while it does it', () => {
+    // A default may settle a word in place. It may not slide or fade one, which
+    // is what would make the line reflow under somebody reading it.
+    expect(style.entrance.dyRatio).toBe(0);
+    expect(style.entrance.opacityFrom).toBe(1);
+  });
+});
+
+describe('Read along', () => {
+  const style = presetById('readalong');
+
+  it('holds the whole line and marks it a word at a time', () => {
+    // The mechanism of the reference clip: nothing moves, nothing arrives, and
+    // the only thing that changes is which words have been said.
+    expect(style.highlightMode).toBe('snap');
+    expect(style.reveal).toBe('line');
+    expect(style.entrance.ms).toBe(0);
+  });
+
+  it('says the two colours with colour rather than with opacity', () => {
+    // A picked text colour has to be the colour that lands. Dimming it on top
+    // would mean the swatch and the caption disagree.
+    expect(style.upcomingOpacity).toBe(1);
+    expect(style.textColor).not.toBe(style.spokenColor);
+  });
+});
+
+describe('a position that is a number', () => {
+  it('reads the four names a project may still carry', () => {
+    expect(captionPosition('lowerThird', 0.5)).toBe(CAPTION_BAND.lower);
+    expect(captionPosition('upperMiddle', 0.5)).toBe(CAPTION_BAND.upper);
+    expect(captionPosition('middle', 0.1)).toBe(CAPTION_BAND.middle);
+    expect(captionPosition('top', 0.5)).toBe(CAPTION_BAND.top);
+  });
+
+  it('falls back rather than inventing a place for a value it cannot read', () => {
+    expect(captionPosition('nowhere', 0.42)).toBe(0.42);
+    expect(captionPosition(undefined, 0.42)).toBe(0.42);
+    expect(captionPosition(Number.NaN, 0.42)).toBe(0.42);
+  });
+
+  it('holds a drag inside the range and rounds what it writes', () => {
+    expect(captionPosition(9, 0.5)).toBe(POSITION_RANGE.max);
+    expect(captionPosition(-2, 0.5)).toBe(POSITION_RANGE.min);
+    expect(captionPosition(0.6666666, 0.5)).toBe(0.667);
+  });
+
+  it('reports a position between the bands as a choice, and a band as itself', () => {
+    const overrides = styleOverridesFor('readalong', { position: 0.41 });
+    expect(styleChoices('readalong', overrides).position).toBe(0.41);
+    expect(styleChoices('readalong', styleOverridesFor('readalong', { position: CAPTION_BAND.lower }))
+      .position).toBeUndefined();
   });
 });
 

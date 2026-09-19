@@ -50,7 +50,7 @@ background continuation, SRT import, and text behind the speaker (the draw list
 reserves `layer` for it; build no segmentation now).
 
 **The preset cap is lifted.** This file used to put "a fifth style preset" out
-of scope. There are eight now, and the reason is in `references/`: four clips of
+of scope. There are eighteen now, and the reason is in `references/`: five clips of
 what the apps this one competes with actually ship. The look is the product for
 a captions app, and the four v1 presets were a subtitle renderer's four looks
 rather than a short-form video app's. See below for what changed and why it is
@@ -250,11 +250,101 @@ properties rather than presets.
     that section claims.
     **Not run on the A54**, so by the line below this slice is not done.
 
+13. Position becomes a number, colour becomes a pair, and a tenth preset is the
+    one new users land in.
+    **Written and tested, run on nothing.** Typecheck and 490 unit tests pass and
+    the draw lists were drawn headless over real stills — see below — but no part
+    of it has been on a device or an emulator.
+    Three changes, one ask each. `CaptionPosition` is a fraction of the canvas
+    height rather than one of four names, because "Lower" was a single number and
+    the complaint it earned was that a lower third clearing TikTok's tray on one
+    clip sits on somebody's chin in the next. `StyleChoices` carries a
+    `textColor` beside its `color`, because a caption whose whole design is two
+    colours cannot be described by one control. And **Read along** — the whole
+    line waiting in a dim colour, each word turning solid as it is said — is the
+    tenth preset, first in the grid, and `DEFAULT_STYLE_ID`.
+    The preset cost one property. `highlightMode: 'snap'` is karaoke without the
+    sweep, and it is a mode rather than a branch because the only thing it
+    changes is when the colour arrives. Nothing native changed: the burn-in
+    already draws whatever colour the draw list names.
+    Checked in the headless harness the style slices used — advance widths out
+    of the TTFs with fontTools, the real `layoutCaptionFrame` at 1080 × 1920, the
+    draw list painted with PIL over two real stills. Over footage the two
+    colours read at a glance and the shadow holds the type off the frame; over
+    the near-white frame of the reference clip itself the shadow saves the
+    legibility and the spoken/unspoken distinction nearly disappears, which is
+    the case the new Text control exists for. Position was drawn at 0.2, 0.75
+    and 0.9 and lands where it says.
+
+14. Eight looks off the category leader, and a default chosen on evidence.
+    **Written and tested, run on nothing.** Typecheck and 502 unit tests pass;
+    no part of it has been on a device or an emulator.
+    `references/deep-research-report.md` took Captions' published style catalogue apart the
+    way slice 11 took the reference clips apart — by naming the behaviour each
+    look relies on rather than by copying the picture — and the eight best
+    documented of them are now presets: **Focus, Bold yellow, Core, Clarity,
+    Negative, Sonnet, Neon glow and Rocket**. Eighteen in all.
+    Seven of the eight needed no new code. The eighth did, and it is the one the
+    file predicted: `highlightMode: 'active'`, a mark that travels with the voice
+    and leaves nothing behind it, where `snap` says how far the speaker has got.
+    It is eight lines in `colorOf` and nothing anywhere else — the burn-in draws
+    whatever colour the draw list names, exactly as `snap` cost nothing.
+    **`DEFAULT_STYLE_ID` is `focus`**, and the reason is not that it is the most
+    used. The report is explicit that popularity and default suitability are
+    different questions and that the currently trending look is a deliberately
+    niche editorial serif. A default is an error-tolerant baseline: unknown
+    footage, unknown niche, a phone at arm's length, a viewer with motion turned
+    off. Focus is Read along's mechanism — the whole line present, one word
+    marked — with the two things that survive all four: a card the app puts
+    there rather than a frame it hopes is dark, and a mark that is a shape before
+    it is a colour. Every number in it was measured rather than picked: white on
+    `#2F5FEA` is 5.32:1, where the blue in the reference shot is 4.30:1 and
+    misses WCAG's 4.5:1.
+    Nothing was migrated. `readalong` is still a preset and every project and
+    `settings.json` that names it still resolves.
+    **Not run on any device**, so by the line below this slice is not done.
+
 Every slice runs as a release build on the Galaxy A54 before it is called done.
 
 ## Known issues
 
-Five are left, and none of them can be closed from this machine.
+Seven are left, and none of them can be closed from this machine.
+
+- **Slice 14 has not been drawn by Skia or by the painter, anywhere.** Eight new
+  presets, a new highlight mode and a new default, all of them unit tests and
+  nothing else. What a phone has to answer, in order of how likely it is to
+  bite:
+  **The picker's grid.** Nine rows of tiles is about three screens of scrolling
+  before the colour control, where ten presets was under two, and
+  `SCROLL_SHARE`'s premise — the grid and the colour both in view from the start
+  — is now false. Three columns, a horizontal band, or a grid that collapses to
+  the chosen row are all plausible and all of them are decided by how a tile
+  reads at a third of the width, which is a question for a device.
+  **What eighteen live tiles cost.** Nine in one canvas measured 23.6% janky on
+  the A54; eighteen is unmeasured, and four of the new ones carry a glow or a
+  card on top.
+  **The default's card.** A 78% near-black plate under every caption is the
+  biggest visual change this app has made, and whether it reads as a considered
+  background or as a subtitle bar is a thing to see on a panel, not in a test.
+  **Nothing about the export is expected to move**: `active` puts a different
+  colour in the draw list, and the plate and the pill are shapes both renderers
+  already draw. Expected is not measured, and a preview-versus-export frame
+  comparison on Focus and on Neon glow is what would settle it.
+  Also unrun: whether Spectral at `Sonnet`'s long 380 ms arrival reads as
+  deliberate or as lag, and whether Rocket's 100 ms slam is tolerable at 30 fps —
+  three frames.
+
+- **Slice 13 has not been drawn by Skia or by the painter, anywhere.** The
+  position dial, the colour tabs and the Read along preset exist in unit tests
+  and in a headless harness and nowhere else. What a phone has to answer: whether
+  the dial's drag survives the `ScrollView` it sits in (it is switched off from
+  the moment a finger lands in the dial, which is the fix, and the one thing no
+  test here can prove), whether a continuous drag through `restyle` holds its
+  frame rate on the sheet that was already the expensive screen, whether the two
+  colours read as two controls at 130% font scale, and whether the dim white of
+  Read along is the right dim on a real panel at arm's length. The export side is
+  unexercised too, though it is the least likely to surprise: `snap` puts a
+  different colour in the draw list and changes nothing about how one is drawn.
 
 - **The watermark has never run on the A54.** Slice 12 was verified end to end on
   an Android 16 emulator in a release build — the mark is burned into a real
@@ -406,6 +496,135 @@ has to argue with that gap.
   the two presets that mark nothing as it is spoken — and the big word in all
   four, so switching preset keeps it. `accentColor` reports the same colour back,
   which is why the chrome turns with it.
+- **Two colour controls now, and still not one per property.** The pair is
+  "Highlight" and "Text": what this preset marks a word with, and what it draws
+  the words it is not marking. One was enough for a design where the quiet
+  colour is always white, and Read along is not that design — its whole content
+  is two colours, and a control that could only set one of them would leave the
+  other at whatever the preset was written in. `captionTextColor` and
+  `textColorOverrides` are the second pair of `accentColor` and
+  `highlightColorOverrides`, and they are trivial where those are not: an
+  unmarked word is `textColor` in every preset there is. They are functions
+  anyway, so the sheet writes both colours the same way.
+  They are tabs over one row of swatches and one hue strip rather than two rows
+  of each, because the row and the strip are the tall part and the sheet is
+  already the tall screen. The swatches differ by tab: six accents for the
+  highlight, and white, dimmed white, ink and three accents for the text, since
+  the interesting question about a caption body is how far down it goes.
+- **Position is a fraction of the frame, not one of four names.** `top`,
+  `upperMiddle`, `middle` and `lowerThird` are `CAPTION_BAND` now — ordinary
+  values with nothing special about them — and the style carries the number the
+  captions' centre sits on. Four answers were never enough for a question that
+  is different on every clip, which is the whole of the complaint: a lower third
+  that clears the platform's tray on one video is across somebody's face on the
+  next, and there was no way to say "a little lower than that". Projects written
+  before this carry one of the four strings and `resolveStyle` reads them, which
+  is cheaper than a migration over every file on the phone and is the one
+  function every style already goes through.
+  The centre rather than an edge, because that is what a finger dragging a block
+  of text is holding, and because the old names anchored differently from one
+  another — `top` by its top, `lowerThird` by its bottom — which is invisible
+  until something has to interpolate between two of them. What it costs is that
+  a line wrapping to a second row now grows in both directions instead of
+  keeping its last row on a fixed line. The layout holds the block on the canvas
+  and does nothing else: the safe zone stays a warning drawn over the preview,
+  because a caption is allowed to sit outside it and some of them should.
+- **The position control is a picture of the frame, not a slider.** A tall
+  rectangle at the video's own proportions with the safe zone dashed inside it
+  and a bar where the captions are; tap or drag to put the bar anywhere. A
+  slider would have been fewer lines and would have asked the user to convert a
+  percentage into a place. The three bands are still one tap each, beside it, and
+  a drag that lands within 0.012 of one snaps to it — otherwise the chips could
+  never light up again once anything had been dragged, and "put it back" would
+  stop being something a thumb can do.
+  It is a diagram and not a preview: a bar at a fraction of a rectangle, with no
+  text, no measurer and no layout in it. The real preview is above the sheet
+  while the dial is being dragged, and a second drawing of the captions would be
+  a second thing for the export to disagree with (invariant 2).
+  The obvious control — dragging the captions on the preview itself — cannot be
+  built while the sheet is a `Modal`. A Modal is its own window: its backdrop
+  takes every touch above the dock and nothing passes through to the screen
+  underneath, whatever `pointerEvents` says. Moving the style picker out of the
+  sheet to get it would be a redesign of an accepted screen.
+- **Read along was the preset a new project starts in, and it is Focus now.**
+  Before that it was Box highlight, which shouts, and somebody who opens this app
+  to put subtitles on a clip has not asked for a style yet — they have asked to
+  be understood. Read along answered that: the whole line on screen in a dim
+  white, each word turning solid as it is said, the mechanism of
+  `references/kitverify-offer-portrait.mp4`. Nothing moves and nothing arrives,
+  so the eye can be a word ahead of the voice, which is the point of putting a
+  sentence on a video somebody is watching at speed.
+  Focus keeps all of that and fixes the one thing it was hoping for. Read
+  along's legibility is a shadow's worth of separation from whatever is behind
+  it, and the frame behind a first export is a frame nobody here has seen. Focus
+  puts a near-black card at 78% under the line, so the background is a thing the
+  app decides rather than a thing it inherits, and marks the word being said with
+  a blue pill instead of a colour change — a shape survives a frame that a hue
+  does not, and it is a second cue for anybody who cannot separate the two
+  colours. The settle, three percent of a word's size over 160 ms, is a third.
+  The card is the cost and it is a real one: it is the first thing this app has
+  drawn that the video cannot be seen through, and a default that puts furniture
+  on every frame has to be worth it. The argument that it is, is in
+  `references/deep-research-report.md` and is about contrast being controlled rather than
+  hoped for. It is also the one deviation in this file that nobody has looked at
+  on a panel.
+  **The chrome turns blue.** `accentColor` reports `#2F5FEA` for a box preset, so
+  a fresh install is blue where Read along made it white and Box highlight made
+  it yellow. That is better than white: the interface has no accent of its own
+  and a default that gives it one is a default that shows what the colour control
+  does.
+  Read along is unchanged and one tile away, and nothing was migrated: every
+  project and every `settings.json` naming it still resolves. Its dim is still a
+  colour and not an opacity, because both colours are the user's to pick and
+  dimming one on top would mean the swatch and the caption disagree — white at
+  55% rather than a grey, so it stays a weaker version of whatever colour it
+  becomes.
+- **`highlightMode: 'active'` is the mode the archetype needed, and `snap` could
+  not fake it.** `snap` colours every word the speaker has reached and leaves
+  them coloured; `active` colours exactly one. The difference is what the mark
+  means — how far the voice has got, against where the voice is — and the second
+  is what the "one bold yellow word" look every short-form app ships is actually
+  doing. Written as `snap` it would have been Read along in different paint.
+  It is a mode rather than a preset flag for the reason the last one was: the
+  only thing it changes is which word holds the colour, and it cost the export
+  nothing, because the burn-in draws whatever colour the draw list names.
+  The big word keeps the accent throughout rather than dropping back with the
+  rest. Its size has already told the viewer it is different, and a word that
+  lost its colour the instant it was said would read as the emphasis switching
+  off.
+- **Eight presets came from a competitor's catalogue and none of its pixels.**
+  `references/` is footage this repository does not keep;
+  `references/deep-research-report.md` is the same discipline applied to a published style
+  catalogue — what each look does, not what it looks like — and the eight that
+  survived it are eight rows of properties in `STYLE_PRESETS`. What did not
+  survive is anything the app cannot already say: letter spacing, a condensed
+  display face and a per-preset line height are all gaps with names, and Rocket
+  is a poster face in the original and an extra-bold grotesk here.
+  The report's own tokens were followed where they were measurable and darkened
+  where they were not good enough: its Focus blue is 4.30:1 under white and
+  misses WCAG's 4.5:1 for body text, so this app's is 5.32:1.
+- **The primary button's label is chosen against the accent rather than assumed
+  to be ink.** `ON_ACCENT` was a constant `#111111` and it was right every time,
+  because every accent this app could produce was pale: the six swatches are all
+  light and the hue strip is fixed at 56% lightness. The new default is not. Its
+  blue was picked for 5.32:1 under white *on a video*, and dark ink on it is
+  3.55:1 — a legible caption and an illegible button, from one number used for
+  two jobs. `readableOn` takes the better of ink and paper by measured contrast,
+  which also closes a hole that was already there: a custom colour dragged to
+  the dark end of the strip could always have produced an unreadable button and
+  simply never had.
+  It does not close it completely. Ink and paper leave a gap between them, and
+  eighteen of the strip's 360 hues — violets around 280° — land in it at 4.09:1
+  rather than 4.5:1. That clears the 3:1 WCAG allows for the 19px semibold the
+  label is set in, and closing it properly would mean painting the button in
+  pure black and white instead of this app's own two. The test asserts 4.5 for
+  every accent that ships and 4.0 for the whole strip, so the limit is written
+  down rather than discovered again.
+- **Eighteen tiles is past what the two-column grid was designed for.** Ten fit
+  in under two screens of scrolling; eighteen is about three, and the colour
+  control is behind all of it. The fix is a layout decision that depends on how a
+  tile reads at a third of the width, which is a device question, so it is
+  written down here and in `StylePicker` rather than guessed at.
 - A colour picked in Clean subtitle does colour its big word. A preset that
   answered a swatch with no visible change would read as broken.
 - Export and Saved are `/export/[id]` and `/saved/[id]`, following Processing
@@ -472,7 +691,7 @@ has to argue with that gap.
   watermark that appeared only at export is precisely the surprise invariant 5
   forbids, and the whole point of a free tier you can evaluate is that what you
   are looking at is what you will get. It is on `CaptionOverlay` rather than
-  inside `CaptionElements`, so the style sheet's nine tiles do not each grow one:
+  inside `CaptionElements`, so the style sheet's ten tiles do not each grow one:
   a tile is a hundred points tall and is answering a question about the preset.
   Settings' default-style screen does not get one either — it exports nothing.
 - **Top-left, and the corners were all wrong.** `safeZoneUnion()` leaves the
@@ -570,13 +789,26 @@ has to argue with that gap.
   the argument for asking, and also the honest reason the card gives. What it is
   not is a dialog on a timer: it sits on Saved, the end of the only path that
   produces a file, where the user has just been handed what they came for and
-  there is no work to interrupt. It asks **one** question and it is about the
-  past — "what were you trying to do that this could not" — because people are
-  poor at designing features and good at remembering friction. Shown after the
+  there is no work to interrupt. Shown after the
   **second** finished export, once ever, and `markFeedbackAsked` fires on the
   dismiss as well as on the two ways out: a card that comes back until it is
   obeyed is a nag, and the Settings row is permanent for anybody who thinks of
   something a fortnight later.
+- **The prompt opens three doors, and an earlier draft opened one.** It reads
+  "What's working well? What could be better? Any features you'd love to see?"
+  over "Share your ideas, suggestions, or anything you think could make Wordburn
+  better. I read every message." The first draft asked only what the user had
+  just failed to do, on the reasoning that people are poor at designing features
+  and good at remembering friction — which is true, and is the better question
+  for a bug report. It is the worse question for a mailbox that is empty. A
+  single narrow ask tells somebody holding a compliment or a feature idea that
+  they have written to the wrong address, and at this stage a blank mail costs
+  more than a badly aimed one. The triage happens on the way in, not at the door.
+  Worth revisiting once there is enough post to sort.
+- **First person singular, everywhere.** "I read every message", not "we". The
+  address is one person's and the whole reason it is not a role address is that
+  somebody actually answers; a "we" on top of a personal Gmail is a company voice
+  the next screen contradicts.
 - **It counts `settings.exportsMade`, not `entitlement.exportsUsed`.** The two
   numbers look interchangeable and are not: `recordExport` deliberately leaves an
   unlocked user's count where it was, because that one is about what is owed, so
@@ -631,7 +863,7 @@ has to argue with that gap.
 - The preset tiles share one Skia canvas, each a translated and clipped group
   landing in the rectangle its own button reported through `onLayout`. The
   buttons are ordinary views and know nothing about time, so twenty redraws a
-  second do not walk eight buttons' worth of views with them.
+  second do not walk ten buttons' worth of views with them.
 - Newsprint is the one preset that prints dark on light, so the word sitting on
   the highlight stays ink rather than taking the accent, and both the highlight
   and the big word wear a hard ink offset. That offset is not decoration: white
@@ -766,7 +998,7 @@ sixty frames and the preview does.
 A style tile is a window, not a thumbnail: the canvas is the whole frame at tile
 width and the tile shows the band the caption is in. Laying out into a short
 canvas would put a lower third a third of the way up a letterbox and show a size
-the export will never produce. All eight windows are cut out of one canvas —
+the export will never produce. All ten windows are cut out of one canvas —
 `CaptionElements` is the drawing without a canvas around it, and `CaptionOverlay`
 is that plus the canvas and the view it sits in.
 
@@ -791,8 +1023,9 @@ is this section: what they do, why, and which property each thing became.
 
 Watched frame by frame rather than admired, they turn out to share four
 mechanisms and disagree only about arrangement — so those four are properties on `StyleProps` that any preset may
-set, and the presets are arrangements of them. A ninth look should be a new
-entry in `STYLE_PRESETS` and no new code.
+set, and the presets are arrangements of them. A further look should be a new
+entry in `STYLE_PRESETS` and no new code, and eight of the eighteen are exactly
+that: see **What the research report added**, below.
 
 - **`reveal: 'word'`.** The line builds as it is spoken; a word the viewer has
   not heard is not on screen. All four clips do this and one of them opens by
@@ -811,6 +1044,16 @@ entry in `STYLE_PRESETS` and no new code.
   *every* word could wear rather than the one wearing it, and off where the
   words settle rather than where they are mid-entrance — either mistake makes
   the card the only thing on screen the eye follows.
+
+A fifth arrived with a tenth clip, `kitverify-offer-portrait.mp4`, and it is the
+one the app now opens in. **`highlightMode: 'snap'`** is karaoke without the
+sweep: the whole line is on screen, a word crosses between the two colours whole
+at the instant it is reached, and nothing else on the frame moves. Read frame by
+frame at 30 fps, that clip never catches a word half-filled, and the mechanism it
+is using is the one most of these apps ship as their own default. It is a mode
+rather than a preset flag because the only thing it changes is *when* the colour
+arrives, and it cost the export nothing: the burn-in already draws whatever
+colour the draw list names.
 
 Two smaller ones came with them: `emphasis.band` puts the big word in a band of
 its own, which is the whole shape of the loudest clip (a huge word across the
@@ -853,6 +1096,46 @@ Tracking would have to go through the measurer to survive invariant 2, and a
 condensed face is another font file against the five megabytes of headroom the
 APK has left. Both are real gaps and neither is guesswork to close.
 
+### What the research report added
+
+`references/deep-research-report.md` is the second source of looks and the only
+one that is not footage. It sits beside the clips and is **not in git** for the
+same reason they are not: it is mostly somebody else's catalogue, quoted. What
+survives the clone is this subsection.
+
+It reads the category leader's own published catalogue — help
+centre, style pages, release notes — and is honest about what it could not find:
+there are no per-template usage numbers anywhere, so "most used" is a proxy
+built out of a Trending flag and the phrase "popular with", not a measurement.
+Eight looks were documented well enough to take apart, and all eight are presets
+now.
+
+The important thing it changed is not the eight. It is **which question a
+default answers.** The report separates popularity from default suitability and
+shows they disagree: the currently trending look is a slow editorial serif aimed
+at one niche, and the look it recommends as a baseline is the plainest one in
+the catalogue. A default is not a favourite — it is what has to survive footage
+nobody has seen. That is why `DEFAULT_STYLE_ID` is Focus and why Focus is the
+only preset here carrying a card it did not need for its own sake.
+
+The second thing is that **contrast is a number, not an opinion.** Every colour
+pair in those eight was computed rather than eyeballed, and one of them failed:
+the blue in the reference shot is 4.30:1 under white, under WCAG's 4.5:1 for
+body text. It is 5.32:1 here. The same arithmetic is why Clarity's card is a
+warm charcoal at 90% (7.48:1) and why Negative exists at all (21:1 both ways).
+
+What it could not give us is anything to verify against. There are no reference
+clips for these — only stills and prose — so the arrangements are this app's
+reading of a description, where slice 11's were checked frame by frame against
+video. That is the argument for looking at all eight on a phone before any of
+them is called done.
+
+One mechanism came out of it: **`highlightMode: 'active'`**, above. Five of the
+eight are pure arrangement and needed nothing, one of them (Negative) turned out
+to be two properties this file already had pointed at each other — a black plate
+and a white box — and two (Clarity, Focus) are the plate doing a job it was
+written for and had never been asked to do.
+
 ### The harness
 
 `layoutCaptionFrame` is pure and the fonts are on disk, so the design can be
@@ -885,7 +1168,12 @@ old value costs pointers, while inverting a merge or a split is a chance to
 restore something subtly different. Depth is capped at 100.
 
 Writes are debounced by 500 ms and flushed when the app leaves the foreground or
-the screen unmounts.
+the screen unmounts. **`restyle` is debounced too, and it used to be immediate**
+— "a style change is one deliberate tap, not a stream of keystrokes", which
+stopped being true the first time the sheet grew a control you drag. The hue
+strip was writing the whole project file on every frame of a drag and the
+position dial would have doubled it. Nothing is at risk in the change: the
+debounce is flushed at the two moments invariant 3 is actually about.
 
 `timingDrift` runs on every text edit, on the phone, against the real
 transcript: with the word count unchanged nothing may move at all, which is
@@ -1151,6 +1439,24 @@ animates the user's own line with its real picks.
   `scripts/aab-version.py`, because aapt2 cannot open an `.aab` at all and
   bundletool is not installed here. Saying the version back to yourself is not a
   check.
+- **`head -1` under `pipefail` kills what feeds it, and `set -e` then kills the
+  script — with no message.** The version check above went on to break the build
+  it was checking. `version_of_apk` piped `aapt2 dump badging` into `head -1`;
+  head leaves the moment it has its line, closing the pipe and killing aapt2 with
+  SIGPIPE, and `run.sh` runs `set -o pipefail`, which calls that a failed pipeline
+  — *after* the version had been read correctly. `set -e` then killed the script
+  at the bare assignment `got="$(version_of_apk ...)"`, one line above the branch
+  written to warn and carry on, which turned out to have been unreachable its
+  whole life. So `./run.sh` exited 1 with **no output whatsoever** after Gradle's
+  last line, and looked exactly like a failed build. Gradle had in fact succeeded
+  and the APK was sitting on disk. It is a race between how fast aapt2 writes and
+  how fast head leaves, so it came and went, and struck more often as the APK
+  grew — it arrived for good at 179 MB. Two fixes and both are needed: read the
+  whole output and cut the first line in the shell (`_first_line`, which replaced
+  every `head -1` in that file), and `|| got=""` on the assignment so a reader
+  that fails cannot take the script down with it. `bash -x` is what found it;
+  nothing else said a word. None of this is Android-specific — any
+  `set -euo pipefail` script piping a chatty command into `head` has it.
 
 ## Conventions
 

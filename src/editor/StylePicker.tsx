@@ -1,21 +1,37 @@
 /**
  * The style sheet.
  *
- * Nine presets and the properties every one of them exposes, because a preset
- * is a set of defaults and never a lock. What the user picks is stored as
+ * Eighteen presets and the properties every one of them exposes, because a
+ * preset is a set of defaults and never a lock. What the user picks is stored as
  * choices rather than as a pile of properties, so a colour follows them from
  * preset to preset while Clean subtitle still looks like Clean subtitle.
  *
  * The tiles are not thumbnails. Each one lays out the line that is on screen
  * right now, through the same `layoutCaptionFrame` the preview and the export
- * use, at the video's own proportions and cropped to the caption. Nine little
- * drawings of what the button does, rather than nine pictures of what it did
- * for somebody else.
+ * use, at the video's own proportions and cropped to the caption. Eighteen
+ * little drawings of what the button does, rather than eighteen pictures of what
+ * it did for somebody else.
  *
- * They share one canvas. Nine of them would cost nine picture recordings a tick,
- * and the per-update work was already the expensive two thirds of this screen
- * at four; as translated groups in a single canvas it is one recording however
- * many presets the list grows to.
+ * They share one canvas. Eighteen of them would cost eighteen picture recordings
+ * a tick, and the per-update work was already the expensive two thirds of this
+ * screen at four; as translated groups in a single canvas it is one recording
+ * however many presets the list grows to.
+ *
+ * **Two columns is past its limit at eighteen and has not been looked at on a
+ * phone.** Nine rows of tiles is around three screens of scrolling before the
+ * colour control, where at ten it was under two, and `SCROLL_SHARE`'s claim
+ * below that the grid and the colour are both in view from the start is now
+ * false. Three columns, a horizontal band, or a grid that collapses to the
+ * chosen row until it is tapped are all plausible and all of them are a
+ * redesign of an accepted screen decided by how a tile reads at a third of the
+ * width, which is a question for a device and not for this file.
+ *
+ * Two of the controls under the grid changed shape when the presets did. The
+ * colour is a pair — what a marked word is drawn in, and what the rest of the
+ * line is — because a caption whose whole design is two colours cannot be
+ * described by one. And position is a fraction of the frame with a picture of
+ * the frame to set it in, because three chips could only ever offer three
+ * answers to a question that is different on every clip.
  */
 import { Canvas, Group, LinearGradient, rect, Rect, vec } from '@shopify/react-native-skia';
 import { memo, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
@@ -31,11 +47,17 @@ import {
 
 import {
   accentColor,
+  captionTextColor,
+  CAPTION_BAND,
+  CAPTION_INSET,
   HIGHLIGHT_SWATCHES,
   projectStyle,
+  safeZoneUnion,
+  snapPosition,
   styleChoices,
   styleOverridesFor,
   STYLE_PRESETS,
+  TEXT_SWATCHES,
   type CaptionPosition,
   type MeasureText,
   type Project,
@@ -79,10 +101,11 @@ function tileOverrides(chosen: StyleOverrides): StyleOverrides {
 /**
  * How often a tile redraws.
  *
- * Four of these animate beside the preview, and the preview is the one that has
+ * All of these animate beside the preview, and the preview is the one that has
  * to keep sixty frames a second. Twenty is plenty for a thumbnail: it is enough
  * to see a karaoke fill travel and a big word rise, which is the entire question
- * a tile answers.
+ * a tile answers. What eighteen tiles cost at this rate is unmeasured; nine cost
+ * 23.6% janky frames on the A54.
  */
 const TILE_INTERVAL_MS = 50;
 
@@ -98,12 +121,33 @@ const SCROLL_SHARE = 0.4;
 const SWATCH = 34;
 const HUE_HEIGHT = 32;
 
-/** The three the sheet offers. `top` exists in the domain and sits outside safety. */
-const POSITIONS: { value: CaptionPosition; label: string }[] = [
-  { value: 'upperMiddle', label: 'Upper' },
-  { value: 'middle', label: 'Middle' },
-  { value: 'lowerThird', label: 'Lower' },
+/**
+ * The three bands one tap away. Everything between and either side of them is a
+ * drag inside the dial, which is the control that made the chips shortcuts
+ * rather than the whole of what position means.
+ */
+const BANDS: { value: CaptionPosition; label: string }[] = [
+  { value: CAPTION_BAND.upper, label: 'Upper' },
+  { value: CAPTION_BAND.middle, label: 'Middle' },
+  { value: CAPTION_BAND.lower, label: 'Lower' },
 ];
+
+/**
+ * Which colour the swatches and the strip are pointed at.
+ *
+ * Two controls, because a caption is two colours and this app only ever offered
+ * one of them. Tabs rather than two rows of swatches: the row and the hue strip
+ * are the tall part, and one of each is half the height and half the reading.
+ */
+type ColorTarget = 'highlight' | 'text';
+
+const TARGETS: { value: ColorTarget; label: string }[] = [
+  { value: 'highlight', label: 'Highlight' },
+  { value: 'text', label: 'Text' },
+];
+
+/** How far one accessibility increment moves the captions, as a fraction of the frame. */
+const NUDGE = 0.01;
 
 const SIZES: { value: TextSize; label: string }[] = [
   { value: 'S', label: 'S' },
@@ -145,9 +189,13 @@ export function StylePicker({
 }) {
   const { height: windowHeight } = useWindowDimensions();
   const [gridWidth, setGridWidth] = useState(0);
+  const [target, setTarget] = useState<ColorTarget>('highlight');
+  const [dragging, setDragging] = useState(false);
 
   const style = projectStyle(project);
   const accent = accentColor(style);
+  const text = captionTextColor(style);
+  const painted = target === 'highlight' ? accent : text;
 
   const choices = useMemo(
     () => styleChoices(project.styleId, project.styleOverrides),
@@ -189,6 +237,11 @@ export function StylePicker({
         style={fill ? styles.fill : { maxHeight: Math.round(windowHeight * SCROLL_SHARE) }}
         contentContainerStyle={styles.body}
         showsVerticalScrollIndicator={false}
+        // The dial is dragged up and down inside a list that scrolls up and
+        // down, and the list wins that argument on Android however the
+        // responder is negotiated. It is switched off from the moment a finger
+        // lands in the dial, which is before there is any movement to steal.
+        scrollEnabled={!dragging}
       >
         <PresetGrid
           previews={previews}
@@ -204,26 +257,63 @@ export function StylePicker({
           onPick={(id) => onChange(id, choices)}
         />
 
-        <Field label="Highlight colour">
+        <Field label="Colour">
+          <View style={styles.choices}>
+            {TARGETS.map((tab) => {
+              const on = tab.value === target;
+              return (
+                <Pressable
+                  key={tab.value}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: on }}
+                  accessibilityLabel={`${tab.label} colour`}
+                  onPress={() => setTarget(tab.value)}
+                  style={({ pressed }) => [
+                    styles.choice,
+                    styles.tab,
+                    on && { borderColor: accent, backgroundColor: color.line },
+                    { opacity: pressed ? 0.6 : 1 },
+                  ]}
+                >
+                  <View
+                    style={[
+                      styles.dot,
+                      { backgroundColor: tab.value === 'highlight' ? accent : text },
+                    ]}
+                  />
+                  <Label variant="label" tone={on ? 'paper' : 'mute'}>
+                    {tab.label}
+                  </Label>
+                </Pressable>
+              );
+            })}
+          </View>
+
           <View style={styles.swatches}>
-            {HIGHLIGHT_SWATCHES.map((swatch) => (
+            {(target === 'highlight' ? HIGHLIGHT_SWATCHES : TEXT_SWATCHES).map((swatch) => (
               <Pressable
                 key={swatch}
                 accessibilityRole="button"
-                accessibilityLabel={`Highlight colour ${swatch}`}
-                accessibilityState={{ selected: sameColor(swatch, accent) }}
-                onPress={() => set({ color: swatch })}
+                accessibilityLabel={`${target === 'highlight' ? 'Highlight' : 'Text'} colour ${swatch}`}
+                accessibilityState={{ selected: sameColor(swatch, painted) }}
+                onPress={() => set(target === 'highlight' ? { color: swatch } : { textColor: swatch })}
                 hitSlop={(MIN_TOUCH - SWATCH) / 2}
                 style={({ pressed }) => [
                   styles.swatch,
                   { backgroundColor: swatch },
-                  sameColor(swatch, accent) && styles.swatchOn,
+                  sameColor(swatch, painted) && styles.swatchOn,
                   { opacity: pressed ? 0.6 : 1 },
                 ]}
               />
             ))}
           </View>
-          <HueStrip color={accent} onPick={(picked) => set({ color: picked })} />
+
+          <HueStrip
+            color={painted}
+            onPick={(picked) =>
+              set(target === 'highlight' ? { color: picked } : { textColor: picked })
+            }
+          />
         </Field>
 
         <Field label="Size">
@@ -235,13 +325,25 @@ export function StylePicker({
           />
         </Field>
 
-        <Field label="Position">
-          <Choices
-            options={POSITIONS}
-            value={style.position}
-            accent={accent}
-            onPick={(position) => set({ position })}
-          />
+        <Field label="Position" hint="Tap or drag in the frame to put them anywhere.">
+          <View style={styles.position}>
+            <FrameDial
+              aspect={aspect}
+              position={style.position}
+              accent={accent}
+              onDrag={setDragging}
+              onPick={(position) => set({ position })}
+            />
+            <View style={styles.bands}>
+              <Choices
+                options={BANDS}
+                value={style.position}
+                accent={accent}
+                column
+                onPick={(position) => set({ position })}
+              />
+            </View>
+          </View>
         </Field>
 
         <Field label="Words per line">
@@ -462,6 +564,128 @@ function cropOffset(
 }
 
 /**
+ * The frame, small, with a bar where the captions sit.
+ *
+ * The control that made position continuous. Three chips could only ever offer
+ * three answers, and the complaint they earned was the obvious one: a lower
+ * third that clears the platform's tray on one clip is over somebody's chin on
+ * the next. Here the bar goes wherever it is put, and the dashed rectangle is
+ * the same `safeZoneUnion` the preview draws over the video, so the thing being
+ * avoided is on screen while it is being avoided.
+ *
+ * It is a diagram and not a preview: a bar at a fraction of a rectangle, with
+ * no text, no measurer and no layout in it. The preview above the sheet is the
+ * one drawing of what this does, because a second one would be a second thing
+ * for the export to disagree with (invariant 2).
+ *
+ * A tap moves the bar to the finger, which is what a picture of a frame invites
+ * — and what makes the far ends of the range one gesture away rather than a
+ * long drag.
+ */
+function FrameDial({
+  aspect,
+  position,
+  accent,
+  onDrag,
+  onPick,
+}: {
+  aspect: number;
+  position: CaptionPosition;
+  accent: string;
+  /** Held while a finger is down, so the list this sits in stops scrolling. */
+  onDrag: (dragging: boolean) => void;
+  onPick: (position: CaptionPosition) => void;
+}) {
+  const [height, setHeight] = useState(0);
+
+  // The responder outlives the render that built it, so everything it reads is
+  // a ref: a drag that closed over one render's callback was how the hue strip
+  // silently undid a preset chosen since.
+  const size = useRef(0);
+  size.current = height;
+  const picked = useRef(onPick);
+  picked.current = onPick;
+  const dragged = useRef(onDrag);
+  dragged.current = onDrag;
+  const grabbed = useRef(0);
+
+  const responder = useMemo(
+    () =>
+      PanResponder.create({
+        onStartShouldSetPanResponder: () => true,
+        onMoveShouldSetPanResponder: () => true,
+        // The list underneath asks for the gesture the moment it goes vertical,
+        // and this one is vertical by definition.
+        onPanResponderTerminationRequest: () => false,
+        onPanResponderGrant: (event) => {
+          dragged.current(true);
+          grabbed.current = event.nativeEvent.locationY;
+          pick(grabbed.current);
+        },
+        // From where the finger went down, like the timing handles and the hue
+        // strip: what is under it does not move.
+        onPanResponderMove: (_event, gesture) => pick(grabbed.current + gesture.dy),
+        onPanResponderRelease: () => dragged.current(false),
+        onPanResponderTerminate: () => dragged.current(false),
+      }),
+    []
+  );
+
+  const zone = safeZoneUnion();
+
+  return (
+    <View
+      {...responder.panHandlers}
+      onLayout={(event) => setHeight(Math.round(event.nativeEvent.layout.height))}
+      accessibilityRole="adjustable"
+      accessibilityLabel="Caption position"
+      accessibilityValue={{ text: `${Math.round(position * 100)}% down the frame` }}
+      accessibilityActions={[{ name: 'increment' }, { name: 'decrement' }]}
+      onAccessibilityAction={(event) =>
+        onPick(
+          snapPosition(position + (event.nativeEvent.actionName === 'increment' ? NUDGE : -NUDGE))
+        )
+      }
+      style={[styles.dial, { aspectRatio: aspect }]}
+    >
+      <View
+        pointerEvents="none"
+        style={[
+          styles.dialZone,
+          {
+            top: `${zone.top * 100}%`,
+            bottom: `${zone.bottom * 100}%`,
+            left: `${zone.left * 100}%`,
+            right: `${zone.right * 100}%`,
+          },
+        ]}
+      />
+      <View
+        pointerEvents="none"
+        style={[
+          styles.dialBar,
+          {
+            backgroundColor: accent,
+            left: `${CAPTION_INSET.x * 100}%`,
+            right: `${CAPTION_INSET.x * 100}%`,
+            top: `${(position - DIAL_BAR / 2) * 100}%`,
+            height: `${DIAL_BAR * 100}%`,
+          },
+        ]}
+      />
+    </View>
+  );
+
+  function pick(y: number) {
+    if (size.current <= 0) return;
+    picked.current(snapPosition(y / size.current));
+  }
+}
+
+/** How tall the dial's bar is, as a fraction of the frame: about one caption row. */
+const DIAL_BAR = 0.06;
+
+/**
  * Every hue, at the one saturation that reads on video.
  *
  * Drawn in Skia because it is a gradient and React Native has none; a strip of
@@ -528,13 +752,27 @@ function HueStrip({ color: current, onPick }: { color: string; onPick: (color: s
   }
 }
 
-function Field({ label, children }: { label: string; children: ReactNode }) {
+function Field({
+  label,
+  hint,
+  children,
+}: {
+  label: string;
+  /** One line under the control, for the part of it a label cannot say. */
+  hint?: string;
+  children: ReactNode;
+}) {
   return (
     <View style={styles.field}>
       <Label variant="micro" tone="mute">
         {label}
       </Label>
       {children}
+      {hint ? (
+        <Label variant="micro" tone="mute">
+          {hint}
+        </Label>
+      ) : null}
     </View>
   );
 }
@@ -543,15 +781,18 @@ function Choices<T extends string | number>({
   options,
   value,
   accent,
+  column = false,
   onPick,
 }: {
   options: { value: T; label: string }[];
   value: T;
   accent: string;
+  /** Stacked instead of side by side, for the column beside the position dial. */
+  column?: boolean;
   onPick: (value: T) => void;
 }) {
   return (
-    <View style={styles.choices}>
+    <View style={[styles.choices, column && styles.stacked]}>
       {options.map((option) => {
         const on = option.value === value;
         return (
@@ -616,6 +857,7 @@ const styles = StyleSheet.create({
     borderRadius: radius.pill,
   },
   choices: { flexDirection: 'row', gap: space.sm },
+  stacked: { flex: 1, flexDirection: 'column' },
   choice: {
     flex: 1,
     minHeight: MIN_TOUCH,
@@ -625,4 +867,27 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: color.line,
   },
+  tab: { flexDirection: 'row', gap: space.sm },
+  dot: { width: 14, height: 14, borderRadius: radius.pill, borderWidth: 1, borderColor: color.line },
+  position: { flexDirection: 'row', alignItems: 'stretch', gap: space.sm },
+  bands: { flex: 1 },
+  dial: {
+    // As tall as the three chips beside it, rather than stretched to the row:
+    // a height derived from a sibling is a height that is zero on the first
+    // pass, and the width comes off it through the aspect ratio.
+    height: MIN_TOUCH * 3 + space.sm * 2,
+    borderRadius: radius.control,
+    borderWidth: 1,
+    borderColor: color.line,
+    backgroundColor: color.ink,
+    overflow: 'hidden',
+  },
+  dialZone: {
+    position: 'absolute',
+    borderWidth: 1,
+    borderStyle: 'dashed',
+    borderColor: color.line,
+    borderRadius: 2,
+  },
+  dialBar: { position: 'absolute', borderRadius: 2 },
 });

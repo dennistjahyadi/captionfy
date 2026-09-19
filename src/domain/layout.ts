@@ -17,7 +17,6 @@ import { emphasisedWordIds } from './emphasis';
 import { activeWordInLines, type CaptionLine } from './lines';
 import { projectUnits } from './project';
 import {
-  CAPTION_INSET,
   EDITORIAL_MAX_ROWS,
   insetsFor,
   isPaintable,
@@ -260,7 +259,7 @@ export function layoutCaptionFrameFromLines(
       const word = line.words[item.index];
       const state = stateOf(word, activeWord, captionTime);
       const boxed = style.highlightMode === 'box' && state === 'active';
-      const color = colorOf(style, item.emphasised, boxed);
+      const color = colorOf(style, item.emphasised, boxed, state);
       const arrival = entranceOf(word, item, captionTime, style, reducedMotion);
       const box = boxed
         ? boxFor(x, top + arrival.dy, item.width, row.height, item.fontSize, style)
@@ -283,7 +282,7 @@ export function layoutCaptionFrameFromLines(
         emphasised: item.emphasised,
         fill: fillOf(word, state, captionTime, style),
         color,
-        fillColor: fillColorOf(style, item.emphasised, boxed),
+        fillColor: fillColorOf(style, item.emphasised, boxed, state),
         opacity: (state === 'future' ? style.upcomingOpacity : 1) * arrival.opacity,
         scale: arrival.scale,
         outline: { color: style.outlineColor, width: item.fontSize * style.outlineRatio },
@@ -294,7 +293,7 @@ export function layoutCaptionFrameFromLines(
         shadow: shadowOf(
           shadowSpecFor(style, item.emphasised),
           item.fontSize,
-          fillColorOf(style, item.emphasised, boxed)
+          fillColorOf(style, item.emphasised, boxed, state)
         ),
         box,
         layer: 'front',
@@ -692,11 +691,22 @@ function display(word: Word, style: StyleProps): string {
   return style.uppercase ? word.text.toUpperCase() : word.text;
 }
 
+/**
+ * Where the block's top edge lands.
+ *
+ * The style names the fraction of the canvas its *centre* sits on, so a block
+ * that grows a second row grows in both directions and stays where it was put,
+ * rather than climbing the frame or reaching further down into the platform's
+ * own chrome.
+ *
+ * Held inside the canvas, which is the only rule: a block taller than the frame
+ * starts at the top of it, and one pushed at the edge keeps all of itself on
+ * screen. The safe zone is not enforced here — it is drawn over the preview as
+ * a warning, and a caption is allowed to sit outside it.
+ */
 function blockTopFor(position: CaptionPosition, canvas: Canvas, blockHeight: number): number {
-  if (position === 'top') return canvas.height * CAPTION_INSET.top;
-  if (position === 'upperMiddle') return canvas.height * CAPTION_INSET.upperMiddle;
-  if (position === 'middle') return (canvas.height - blockHeight) / 2;
-  return canvas.height * (1 - CAPTION_INSET.bottom) - blockHeight;
+  const top = canvas.height * position - blockHeight / 2;
+  return Math.min(Math.max(top, 0), Math.max(0, canvas.height - blockHeight));
 }
 
 function stateOf(word: Word, activeWord: Word | null, captionTime: Ms): WordState {
@@ -712,16 +722,46 @@ function fillOf(word: Word, state: WordState, captionTime: Ms, style: StyleProps
   return clamp01((captionTime - word.start) / duration);
 }
 
-function colorOf(style: StyleProps, emphasised: boolean, boxed: boolean): string {
+function colorOf(
+  style: StyleProps,
+  emphasised: boolean,
+  boxed: boolean,
+  state: WordState
+): string {
   // Sitting on the box, the word takes the box's own text colour whatever else
   // it is, because an accent word on an accent box would be unreadable.
   if (boxed) return style.highlightColor;
+
+  // A snapped line is two colours and the word crosses between them whole, so
+  // the colour is a question about time here rather than one about the word.
+  // The big word is not exempt: a word that arrived already wearing the accent
+  // would be the one thing on the line the viewer had read before it was said.
+  if (style.highlightMode === 'snap') {
+    if (state === 'future') return style.textColor;
+    return emphasised ? style.emphasis.color : style.spokenColor;
+  }
+
+  // The mark travels with the voice and leaves nothing behind it: one word is
+  // lit at a time and everything else on the line, said or not, is the caption's
+  // own colour. The big word keeps the accent throughout, because its size has
+  // already told the viewer it is different and a word that lost its colour the
+  // moment it was said would read as the emphasis switching off.
+  if (style.highlightMode === 'active') {
+    if (emphasised) return style.emphasis.color;
+    return state === 'active' ? style.highlightColor : style.textColor;
+  }
+
   if (emphasised) return style.emphasis.color;
   return style.textColor;
 }
 
-function fillColorOf(style: StyleProps, emphasised: boolean, boxed: boolean): string {
-  if (style.highlightMode !== 'karaoke') return colorOf(style, emphasised, boxed);
+function fillColorOf(
+  style: StyleProps,
+  emphasised: boolean,
+  boxed: boolean,
+  state: WordState
+): string {
+  if (style.highlightMode !== 'karaoke') return colorOf(style, emphasised, boxed, state);
   return emphasised ? style.emphasis.color : style.spokenColor;
 }
 
