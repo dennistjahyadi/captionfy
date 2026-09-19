@@ -1,0 +1,60 @@
+{
+  "note": "What scripts/capture.mjs records off a booted emulator. Coordinates are for a 1080 x 2400 screen at 420 dpi, which is what `./run.sh --emulator` boots; a screenshot is 1:1 with input taps, so `node scripts/capture.mjs --probe` is how to re-read them when a screen moves. `setup` runs before the recorder starts, `steps` run while it is rolling.",
+
+  "device": { "width": 1080, "height": 2400, "density": 420 },
+
+  "shots": [
+    {
+      "id": "home",
+      "what": "Home. 'Captions for your video, made on this phone. Nothing is uploaded.'",
+      "durationSec": 4,
+      "setup": [{ "launch": true }],
+      "steps": [{ "wait": 3000 }]
+    },
+
+    {
+      "id": "editor",
+      "what": "The editor playing: captions on the stage, the transcript scrolling under it",
+      "durationSec": 7,
+      "setup": [
+        { "launch": true },
+        { "tap": [540, 1230], "after": 3500 }
+      ],
+      "steps": [
+        { "tap": [78, 1117], "after": 6500 }
+      ]
+    },
+
+    {
+      "id": "style",
+      "what": "The style sheet: nine presets, every tile animating the user's own line",
+      "durationSec": 12,
+      "setup": [
+        { "launch": true },
+        { "tap": [540, 1230], "after": 3500 }
+      ],
+      "steps": [
+        { "tap": [392, 1283], "after": 2200 },
+        { "tap": [791, 1482], "after": 1800 },
+        { "tap": [284, 1807], "after": 1800 },
+        { "tap": [791, 2132], "after": 1800 },
+        { "swipe": [540, 1900, 540, 1300, 400], "after": 1600 },
+        { "tap": [284, 1807], "after": 1800 }
+      ]
+    },
+
+    {
+      "id": "offline",
+      "what": "The same editor with the aeroplane in the status bar. The claim, filmed.",
+      "durationSec": 6,
+      "setup": [
+        { "airplane": true, "after": 2500 },
+        { "launch": true },
+        { "tap": [540, 1230], "after": 3500 }
+      ],
+      "steps": [
+        { "tap": [78, 1117], "after": 5500 }
+      ]
+    }
+  ]
+}

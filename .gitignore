@@ -36,6 +36,10 @@ yarn-error.*
 
 # local env files
 .env*.local
+# `.env` itself was never listed, which was a trap rather than a decision: the
+# marketing pipeline's own docs tell you to put PEXELS_API_KEY there, and the
+# file it named was the one file in this pattern git would have committed.
+.env
 
 # typescript
 *.tsbuildinfo
@@ -79,3 +83,26 @@ references/
 # the finished MP4s, which are a build artifact like any APK.
 marketing/remotion/public/
 marketing/remotion/out/
+
+# Video 01's media, in and out. All of it bytes rather than decisions, and all
+# of it reproducible from something that is tracked.
+#
+# `input/app/` is emulator recordings of the app — `scripts/capture.mjs` takes
+# them again from `shots.json`, so they are a build output that happens to need
+# a booted device. `input/voice/` is the ElevenLabs read. `assets/` is anything
+# fetched from outside. `out/` is renders, tens of megabytes of them.
+#
+# The markdown in `out/` is the exception: `voiceover_script.md` is what gets
+# recorded from and `post.txt` is what gets pasted, so both are source that
+# happens to be written into the output folder because the brief puts them there.
+marketing/video-01-film/assets/
+marketing/video-01-film/input/
+marketing/video-01-film/out/*
+!marketing/video-01-film/out/*.md
+!marketing/video-01-film/out/post.txt
+
+# Creator deals: real handles, real fees, real sales. The .example.csv files are
+# the schema and are tracked; these two are other people's names and money.
+marketing/creators/creators.csv
+marketing/creators/unlocks.csv
+marketing/creators/statements/

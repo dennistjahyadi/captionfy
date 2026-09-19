@@ -1,0 +1,6 @@
+{
+  "source": "planned",
+  "note": "Phase 3 overwrites `lines` with the real length of each input/voice/lineNN.mp3, measured by ffprobe. Until then the timeline runs on config.json's plannedSec and `lines` stays null, so the concept preview is a plan and says so.",
+  "lines": null,
+  "mix": { "ambienceDb": -22, "loudnessLufs": -14 }
+}

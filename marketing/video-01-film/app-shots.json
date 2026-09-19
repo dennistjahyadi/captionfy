@@ -1,0 +1,46 @@
+{
+  "note": "Written by scripts/capture.mjs. Emulator recordings of the real app.",
+  "shots": {
+    "home": {
+      "id": "home",
+      "what": "Home. 'Captions for your video, made on this phone. Nothing is uploaded.'",
+      "file": "home.mp4",
+      "width": 1080,
+      "height": 2400,
+      "durationSec": 4
+    },
+    "editor": {
+      "id": "editor",
+      "what": "The editor playing: captions on the stage, the transcript scrolling under it",
+      "file": "editor.mp4",
+      "width": 1080,
+      "height": 2400,
+      "durationSec": 7
+    },
+    "style": {
+      "id": "style",
+      "what": "The style sheet: nine presets, every tile animating the user's own line",
+      "file": "style.mp4",
+      "width": 1080,
+      "height": 2400,
+      "durationSec": 12
+    },
+    "offline": {
+      "id": "offline",
+      "what": "The same editor with the aeroplane in the status bar. The claim, filmed.",
+      "file": "offline.mp4",
+      "width": 1080,
+      "height": 2400,
+      "durationSec": 6
+    }
+  },
+  "export": {
+    "file": "export.mp4",
+    "what": "A real Wordburn export. Captions burned in by the app's own module, not redrawn here.",
+    "sourceName": "Wordburn 2026-09-19 164343.mp4",
+    "width": 1080,
+    "height": 1920,
+    "durationSec": 19.783401,
+    "hasAudio": true
+  }
+}

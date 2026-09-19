@@ -201,6 +201,21 @@ editing beyond a trim. Each is a showcase-type open by construction.
 Shoot 3 and 5 first. Post daily, one to three times, and let the two hook types
 in `out/` run as paid tests underneath.
 
+**Number 2 is now a project rather than a note.** `video-01-airplane/` is the
+airplane-mode shot built out: a five-phase pipeline where this machine does the
+top and tail and the phone does the middle, with a voice script to record from,
+three hook variants, and a concept render that is the finished video with its
+footage missing so the pacing can be signed off before anything is filmed. Its
+compositions live in `remotion/src/airplane/` and share this project's install,
+palette and faces; its data, media and scripts live in its own folder.
+
+The rule it is built around is worth repeating here, because it applies to
+anything shot on the phone: **every caption on the demo playback comes from
+Wordburn's own export**, and its self-check greps for that rather than trusting
+it. The three ads in `src/ads/` draw the app's captions themselves, which is
+honest because they are renders of the app. A video that films a real phone and
+then draws its own captions over the playback would not be.
+
 ## Before posting anything
 
 - **"On Google Play" is on all three end cards and is not true yet.** Do not

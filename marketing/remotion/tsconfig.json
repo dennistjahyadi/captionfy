@@ -8,7 +8,17 @@
     "strict": true,
     "skipLibCheck": true,
     "noEmit": true,
-    "esModuleInterop": true
+    "esModuleInterop": true,
+    "resolveJsonModule": true,
+    "allowJs": true,
+    "checkJs": true
   },
-  "include": ["src", "remotion.config.ts", "render-all.mjs"]
+  "include": [
+    "src",
+    "remotion.config.ts",
+    "render-all.mjs",
+    "../video-01-airplane/beats.js",
+    "../video-01-airplane/*.json",
+    "../video-01-airplane/variants/*.json"
+  ]
 }

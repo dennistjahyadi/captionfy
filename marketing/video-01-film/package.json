@@ -1,0 +1,13 @@
+{
+  "name": "wordburn-video-01-airplane",
+  "private": true,
+  "type": "module",
+  "description": "Video 01 — \"Airplane Mode Test\". Data, scripts and media for one TikTok. No dependencies: node and ffmpeg only, and the Remotion install next door in ../remotion. This file exists for its `type` field — `beats.js` is ESM and is imported both by node scripts here and by webpack over there, and without it node reparses the file on every run and says so.",
+  "scripts": {
+    "broll": "node scripts/fetch-broll.mjs",
+    "sync": "./scripts/sync-public.sh",
+    "render": "node scripts/render.mjs",
+    "storyboard": "node scripts/storyboard.mjs",
+    "check": "node scripts/selfcheck.mjs --phase=1"
+  }
+}

@@ -1,0 +1,6 @@
+handle,unlocks
+# One row per creator per reporting period, copied out of Play Console's
+# acquisition report. Repeated handles are summed, so a month can be appended
+# rather than edited.
+alexcuts,31
+mayaedits,9

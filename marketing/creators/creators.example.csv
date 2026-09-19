@@ -1,0 +1,6 @@
+handle,platform,campaign,fee_usd,share_pct,promo_code
+# handle is the utm_source and the column you read in Play Console. Url-safe,
+# no spaces. platform is the utm_medium. Keep one campaign per wave so a
+# rebooked creator's second round is countable separately from the first.
+alexcuts,tiktok,launch,40,35,ALEXCUTS
+mayaedits,tiktok,launch,20,35,MAYAEDITS

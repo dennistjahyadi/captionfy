@@ -1,0 +1,115 @@
+{
+  "id": "01-film",
+  "kind": "product film",
+  "surface": "paid social, 9:16",
+  "format": {
+    "width": 1080,
+    "height": 1920,
+    "fps": 30
+  },
+  "cta": "Wordburn \u00b7 Android",
+  "safeBox": {
+    "note": "Paid, not organic. An in-feed ad adds a CTA button and a Sponsored label, and marketing/README.md puts that at roughly 370 px on top of the organic bottom allowance of 422 \u2014 so the floor for anything that must be read is 1920 \u2212 792 = 1128, not 1498. That is the single biggest constraint on this video and the reason every line of type sits high.",
+    "x0": 60,
+    "x1": 960,
+    "y0": 211,
+    "y1": 1128
+  },
+  "beats": [
+    {
+      "id": "hero",
+      "durationSec": 4.5,
+      "source": "export",
+      "what": "The app's own exported file, full frame. Captions landing, nothing else.",
+      "vo": "These captions were made on a phone.",
+      "voInAt": 1.4,
+      "title": null,
+      "titlePos": "mid"
+    },
+    {
+      "id": "claim",
+      "durationSec": 3.5,
+      "source": "export",
+      "what": "Same file, still running. The claim arrives as type over it.",
+      "vo": "No account. No upload. No server.",
+      "voInAt": 0.2,
+      "title": "No account. No upload. No server.",
+      "titlePos": "mid"
+    },
+    {
+      "id": "styles",
+      "durationSec": 5,
+      "source": "app:style",
+      "what": "The style sheet: nine presets, every tile animating the user's own line.",
+      "vo": "Nine looks. Every one of them live.",
+      "voInAt": 0.3,
+      "title": "Nine looks",
+      "crop": {
+        "y": 1080,
+        "h": 1320
+      },
+      "titlePos": "top",
+      "startSec": 6.4,
+      "startSecNote": "Not 4.2. The transcript this sheet animates has pauses in it, and every tile goes blank during one \u2014 the window starting at 4.2 put a silence under the word 'Nine looks', which reads as the app having stopped. 6.4 also reaches the scroll, so the sheet visibly goes past six presets to Headline, Neon and Newsprint: the claim is made on screen rather than only in the voiceover."
+    },
+    {
+      "id": "emphasis",
+      "durationSec": 3.8,
+      "source": "export",
+      "what": "Back to the file, on a beat where the emphasised word takes the highlight.",
+      "vo": "It hears which word you leaned on.",
+      "voInAt": 0.2,
+      "title": "It listens for the loud word",
+      "titlePos": "mid"
+    },
+    {
+      "id": "offline",
+      "durationSec": 4.5,
+      "source": "app:offline",
+      "what": "The editor with the aeroplane in the phone's own status bar.",
+      "vo": "The speech model is in the app. It works offline.",
+      "voInAt": 0.2,
+      "title": "Runs with the internet off",
+      "crop": {
+        "y": 0,
+        "h": 1180
+      },
+      "titlePos": "top",
+      "startSec": 0.6
+    },
+    {
+      "id": "cta",
+      "durationSec": 3,
+      "source": "card",
+      "what": "The mark, the name, one line.",
+      "vo": "Wordburn. One payment.",
+      "voInAt": 0.3,
+      "title": null
+    }
+  ],
+  "sources": {
+    "export": {
+      "file": "export.mp4",
+      "what": "A real Wordburn export of the demo clip. 1080 x 1920, 30 fps, captions burned in by the app's own burn-in module. Pulled off the emulator by scripts/pull-export.mjs.",
+      "startSec": {
+        "hero": 1,
+        "claim": 5.5,
+        "emphasis": 12
+      }
+    }
+  },
+  "defaultVariant": "a",
+  "variants": {
+    "a": "No account. No upload. No server.",
+    "b": "Captions that never leave your phone.",
+    "c": "The whole speech model is in the app."
+  },
+  "pointers": {
+    "offline": {
+      "deviceX": 941,
+      "deviceY": 61,
+      "r": 44
+    }
+  },
+  "title": "Video 01 \u2014 product film \u00b7 paid 9:16"
+}
