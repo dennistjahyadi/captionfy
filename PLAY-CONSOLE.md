@@ -39,11 +39,13 @@ check it rather than remembering it.
 `ASO.md` is still stale on the presets: it says four styles and
 `src/domain/style.ts` has nine. Fixed below.
 
-### 2. There is no privacy policy, and Play will not take the app without one
+### 2. The privacy policy is written but not yet hosted
 
 A public URL is required for every app, with or without data collection. The
-full text is at the bottom of this file. It needs to live somewhere public and
-not user-editable — GitHub Pages off this repo is fine and free.
+policy is now a page in this repository, `docs/index.html`, ready for GitHub
+Pages off `main` — see section 10 for the switch to flip and the one line still
+to fill in. Until Pages is enabled there is no URL, and without a URL Play will
+not take the app.
 
 ### 3. The bundle on disk says 0.0.1 — now fixed at the build
 
@@ -529,96 +531,66 @@ That is the only way to close the known issue in CLAUDE.md.
 
 ## 10. The privacy policy
 
-Host this at a public, stable, non-editable URL and paste that URL into App
-content → Privacy policy. GitHub Pages off this repo works and costs nothing.
+**The text is no longer in this file.** It is `docs/index.html`, a single
+self-contained page with no external requests of its own, and this section is
+now only about getting it onto the internet. It used to be a fenced block here,
+and a legal document kept in two places drifts: the copy that was here still
+promised "unlimited exports" for the unlock, which stopped being true the day
+`FREE_TIER` became a watermark.
 
-Replace `[CONTACT EMAIL]` with whatever you decided in section 3, and make it the
-same address as the listing's contact email.
+Three things in it were written against code that has since changed, and the
+page has them right:
+
+- The unlock **removes the watermark**. Exports were already unlimited.
+- **Microphone and Camera** are named and explained. Both are in the merged
+  release manifest, both come from libraries rather than from this app's code,
+  and both will be on the store page where a reader can see them. An app whose
+  whole pitch is "nothing leaves your phone" cannot let a reader discover those
+  two on their own.
+- The **.srt goes to Downloads**, not to the gallery. Only the video is a
+  gallery item.
+
+### Fill in the contact email
+
+The page ships with `CONTACT_EMAIL` in two places on one line — the `mailto:`
+and the visible text. It has to be the same address as the listing's contact
+email in section 3, and section 3's warning applies: it is public forever.
+
+```sh
+sed -i '' 's/CONTACT_EMAIL/support@example.com/g' docs/index.html
+grep -c CONTACT_EMAIL docs/index.html        # must print 0
+```
+
+### Turn on GitHub Pages
+
+The repository is public, which is all the free tier needs.
+
+```sh
+git add docs/index.html && git commit -m "docs: the privacy policy, for Pages"
+git push origin main
+```
+
+Then **Settings → Pages → Build and deployment → Deploy from a branch**, branch
+`main`, folder `/docs`, Save. The URL is
 
 ```
-# Wordburn Privacy Policy
-
-Last updated: 17 September 2026
-
-## The short version
-
-Wordburn does not collect your data. It has no server, no account and no
-analytics. Your videos, your audio and your transcripts stay on your phone.
-
-## What Wordburn does with your video
-
-When you pick a video, Wordburn copies it into its own private storage on
-your device, extracts the audio, and transcribes the speech using a speech
-recognition model that is built into the app and runs entirely on your
-phone. Captions are burned into the video on your phone as well.
-
-None of this involves the internet. No video, no audio, no transcript and no
-part of any file you open is ever uploaded, transmitted or shared with us or
-with anyone else. Wordburn works identically in airplane mode.
-
-## What is stored, and where
-
-Everything Wordburn creates is stored in the app's own private directory on
-your device:
-
-- The copy of the video you picked
-- Extracted audio and the transcript
-- Your captions, styles and editing history
-- Your personal dictionary
-- App settings and your purchase status
-
-None of it is readable by other apps. Uninstalling Wordburn deletes all of
-it. Deleting a project inside the app deletes that project's files. Videos
-you choose to export are saved to your device's gallery, where they are
-yours like any other video.
-
-## Information we collect
-
-None. Wordburn contains no analytics, no crash reporting, no advertising,
-no tracking of any kind, and no advertising identifier. We do not know who
-you are, that you installed the app, or that you used it.
-
-## Purchases
-
-Wordburn offers one optional one-time purchase that unlocks unlimited
-exports. Purchases are handled entirely by Google Play. Wordburn asks Google
-Play whether this purchase has been made and stores that yes-or-no answer on
-your device.
-
-We never see, receive or store your payment details, your name, your email
-address or your Google account. What Google collects when you make a
-purchase is covered by Google's own privacy policy at
-https://policies.google.com/privacy.
-
-This is the only feature in Wordburn that uses the internet.
-
-## Permissions
-
-- **Videos and media**: to let you pick the video you want to caption, and
-  to save the captioned video back to your gallery. Wordburn reads only the
-  file you pick.
-- **Notifications**: to show progress while a transcription or an export is
-  running.
-- **Foreground service**: to keep a transcription or an export running if
-  you leave the app or your screen turns off.
-- **Internet**: used only to ask Google Play about purchases, as above.
-
-## Children
-
-Wordburn is not directed at children under 13 and we do not knowingly
-collect information from anyone, of any age, because we do not collect
-information at all.
-
-## Changes
-
-If this policy changes, the updated version will be posted at this address
-with a new date at the top. Material changes will also be described in the
-app's release notes on Google Play.
-
-## Contact
-
-Questions about this policy: [CONTACT EMAIL]
+https://dennistjahyadi.github.io/captionfy/
 ```
+
+Two notes before that URL goes anywhere near Play:
+
+- **The default branch on GitHub is `chore/wordburn-rename-and-icon`**, not
+  `main`, and it is behind. Pages will serve whichever branch you pick, so this
+  only matters in that you must pick `main` deliberately rather than accept the
+  default.
+- **The repository is still called `captionfy`.** Renaming it to `wordburn`
+  gives `https://dennistjahyadi.github.io/wordburn/` and GitHub redirects the
+  old address, but do it **before** the URL is submitted rather than after.
+  Play's field wants a stable address and a redirect is not one.
+
+The first build takes a minute or two. Check the URL actually renders before
+pasting it into App content → Privacy policy: Pages serving a 404 is
+indistinguishable from Pages not being on.
 
 ---
 
