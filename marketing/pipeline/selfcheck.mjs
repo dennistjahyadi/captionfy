@@ -33,7 +33,7 @@ import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync } fr
 import { resolve } from 'node:path';
 
 import { HERE, OUT, PROJECT, REMOTION, arg, config, probe, safeLabel, timings } from './lib.mjs';
-import { beatMidpoints, buildBeats, totalFrames } from './beats.js';
+import { beatMidpoints, buildBeats, resolveVoice, totalFrames } from './beats.js';
 
 /**
  * The safe boxes, written down here as well as in each `config.json`. On
@@ -47,12 +47,18 @@ const SAFE_BOXES = {
 };
 
 const phase = Number(arg('phase', '1'));
-const cfg = config();
-const t = timings();
+const { cfg, t } = resolveVoice(config(), timings(), arg('voice', null));
 const beats = buildBeats(cfg, t);
 const fps = cfg.format.fps;
 const bodySec = totalFrames(beats) / fps;
-const hookSec = cfg.hooks ? cfg.hookSec : 0;
+// Each hook is its own recording plus a tail once the voice exists, so the
+// offset the body starts at differs per file and every check that used one
+// shared number has to ask per hook.
+const hookSecOf = (id) => {
+  const hit = (t.hooks ?? []).find((h) => h.id === id);
+  return hit ? hit.sec + (hit.tailSec ?? 0.45) : (cfg.hookSec ?? 0);
+};
+const hookFramesOf = (id) => Math.round(hookSecOf(id) * fps);
 
 const problems = [];
 const notes = [];
@@ -73,12 +79,18 @@ if (wantAudio === undefined) {
   console.error(`config.json has no checks["${phase}"]. Use 1 (silent cut) or 3 (with voice).`);
   process.exit(1);
 }
+const outDir = arg('outdir', cfg.outDir ?? 'out');
 const EXPECTED = cfg.hooks
-  ? cfg.hooks.map((h) => ({ file: `out/tutorial_${h.id}.mp4`, audio: wantAudio, sec: hookSec + bodySec, hook: h }))
+  ? cfg.hooks.map((h) => ({
+      file: `${outDir}/tutorial_${h.id}.mp4`,
+      audio: wantAudio,
+      frames: hookFramesOf(h.id) + totalFrames(beats),
+      hook: h,
+    }))
   : (phase === 1 ? [cfg.defaultVariant] : Object.keys(cfg.variants)).map((v) => ({
       file: `out/film_${v}.mp4`,
       audio: wantAudio,
-      sec: bodySec,
+      frames: totalFrames(beats),
     }));
 
 console.log(`\n═══ Phase ${phase} self-check · ${cfg.id} ═══\n`);
@@ -105,22 +117,38 @@ for (const want of EXPECTED) {
     fail(`${want.file} — ${v?.width}x${v?.height}, expected ${cfg.format.width}x${cfg.format.height}`);
   }
   if (Math.abs(got - fps) > 0.01) fail(`${want.file} — ${got} fps, expected ${fps}`);
-  if (Math.abs(sec - want.sec) > 0.08) {
-    fail(`${want.file} — ${sec.toFixed(2)} s, the timeline says ${want.sec.toFixed(2)} s`);
+  // Counted frames, not the container's duration. Once there is an audio track
+  // the container reports whichever stream is longer, and an AAC encoder pads
+  // its last packet — which made every file read about 0.10 s over the
+  // timeline and fail a check that nothing was wrong with. The picture is what
+  // the timeline describes, so the picture is what gets counted.
+  const frames = Number(v?.nb_frames ?? 0);
+  if (!frames) {
+    notes.push(`${want.file} — no frame count in the header; length checked as duration instead`);
+    if (Math.abs(sec - want.frames / fps) > 0.12) {
+      fail(`${want.file} — ${sec.toFixed(2)} s, the timeline says ${(want.frames / fps).toFixed(2)} s`);
+    }
+  } else if (frames !== want.frames) {
+    fail(`${want.file} — ${frames} frames, the timeline says ${want.frames}`);
   }
   if (want.audio && !a) fail(`${want.file} — no audio stream, and phase ${phase} needs one`);
   if (!want.audio && a) fail(`${want.file} — has an audio stream, and phase ${phase} must be silent`);
 
   rows.push(
-    `  ${want.file.padEnd(30)} ${v?.width}x${v?.height}  ${got} fps  ` +
-      `${sec.toFixed(2)} s  ${mb.toFixed(1)} MB  audio ${a ? a.codec_name : 'none'}`
+    `  ${want.file.padEnd(32)} ${v?.width}x${v?.height}  ${got} fps  ` +
+      `${String(frames || '?').padStart(4)} frames  ${sec.toFixed(2)} s  ${mb.toFixed(1)} MB  audio ${a ? a.codec_name : 'none'}`
   );
 }
 console.log('FILES');
 console.log(rows.join('\n') || '  (none)');
 
 // ── 2. frames to look at ───────────────────────────────────────────────────
-const dir = resolve(OUT, 'selfcheck');
+// Beside the cut being checked, not in one shared folder. Two voices write
+// two sets of frames, and a shared `out/selfcheck` meant checking the second
+// silently destroyed the first cut's evidence while leaving its videos alone —
+// the kind of loss nobody notices until they go looking for the frame that
+// justified a decision.
+const dir = resolve(PROJECT, outDir, 'selfcheck');
 rmSync(dir, { recursive: true, force: true });
 mkdirSync(dir, { recursive: true });
 
@@ -141,7 +169,7 @@ if (existsSync(primary)) {
     EXPECTED.forEach((want, i) => {
       const path = resolve(PROJECT, want.file);
       if (!existsSync(path)) return;
-      for (const [j, sec] of [1.0, 2.5].entries()) {
+      for (const [j, sec] of [1.0, Math.max(1.4, hookSecOf(want.hook.id) - 0.6)].entries()) {
         grab(path, sec, `h${i + 1}${'ab'[j]}-${stem(want.hook.id)}-${stem(want.hook.title)}.png`);
         written += 1;
       }
@@ -153,7 +181,7 @@ if (existsSync(primary)) {
   const AT = [0.25, 0.5, 0.75];
   beatMidpoints(beats, fps).forEach((m, i) => {
     AT.forEach((frac, j) => {
-      const sec = hookSec + m.fromSec + m.durSec * frac;
+      const sec = hookSecOf(EXPECTED[0].hook.id) + m.fromSec + m.durSec * frac;
       grab(primary, sec, `${String(i + 1).padStart(2, '0')}${'abc'[j]}-${stem(m.name)}.png`);
       written += 1;
     });
@@ -200,7 +228,10 @@ console.log(
   offences.length
     ? offences.map((o) => `  ✗ ${o}`).join('\n')
     : `  ✓ nothing in pipeline/, src/${compDir}/ or src/parts/ transcribes, burns or draws a caption.\n` +
-      "    Every caption in this video came out of the app's own export."
+      "    Every caption drawn over a recording of the app came out of the app.\n" +
+      "    The marketing subtitles are a separate thing and are not that: their words are the\n" +
+      "    `vo` lines in config.json and their times are data in captions.json, aligned once\n" +
+      "    offline, outside this repository. No code here turns audio into words."
 );
 
 // ── 5. the body is the same bytes in every output ──────────────────────────
@@ -215,7 +246,7 @@ if (cfg.hooks) {
     // ones on the first frame.
     const md5 = execFileSync(
       'ffmpeg',
-      ['-v', 'error', '-ss', String(hookSec), '-i', path, '-an', '-f', 'framemd5', '-'],
+      ['-v', 'error', '-ss', String(hookSecOf(want.hook.id)), '-i', path, '-an', '-f', 'framemd5', '-'],
       { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 }
     )
       .split('\n')
@@ -241,7 +272,7 @@ if (cfg.hooks) {
     }
     console.log(
       same
-        ? `  ✓ ${hashes.length} files, ${ref.md5.length} body frames each, identical frame for frame from ${hookSec} s.`
+        ? `  ✓ ${hashes.length} files, ${ref.md5.length} body frames each, identical frame for frame from each hook's own end.`
         : '  ✗ the body is not the same in every file — see RESULT.'
     );
   } else {
@@ -252,18 +283,20 @@ if (cfg.hooks) {
 // ── 4. the report ──────────────────────────────────────────────────────────
 console.log('\nTIMELINE');
 if (cfg.hooks) {
-  console.log(`  hook · ${hookSec.toFixed(2)} s, then:`);
+  console.log(
+    '  hooks · ' + cfg.hooks.map((h) => `${h.id} ${hookSecOf(h.id).toFixed(2)}`).join(' · ') + ' s, then:'
+  );
 }
 console.log(
   beatMidpoints(beats, fps)
     .map(
       (m, i) =>
         `  ${String(i + 1).padStart(2)}. ${m.name.padEnd(46)} ` +
-        `${(hookSec + m.fromSec).toFixed(2).padStart(6)} → ${(hookSec + m.fromSec + m.durSec).toFixed(2).padStart(6)} s  (${m.durSec.toFixed(2)} s)`
+        `${m.fromSec.toFixed(2).padStart(6)} → ${(m.fromSec + m.durSec).toFixed(2).padStart(6)} s into the body  (${m.durSec.toFixed(2)} s)`
     )
     .join('\n')
 );
-const total = hookSec + bodySec;
+const total = Math.max(...(cfg.hooks ?? [{ id: null }]).map((h) => hookSecOf(h.id))) + bodySec;
 console.log(`  total ${total.toFixed(2)} s, from the ${t.lines ? 'measured' : 'planned'} line lengths`);
 
 if (!cfg.hooks && total > 30) notes.push(`${total.toFixed(2)} s is over the 15–30 s band a paid 9:16 unit wants`);

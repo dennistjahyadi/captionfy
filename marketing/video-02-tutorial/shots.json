@@ -1,39 +1,62 @@
 {
-  "note": "What ../pipeline/capture.mjs records off a booted emulator. Coordinates are for a 1080 x 2400 screen at 420 dpi, which is what `./run.sh --emulator` boots; a screenshot is 1:1 with input taps, so `node ../pipeline/capture.mjs --probe` is how to re-read them when a screen moves. `setup` runs before the recorder starts, `steps` run while it is rolling, `teardown` runs after it has stopped. The order matters: shots that change the project (fix, style, dictionary, saving) come before the one that creates a second project (pick), so every editor shot is of the same 66-word transcript.",
+  "note": "What ../pipeline/capture.mjs records off a booted emulator, for app 1.0.3. Coordinates are for a 1080 x 2400 screen at 420 dpi, which is what `./run.sh --emulator` boots; a screenshot is 1:1 with input taps, so `node ../pipeline/capture.mjs --probe` is how to re-read them when a screen moves. `setup` runs before the recorder starts, `steps` run while it is rolling, `teardown` runs after it has stopped. Nothing is cropped downstream any more — every beat shows the whole screen inside a phone frame — so a shot only has to be framed for time, not for which band of the screen it lands in.",
+  "order": "Shots that change the project come after the ones that read it, and `pick` is last because it makes a second project. `saving` writes an export into the gallery, so `../pipeline/pull-export.mjs` runs after it and the export is deleted from the gallery before `pick` — otherwise the picker's first tile is a video that already has captions burned into it.",
   "device": {
     "width": 1080,
     "height": 2400,
     "density": 420
   },
   "where": {
-    "projectCard": [
-      540,
-      1230
-    ],
-    "play": [
-      78,
-      1117
-    ],
-    "toCheckChip": [
-      166,
-      1283
-    ],
-    "styleChip": [
-      392,
-      1283
-    ],
-    "undo": [
-      676,
-      220
-    ],
-    "exportButton": [
-      954,
-      214
-    ],
-    "back": [
-      109,
-      214
-    ],
+    "note": "Read off screenshots of app 1.0.3 on 2026-09-20, after the style system was rebuilt to eighteen presets. The transcript's rows move when the preset changes, because the editor spaces words by the preset's own box padding — every coordinate below was read with the default preset, Focus.",
+    "home": {
+      "newVideo": [
+        540,
+        642
+      ],
+      "unlockLink": [
+        878,
+        788
+      ],
+      "projectCard": [
+        540,
+        1230
+      ]
+    },
+    "editor": {
+      "play": [
+        78,
+        1117
+      ],
+      "toCheckChip": [
+        166,
+        1283
+      ],
+      "styleChip": [
+        392,
+        1283
+      ],
+      "undo": [
+        676,
+        220
+      ],
+      "export": [
+        954,
+        214
+      ],
+      "back": [
+        109,
+        214
+      ],
+      "wordRate": [
+        583,
+        2313
+      ],
+      "wordBrand": [
+        259,
+        1609
+      ],
+      "wordBrandNote": "'brand' on the third transcript row, with the player at 0:00 and the preset Focus. The transcript follows the player and the rows re-wrap per preset, so this is only true at the top of a freshly launched editor."
+    },
     "wordSheet": {
       "timing": [
         540,
@@ -53,6 +76,10 @@
       ]
     },
     "timingSheet": {
+      "startHandle": [
+        414,
+        1622
+      ],
       "endHandle": [
         666,
         1622
@@ -61,45 +88,114 @@
         937,
         2111
       ],
+      "apply": [
+        951,
+        1383
+      ],
       "cancel": [
         941,
         2257
       ]
     },
     "styleSheet": {
-      "box": [
+      "note": "Eighteen presets in two columns, nine rows, 325 px apart. The six named below are the rows in view before any scroll; one swipe of 1000 px brings Headline, Neon, Newsprint, Bold yellow, Core and Clarity into the same three slots. Three swipes reaches Size, Position and Words per line.",
+      "col": [
         284,
-        1483
+        791
+      ],
+      "row": [
+        1482,
+        1807,
+        2132
+      ],
+      "focus": [
+        284,
+        1482
+      ],
+      "readAlong": [
+        791,
+        1482
+      ],
+      "boxHighlight": [
+        284,
+        1807
       ],
       "karaoke": [
         791,
-        1483
+        1807
       ],
-      "spotlight": [
+      "editorial": [
         284,
         2132
       ],
-      "wordStack": [
+      "cleanSubtitle": [
         791,
         2132
       ],
-      "hueStrip": {
-        "y": 1591,
-        "x0": 180,
-        "x1": 760
+      "afterOneSwipe": {
+        "headline": [
+          284,
+          1482
+        ],
+        "neon": [
+          791,
+          1482
+        ],
+        "newsprint": [
+          284,
+          1807
+        ],
+        "boldYellow": [
+          791,
+          1807
+        ]
       },
-      "yellowSwatch": [
-        86,
-        1486
-      ],
-      "sizeM": [
+      "afterThreeSwipes": {
+        "sizeS": [
+          200,
+          1460
+        ],
+        "sizeL": [
+          878,
+          1460
+        ],
+        "positionFrame": {
+          "x": 151,
+          "y0": 1660,
+          "y1": 1980
+        },
+        "upper": [
+          659,
+          1681
+        ],
+        "middle": [
+          659,
+          1818
+        ],
+        "lower": [
+          659,
+          1954
+        ]
+      },
+      "scrollUp": [
         540,
-        1796
+        2150,
+        540,
+        1150,
+        500
+      ],
+      "scrollDown": [
+        540,
+        1600,
+        540,
+        2350,
+        400
       ],
       "done": [
         958,
         1210
-      ]
+      ],
+      "scrollDownNote": "Starts at y 1600, inside the scroll view. A swipe starting at 1250 is on the sheet's header, which scrolls nothing — that mistake left the app in the wrong preset twice."
     },
     "dictionary": {
       "save": [
@@ -113,21 +209,12 @@
         1996
       ]
     },
-    "home": {
-      "newVideo": [
-        540,
-        642
-      ],
-      "unlockLink": [
-        878,
-        788
-      ]
-    },
     "picker": {
-      "rawDemoClip": [
-        180,
-        1768
-      ]
+      "demoClip": [
+        540,
+        1408
+      ],
+      "demoClipNote": "The 0:19 demo is the second tile when the gallery holds only the two source clips. Any Wordburn export sorts in front of both, so the gallery is cleared before this shot runs."
     },
     "quickSettings": {
       "airplaneTile": [
@@ -135,17 +222,18 @@
         1092
       ]
     },
-    "wordRate": [
-      583,
-      2313
-    ],
-    "wordRateNote": "'rate' on the fourth transcript row, in Box highlight. The transcript spaces words by the style's own box padding, so the rows wrap differently per preset: in Spotlight the same word was at (553, 2212). Re-probe after any style change."
+    "welcome": {
+      "getStarted": [
+        540,
+        2080
+      ]
+    }
   },
   "shots": [
     {
       "id": "home",
-      "what": "Home. 'Captions for your video, made on this phone. Nothing is uploaded.'",
-      "durationSec": 4,
+      "what": "Home standing still: the promise line, New video, the watermark chip, and the one project",
+      "durationSec": 5,
       "setup": [
         {
           "launch": true
@@ -153,14 +241,14 @@
       ],
       "steps": [
         {
-          "wait": 3000
+          "wait": 4000
         }
       ]
     },
     {
       "id": "unlock",
-      "what": "The Unlock screen: 'Buy it once. Keep it forever.' and the four ticks. The price button is cropped out — the product is not in Play yet, so it spins.",
-      "durationSec": 4,
+      "what": "The Unlock screen: 'Buy it once. Keep it forever.' and the four promises. Its price button spins, because the product is in no Play Console yet, so the hook that uses this stops above it.",
+      "durationSec": 5,
       "setup": [
         {
           "launch": true
@@ -175,14 +263,14 @@
       ],
       "steps": [
         {
-          "wait": 3000
+          "wait": 4000
         }
       ]
     },
     {
       "id": "editor",
-      "what": "The editor playing: captions on the stage, the transcript scrolling under it, the loud words bold",
-      "durationSec": 7,
+      "what": "The editor playing: the Focus card on the stage, the blue mark travelling word by word, the transcript scrolling under it",
+      "durationSec": 9,
       "setup": [
         {
           "launch": true
@@ -192,7 +280,7 @@
             540,
             1230
           ],
-          "after": 3500
+          "after": 4000
         }
       ],
       "steps": [
@@ -201,14 +289,14 @@
             78,
             1117
           ],
-          "after": 6500
+          "after": 8500
         }
       ]
     },
     {
       "id": "fix",
-      "what": "The '1 to check' chip opens the flagged word; 'Looks right' clears it and the chip goes",
-      "durationSec": 7,
+      "what": "The '1 to check' chip opens the one dotted word, 'Don't.' — 'Not sure about this one' — and Looks right clears it and the chip with it",
+      "durationSec": 9,
       "setup": [
         {
           "launch": true
@@ -218,286 +306,45 @@
             540,
             1230
           ],
-          "after": 3500
+          "after": 4000
         }
       ],
       "steps": [
         {
-          "wait": 800
+          "wait": 1200
         },
         {
           "tap": [
             166,
             1283
           ],
-          "after": 2600
+          "after": 3200
         },
         {
           "tap": [
             200,
             2111
           ],
-          "after": 2800
+          "after": 3600
         }
       ],
       "teardown": [
         {
           "key": "KEYCODE_BACK",
-          "after": 900
+          "after": 1000
         },
         {
           "tap": [
             676,
             220
           ],
-          "after": 800
+          "after": 1000
         }
       ]
     },
     {
       "id": "timing",
-      "what": "The timing sheet on the word 'Don't.': its window on the waveform, the end handle dragged, Move +50 twice",
-      "durationSec": 8,
-      "setup": [
-        {
-          "launch": true
-        },
-        {
-          "tap": [
-            540,
-            1230
-          ],
-          "after": 3500
-        },
-        {
-          "tap": [
-            126,
-            2008
-          ],
-          "after": 2000
-        }
-      ],
-      "steps": [
-        {
-          "tap": [
-            540,
-            1817
-          ],
-          "after": 2200
-        },
-        {
-          "swipe": [
-            666,
-            1622,
-            790,
-            1622,
-            700
-          ],
-          "after": 1400
-        },
-        {
-          "tap": [
-            937,
-            2111
-          ],
-          "after": 700
-        },
-        {
-          "tap": [
-            937,
-            2111
-          ],
-          "after": 1500
-        }
-      ],
-      "teardown": [
-        {
-          "tap": [
-            941,
-            2257
-          ],
-          "after": 800
-        }
-      ]
-    },
-    {
-      "id": "style",
-      "what": "The style sheet: nine presets animating the user's own line, the scroll to the last three, the hue strip dragged, yellow picked back",
-      "durationSec": 16,
-      "setup": [
-        {
-          "launch": true
-        },
-        {
-          "tap": [
-            540,
-            1230
-          ],
-          "after": 3500
-        }
-      ],
-      "steps": [
-        {
-          "tap": [
-            392,
-            1283
-          ],
-          "after": 2400
-        },
-        {
-          "tap": [
-            791,
-            1483
-          ],
-          "after": 1800
-        },
-        {
-          "tap": [
-            284,
-            1808
-          ],
-          "after": 1800
-        },
-        {
-          "tap": [
-            791,
-            2132
-          ],
-          "after": 1800
-        },
-        {
-          "swipe": [
-            540,
-            1900,
-            540,
-            1300,
-            400
-          ],
-          "after": 1600
-        },
-        {
-          "tap": [
-            284,
-            1807
-          ],
-          "after": 1800
-        },
-        {
-          "swipe": [
-            540,
-            2200,
-            540,
-            1000,
-            600
-          ],
-          "after": 1200
-        },
-        {
-          "swipe": [
-            540,
-            2200,
-            540,
-            1000,
-            600
-          ],
-          "after": 1200
-        },
-        {
-          "swipe": [
-            180,
-            1591,
-            760,
-            1591,
-            900
-          ],
-          "after": 1200
-        },
-        {
-          "tap": [
-            86,
-            1486
-          ],
-          "after": 1400
-        }
-      ],
-      "teardown": [
-        {
-          "swipe": [
-            540,
-            2200,
-            540,
-            1000,
-            600
-          ],
-          "after": 900
-        },
-        {
-          "swipe": [
-            540,
-            2200,
-            540,
-            1000,
-            600
-          ],
-          "after": 900
-        },
-        {
-          "tap": [
-            86,
-            1486
-          ],
-          "after": 900
-        },
-        {
-          "swipe": [
-            540,
-            1700,
-            540,
-            2350,
-            500
-          ],
-          "after": 900
-        },
-        {
-          "swipe": [
-            540,
-            1700,
-            540,
-            2350,
-            500
-          ],
-          "after": 900
-        },
-        {
-          "swipe": [
-            540,
-            1700,
-            540,
-            2350,
-            500
-          ],
-          "after": 900
-        },
-        {
-          "tap": [
-            284,
-            1483
-          ],
-          "after": 700
-        },
-        {
-          "tap": [
-            958,
-            1210
-          ],
-          "after": 800
-        }
-      ],
-      "teardownNote": "Puts the app back in the icon's yellow and on Box highlight, which is what every export after this shot is made in: scroll to the controls and tap the yellow swatch, scroll back up and tap the first tile, Done. Two earlier cuts of this teardown left the whole app red and the dictionary and saving shots had to be taken again: the first tapped the tile at the scrolled position, where that same y is the swatch row; the second scrolled up with a swipe that started on the sheet's title, outside the scroll view, so it never scrolled and the tap landed on the red swatch again. The swipe now starts inside the grid. Check the end frame before trusting it."
-    },
-    {
-      "id": "dictionary",
-      "what": "A word's sheet, 'Add to your words', the dictionary with the entry half written, Save, back in the editor",
+      "what": "The timing sheet on that same word: its window on the waveform, the end handle dragged out, then Move +50 twice",
       "durationSec": 10,
       "setup": [
         {
@@ -508,38 +355,63 @@
             540,
             1230
           ],
-          "after": 3500
+          "after": 4000
+        },
+        {
+          "tap": [
+            166,
+            1283
+          ],
+          "after": 2500
         }
       ],
       "steps": [
         {
           "tap": [
-            583,
-            2313
-          ],
-          "after": 3000
-        },
-        {
-          "tap": [
             540,
-            1964
+            1817
           ],
-          "after": 3000
+          "after": 2600
+        },
+        {
+          "swipe": [
+            666,
+            1622,
+            800,
+            1622,
+            800
+          ],
+          "after": 1800
         },
         {
           "tap": [
-            960,
-            1524
+            937,
+            2111
           ],
-          "after": 2500
+          "after": 900
+        },
+        {
+          "tap": [
+            937,
+            2111
+          ],
+          "after": 2200
         }
       ],
-      "stepsNote": "Three seconds between taps, not two: at two the second tap landed before the word sheet had opened. And the word is aimed for the transcript as Box highlight lays it out — the first re-take tapped a gap between words, because the sheet had been probed in Spotlight, whose rows wrap differently."
+      "teardown": [
+        {
+          "tap": [
+            941,
+            2257
+          ],
+          "after": 1000
+        }
+      ]
     },
     {
-      "id": "saving",
-      "what": "Export → Save to gallery → the render, about thirty seconds on this emulator → Saved, with the share buttons",
-      "durationSec": 36,
+      "id": "dictionary",
+      "what": "The word 'brand' → 'Add to your words' → the dictionary with the entry half written → Save, back in the editor",
+      "durationSec": 11,
       "setup": [
         {
           "launch": true
@@ -549,77 +421,273 @@
             540,
             1230
           ],
-          "after": 3500
+          "after": 4000
+        }
+      ],
+      "steps": [
+        {
+          "wait": 800
+        },
+        {
+          "tap": [
+            259,
+            1609
+          ],
+          "after": 3200
+        },
+        {
+          "tap": [
+            540,
+            1964
+          ],
+          "after": 3200
+        },
+        {
+          "tap": [
+            960,
+            1524
+          ],
+          "after": 2800
+        }
+      ]
+    },
+    {
+      "id": "saving",
+      "what": "Export → Save to gallery → the progress bar → Saved, with the tick, the filename and Share. One recording rather than two, because a separate Saved shot would have to be timed against the export by hand.",
+      "durationSec": 120,
+      "setup": [
+        {
+          "launch": true
+        },
+        {
+          "tap": [
+            540,
+            1230
+          ],
+          "after": 4000
         },
         {
           "tap": [
             954,
             214
           ],
-          "after": 2500
+          "after": 3000
         }
       ],
       "steps": [
         {
-          "wait": 1200
+          "wait": 1500
         },
         {
           "tap": [
             540,
             1996
           ],
-          "after": 32000
-        }
-      ]
-    },
-    {
-      "id": "saved",
-      "what": "The Saved screen: the tick, the filename, Share, and the one-time feedback card. No setup on purpose — it records whatever is on screen, and it is meant to be run right after the `saving` shot's export has actually finished, which on this emulator is 54 s, longer than that shot records.",
-      "durationSec": 4,
-      "setup": [],
-      "steps": [
-        {
-          "wait": 3000
-        }
-      ]
-    },
-    {
-      "id": "pick",
-      "what": "Airplane mode on. Home → New video → the system picker → the curtain → Processing with the words arriving → the editor",
-      "durationSec": 40,
-      "setup": [
-        {
-          "airplane": true,
-          "after": 2500
-        },
-        {
-          "launch": true
+          "after": 116000
         }
       ],
-      "steps": [
+      "durationNote": "120 s, up from 68. The export took about 54 s on this emulator when these shots were first written and the Saved screen landed around 61 s; on the re-capture it was still at 80% at 67 s and the recording ended on a progress bar, so the beat that promises a file in your gallery never showed one. The render time is the emulators, not the apps, and it is not a constant — the length here has to leave room for a slow run rather than fit a measured one."
+    },
+    {
+      "id": "style",
+      "what": "The style sheet: eighteen presets animating the user's own line, four of them tapped, the scroll past the first six, then the colour pair, the size and the position frame",
+      "durationSec": 24,
+      "setup": [
         {
-          "wait": 1200
+          "launch": true
         },
         {
           "tap": [
             540,
-            642
+            1230
           ],
-          "after": 3000
+          "after": 4000
+        }
+      ],
+      "steps": [
+        {
+          "tap": [
+            392,
+            1283
+          ],
+          "after": 2800
         },
         {
           "tap": [
-            180,
-            1768
+            791,
+            1807
           ],
-          "after": 34000
+          "after": 2200
+        },
+        {
+          "tap": [
+            284,
+            1807
+          ],
+          "after": 2200
+        },
+        {
+          "tap": [
+            791,
+            1482
+          ],
+          "after": 2200
+        },
+        {
+          "swipe": [
+            540,
+            2150,
+            540,
+            1150,
+            500
+          ],
+          "after": 1600
+        },
+        {
+          "tap": [
+            791,
+            1482
+          ],
+          "after": 2400
+        },
+        {
+          "swipe": [
+            540,
+            2150,
+            540,
+            1150,
+            500
+          ],
+          "after": 1400
+        },
+        {
+          "swipe": [
+            540,
+            2150,
+            540,
+            1150,
+            500
+          ],
+          "after": 1800
+        },
+        {
+          "tap": [
+            659,
+            1681
+          ],
+          "after": 2000
+        },
+        {
+          "tap": [
+            659,
+            1954
+          ],
+          "after": 1800
         }
-      ]
+      ],
+      "teardown": [
+        {
+          "swipe": [
+            540,
+            1600,
+            540,
+            2350,
+            400
+          ],
+          "after": 700
+        },
+        {
+          "swipe": [
+            540,
+            1600,
+            540,
+            2350,
+            400
+          ],
+          "after": 700
+        },
+        {
+          "swipe": [
+            540,
+            1600,
+            540,
+            2350,
+            400
+          ],
+          "after": 700
+        },
+        {
+          "swipe": [
+            540,
+            1600,
+            540,
+            2350,
+            400
+          ],
+          "after": 700
+        },
+        {
+          "swipe": [
+            540,
+            1600,
+            540,
+            2350,
+            400
+          ],
+          "after": 700
+        },
+        {
+          "swipe": [
+            540,
+            1600,
+            540,
+            2350,
+            400
+          ],
+          "after": 700
+        },
+        {
+          "swipe": [
+            540,
+            1600,
+            540,
+            2350,
+            400
+          ],
+          "after": 700
+        },
+        {
+          "swipe": [
+            540,
+            1600,
+            540,
+            2350,
+            400
+          ],
+          "after": 700
+        },
+        {
+          "tap": [
+            284,
+            1482
+          ],
+          "after": 1000
+        },
+        {
+          "tap": [
+            958,
+            1210
+          ],
+          "after": 900
+        }
+      ],
+      "teardownNote": "Scrolls all the way back to the top and puts the preset back to Focus, which is what every shot recorded before this one is in and what `pick` will inherit. Two earlier cuts of this teardown left the app in the wrong preset and the shots after it had to be taken again: one tapped a tile at the scrolled position, where that same y is a swatch row, and one swiped from the sheet's title, which is outside the scroll view and scrolls nothing. Check the end frame.",
+      "stepsNote": "Upper then Lower, tapped, rather than a drag inside the position frame. The drag was the first cut of this step and it landed on the hue strip and the size row instead, which set a cyan highlight and size S on the project and on settings — neither of which the style sheet offers a way to undo, so it had to be put back by hand."
     },
     {
       "id": "toggle",
       "what": "The quick-settings shade pulled down over Home and the Airplane mode tile tapped. The physical action, on camera.",
-      "durationSec": 7,
+      "durationSec": 8,
       "setup": [
         {
           "airplane": false,
@@ -631,7 +699,7 @@
       ],
       "steps": [
         {
-          "wait": 600
+          "wait": 900
         },
         {
           "shell": [
@@ -639,7 +707,7 @@
             "statusbar",
             "expand-settings"
           ],
-          "after": 900
+          "after": 1100
         },
         {
           "swipe": [
@@ -649,14 +717,14 @@
             1900,
             400
           ],
-          "after": 1200
+          "after": 1400
         },
         {
           "tap": [
             792,
             1092
           ],
-          "after": 1800
+          "after": 2400
         },
         {
           "shell": [
@@ -664,7 +732,46 @@
             "statusbar",
             "collapse"
           ],
-          "after": 1200
+          "after": 1400
+        }
+      ]
+    },
+    {
+      "id": "pick",
+      "what": "Airplane mode on. Home → New video → the system picker → the curtain → Processing with the words arriving → the editor. Run last: it makes a second project, and it needs the gallery cleared of exports first.",
+      "durationSec": 46,
+      "setup": [
+        {
+          "airplane": true,
+          "after": 3000
+        },
+        {
+          "launch": true
+        }
+      ],
+      "steps": [
+        {
+          "wait": 1500
+        },
+        {
+          "tap": [
+            540,
+            642
+          ],
+          "after": 3500
+        },
+        {
+          "tap": [
+            540,
+            1408
+          ],
+          "after": 39000
+        }
+      ],
+      "teardown": [
+        {
+          "airplane": false,
+          "after": 1000
         }
       ]
     }

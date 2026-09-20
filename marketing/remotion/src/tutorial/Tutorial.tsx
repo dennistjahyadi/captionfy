@@ -3,9 +3,13 @@ import { AbsoluteFill, Sequence } from 'remotion';
 
 import { Body } from './Body';
 import { Hook, HookProps } from './Hook';
-import { BODY_FRAMES, HOOK_FRAMES } from './timeline';
+import { BODY_FRAMES, HOOK_FRAMES, bodyFramesFor, hookFramesFor } from './timeline';
 
 export const TUTORIAL_FRAMES = HOOK_FRAMES + BODY_FRAMES;
+
+/** A whole video's length, for whichever voice is being previewed. */
+export const tutorialFrames = (voice: string | undefined, hook: string) =>
+  hookFramesFor(voice, hook) + bodyFramesFor(voice);
 
 /**
  * One whole video, for the studio: a hook, then the body.
@@ -17,13 +21,16 @@ export const TUTORIAL_FRAMES = HOOK_FRAMES + BODY_FRAMES;
  * the only way to judge whether a hook's last frame and the body's first one
  * cut well against each other.
  */
-export const Tutorial: React.FC<HookProps> = ({ hook }) => (
-  <AbsoluteFill>
-    <Sequence durationInFrames={HOOK_FRAMES}>
-      <Hook hook={hook} />
-    </Sequence>
-    <Sequence from={HOOK_FRAMES} durationInFrames={BODY_FRAMES}>
-      <Body />
-    </Sequence>
-  </AbsoluteFill>
-);
+export const Tutorial: React.FC<HookProps> = ({ hook, voice }) => {
+  const head = hookFramesFor(voice, hook);
+  return (
+    <AbsoluteFill>
+      <Sequence durationInFrames={head}>
+        <Hook hook={hook} voice={voice} />
+      </Sequence>
+      <Sequence from={head} durationInFrames={bodyFramesFor(voice)}>
+        <Body voice={voice} />
+      </Sequence>
+    </AbsoluteFill>
+  );
+};

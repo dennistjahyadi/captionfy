@@ -1,0 +1,1771 @@
+{
+ "note": "Marketing subtitles for the voiced cut: the words are the vo lines already in config.json, and these are when each is spoken. Keyed by the recording each belongs to, in seconds from the start of THAT file — the body plays from frame zero of the body composition and each hook from frame zero of its own, so no offset is needed anywhere.",
+ "rule1": "These are the video maker's subtitles, not Wordburn output, and the README says so plainly. Nothing in ../pipeline/ transcribes: the timings were aligned once, offline, outside the repository, and only the result is kept — which is why selfcheck.mjs still greps clean.",
+ "grouping": "At most four words or two seconds a cue, broken early on punctuation. Long enough to read, short enough that the line is never ahead of the voice.",
+ "cues": {
+  "hale_body.mp3": [
+   {
+    "fromSec": 0,
+    "toSec": 0.9,
+    "words": [
+     {
+      "w": "Meet",
+      "s": 0
+     },
+     {
+      "w": "Wordburn,",
+      "s": 0.3
+     }
+    ]
+   },
+   {
+    "fromSec": 1.26,
+    "toSec": 2.38,
+    "words": [
+     {
+      "w": "the",
+      "s": 1.26
+     },
+     {
+      "w": "app",
+      "s": 1.48
+     },
+     {
+      "w": "that",
+      "s": 1.66
+     },
+     {
+      "w": "captions",
+      "s": 1.92
+     }
+    ]
+   },
+   {
+    "fromSec": 2.38,
+    "toSec": 3.62,
+    "words": [
+     {
+      "w": "any",
+      "s": 2.38
+     },
+     {
+      "w": "video",
+      "s": 2.7
+     },
+     {
+      "w": "right",
+      "s": 3.1
+     },
+     {
+      "w": "on",
+      "s": 3.42
+     }
+    ]
+   },
+   {
+    "fromSec": 3.62,
+    "toSec": 4.06,
+    "words": [
+     {
+      "w": "your",
+      "s": 3.62
+     },
+     {
+      "w": "phone.",
+      "s": 3.78
+     }
+    ]
+   },
+   {
+    "fromSec": 4.72,
+    "toSec": 6.2,
+    "words": [
+     {
+      "w": "Everything",
+      "s": 4.72
+     },
+     {
+      "w": "happens",
+      "s": 5.04
+     },
+     {
+      "w": "locally",
+      "s": 5.48
+     },
+     {
+      "w": "on",
+      "s": 5.9
+     }
+    ]
+   },
+   {
+    "fromSec": 6.2,
+    "toSec": 6.74,
+    "words": [
+     {
+      "w": "your",
+      "s": 6.2
+     },
+     {
+      "w": "device,",
+      "s": 6.34
+     }
+    ]
+   },
+   {
+    "fromSec": 6.92,
+    "toSec": 8.04,
+    "words": [
+     {
+      "w": "so",
+      "s": 6.92
+     },
+     {
+      "w": "your",
+      "s": 7.18
+     },
+     {
+      "w": "video",
+      "s": 7.36
+     },
+     {
+      "w": "never",
+      "s": 7.68
+     }
+    ]
+   },
+   {
+    "fromSec": 8.04,
+    "toSec": 8.84,
+    "words": [
+     {
+      "w": "leaves",
+      "s": 8.04
+     },
+     {
+      "w": "your",
+      "s": 8.36
+     },
+     {
+      "w": "phone.",
+      "s": 8.58
+     }
+    ]
+   },
+   {
+    "fromSec": 9.46,
+    "toSec": 10.8,
+    "words": [
+     {
+      "w": "Every",
+      "s": 9.46
+     },
+     {
+      "w": "word",
+      "s": 9.72
+     },
+     {
+      "w": "is",
+      "s": 10.08
+     },
+     {
+      "w": "perfectly",
+      "s": 10.38
+     }
+    ]
+   },
+   {
+    "fromSec": 10.8,
+    "toSec": 11.86,
+    "words": [
+     {
+      "w": "timed",
+      "s": 10.8
+     },
+     {
+      "w": "to",
+      "s": 11.18
+     },
+     {
+      "w": "your",
+      "s": 11.42
+     },
+     {
+      "w": "voice,",
+      "s": 11.56
+     }
+    ]
+   },
+   {
+    "fromSec": 12.2,
+    "toSec": 12.88,
+    "words": [
+     {
+      "w": "and",
+      "s": 12.2
+     },
+     {
+      "w": "the",
+      "s": 12.32
+     },
+     {
+      "w": "app",
+      "s": 12.44
+     },
+     {
+      "w": "even",
+      "s": 12.66
+     }
+    ]
+   },
+   {
+    "fromSec": 12.88,
+    "toSec": 14.36,
+    "words": [
+     {
+      "w": "highlights",
+      "s": 12.88
+     },
+     {
+      "w": "the",
+      "s": 13.42
+     },
+     {
+      "w": "louder",
+      "s": 13.68
+     },
+     {
+      "w": "words",
+      "s": 13.94
+     }
+    ]
+   },
+   {
+    "fromSec": 14.36,
+    "toSec": 14.96,
+    "words": [
+     {
+      "w": "for",
+      "s": 14.36
+     },
+     {
+      "w": "you.",
+      "s": 14.66
+     }
+    ]
+   },
+   {
+    "fromSec": 15.44,
+    "toSec": 16.44,
+    "words": [
+     {
+      "w": "If",
+      "s": 15.44
+     },
+     {
+      "w": "you're",
+      "s": 15.6
+     },
+     {
+      "w": "ever",
+      "s": 15.78
+     },
+     {
+      "w": "unsure",
+      "s": 15.96
+     }
+    ]
+   },
+   {
+    "fromSec": 16.44,
+    "toSec": 17.12,
+    "words": [
+     {
+      "w": "about",
+      "s": 16.44
+     },
+     {
+      "w": "a",
+      "s": 16.72
+     },
+     {
+      "w": "word,",
+      "s": 16.9
+     }
+    ]
+   },
+   {
+    "fromSec": 17.34,
+    "toSec": 18.32,
+    "words": [
+     {
+      "w": "it",
+      "s": 17.34
+     },
+     {
+      "w": "shows",
+      "s": 17.52
+     },
+     {
+      "w": "you",
+      "s": 17.78
+     },
+     {
+      "w": "dots,",
+      "s": 18.02
+     }
+    ]
+   },
+   {
+    "fromSec": 18.68,
+    "toSec": 19.8,
+    "words": [
+     {
+      "w": "and",
+      "s": 18.68
+     },
+     {
+      "w": "one",
+      "s": 18.82
+     },
+     {
+      "w": "tap",
+      "s": 19.1
+     },
+     {
+      "w": "is",
+      "s": 19.42
+     }
+    ]
+   },
+   {
+    "fromSec": 19.8,
+    "toSec": 20.72,
+    "words": [
+     {
+      "w": "all",
+      "s": 19.8
+     },
+     {
+      "w": "it",
+      "s": 20.08
+     },
+     {
+      "w": "takes",
+      "s": 20.26
+     },
+     {
+      "w": "to",
+      "s": 20.44
+     }
+    ]
+   },
+   {
+    "fromSec": 20.72,
+    "toSec": 21.22,
+    "words": [
+     {
+      "w": "fix",
+      "s": 20.72
+     },
+     {
+      "w": "it.",
+      "s": 20.9
+     }
+    ]
+   },
+   {
+    "fromSec": 21.58,
+    "toSec": 22.42,
+    "words": [
+     {
+      "w": "You",
+      "s": 21.58
+     },
+     {
+      "w": "can",
+      "s": 21.74
+     },
+     {
+      "w": "even",
+      "s": 21.86
+     },
+     {
+      "w": "drag",
+      "s": 22.1
+     }
+    ]
+   },
+   {
+    "fromSec": 22.42,
+    "toSec": 23.06,
+    "words": [
+     {
+      "w": "the",
+      "s": 22.42
+     },
+     {
+      "w": "edge",
+      "s": 22.64
+     },
+     {
+      "w": "of",
+      "s": 22.8
+     },
+     {
+      "w": "a",
+      "s": 22.92
+     }
+    ]
+   },
+   {
+    "fromSec": 23.06,
+    "toSec": 24.12,
+    "words": [
+     {
+      "w": "caption",
+      "s": 23.06
+     },
+     {
+      "w": "if",
+      "s": 23.4
+     },
+     {
+      "w": "it",
+      "s": 23.72
+     },
+     {
+      "w": "appears",
+      "s": 23.84
+     }
+    ]
+   },
+   {
+    "fromSec": 24.12,
+    "toSec": 24.78,
+    "words": [
+     {
+      "w": "a",
+      "s": 24.12
+     },
+     {
+      "w": "bit",
+      "s": 24.32
+     },
+     {
+      "w": "early,",
+      "s": 24.44
+     }
+    ]
+   },
+   {
+    "fromSec": 24.96,
+    "toSec": 26.46,
+    "words": [
+     {
+      "w": "without",
+      "s": 24.96
+     },
+     {
+      "w": "affecting",
+      "s": 25.26
+     },
+     {
+      "w": "anything",
+      "s": 25.68
+     },
+     {
+      "w": "else.",
+      "s": 26.08
+     }
+    ]
+   },
+   {
+    "fromSec": 27.12,
+    "toSec": 28.48,
+    "words": [
+     {
+      "w": "With",
+      "s": 27.12
+     },
+     {
+      "w": "18",
+      "s": 27.26
+     },
+     {
+      "w": "different",
+      "s": 27.8
+     },
+     {
+      "w": "looks",
+      "s": 28.2
+     }
+    ]
+   },
+   {
+    "fromSec": 28.48,
+    "toSec": 29.3,
+    "words": [
+     {
+      "w": "to",
+      "s": 28.48
+     },
+     {
+      "w": "choose",
+      "s": 28.72
+     },
+     {
+      "w": "from,",
+      "s": 28.98
+     }
+    ]
+   },
+   {
+    "fromSec": 29.52,
+    "toSec": 30.24,
+    "words": [
+     {
+      "w": "you",
+      "s": 29.52
+     },
+     {
+      "w": "can",
+      "s": 29.68
+     },
+     {
+      "w": "find",
+      "s": 29.84
+     },
+     {
+      "w": "the",
+      "s": 30.06
+     }
+    ]
+   },
+   {
+    "fromSec": 30.24,
+    "toSec": 31.74,
+    "words": [
+     {
+      "w": "perfect",
+      "s": 30.24
+     },
+     {
+      "w": "style",
+      "s": 30.56
+     },
+     {
+      "w": "for",
+      "s": 30.98
+     },
+     {
+      "w": "every",
+      "s": 31.3
+     }
+    ]
+   },
+   {
+    "fromSec": 31.74,
+    "toSec": 32.3,
+    "words": [
+     {
+      "w": "creator.",
+      "s": 31.74
+     }
+    ]
+   },
+   {
+    "fromSec": 32.84,
+    "toSec": 33.08,
+    "words": [
+     {
+      "w": "Plus,",
+      "s": 32.84
+     }
+    ]
+   },
+   {
+    "fromSec": 33.3,
+    "toSec": 34.1,
+    "words": [
+     {
+      "w": "you",
+      "s": 33.3
+     },
+     {
+      "w": "only",
+      "s": 33.5
+     },
+     {
+      "w": "need",
+      "s": 33.7
+     },
+     {
+      "w": "to",
+      "s": 33.94
+     }
+    ]
+   },
+   {
+    "fromSec": 34.1,
+    "toSec": 34.76,
+    "words": [
+     {
+      "w": "teach",
+      "s": 34.1
+     },
+     {
+      "w": "it",
+      "s": 34.26
+     },
+     {
+      "w": "a",
+      "s": 34.42
+     },
+     {
+      "w": "brand",
+      "s": 34.54
+     }
+    ]
+   },
+   {
+    "fromSec": 34.76,
+    "toSec": 35.32,
+    "words": [
+     {
+      "w": "name",
+      "s": 34.76
+     },
+     {
+      "w": "once,",
+      "s": 34.98
+     }
+    ]
+   },
+   {
+    "fromSec": 35.58,
+    "toSec": 36.14,
+    "words": [
+     {
+      "w": "and",
+      "s": 35.58
+     },
+     {
+      "w": "it",
+      "s": 35.76
+     },
+     {
+      "w": "will",
+      "s": 35.84
+     },
+     {
+      "w": "get",
+      "s": 35.98
+     }
+    ]
+   },
+   {
+    "fromSec": 36.14,
+    "toSec": 37.36,
+    "words": [
+     {
+      "w": "it",
+      "s": 36.14
+     },
+     {
+      "w": "right",
+      "s": 36.3
+     },
+     {
+      "w": "every",
+      "s": 36.56
+     },
+     {
+      "w": "time",
+      "s": 37.06
+     }
+    ]
+   },
+   {
+    "fromSec": 37.36,
+    "toSec": 37.76,
+    "words": [
+     {
+      "w": "after.",
+      "s": 37.36
+     }
+    ]
+   },
+   {
+    "fromSec": 38.44,
+    "toSec": 39.02,
+    "words": [
+     {
+      "w": "When",
+      "s": 38.44
+     },
+     {
+      "w": "you're",
+      "s": 38.6
+     },
+     {
+      "w": "done,",
+      "s": 38.78
+     }
+    ]
+   },
+   {
+    "fromSec": 39.3,
+    "toSec": 40.44,
+    "words": [
+     {
+      "w": "it",
+      "s": 39.3
+     },
+     {
+      "w": "burns",
+      "s": 39.48
+     },
+     {
+      "w": "the",
+      "s": 39.72
+     },
+     {
+      "w": "captions",
+      "s": 39.98
+     }
+    ]
+   },
+   {
+    "fromSec": 40.44,
+    "toSec": 41.54,
+    "words": [
+     {
+      "w": "in",
+      "s": 40.44
+     },
+     {
+      "w": "and",
+      "s": 40.68
+     },
+     {
+      "w": "saves",
+      "s": 41
+     },
+     {
+      "w": "the",
+      "s": 41.28
+     }
+    ]
+   },
+   {
+    "fromSec": 41.54,
+    "toSec": 42.7,
+    "words": [
+     {
+      "w": "video",
+      "s": 41.54
+     },
+     {
+      "w": "directly",
+      "s": 41.82
+     },
+     {
+      "w": "to",
+      "s": 42.22
+     },
+     {
+      "w": "your",
+      "s": 42.56
+     }
+    ]
+   },
+   {
+    "fromSec": 42.7,
+    "toSec": 43.12,
+    "words": [
+     {
+      "w": "gallery.",
+      "s": 42.7
+     }
+    ]
+   },
+   {
+    "fromSec": 43.86,
+    "toSec": 44.9,
+    "words": [
+     {
+      "w": "Wordburn",
+      "s": 43.86
+     },
+     {
+      "w": "is",
+      "s": 44.16
+     },
+     {
+      "w": "offline,",
+      "s": 44.42
+     }
+    ]
+   },
+   {
+    "fromSec": 45.28,
+    "toSec": 46.86,
+    "words": [
+     {
+      "w": "requires",
+      "s": 45.28
+     },
+     {
+      "w": "just",
+      "s": 45.66
+     },
+     {
+      "w": "one",
+      "s": 46.1
+     },
+     {
+      "w": "payment,",
+      "s": 46.44
+     }
+    ]
+   },
+   {
+    "fromSec": 47.14,
+    "toSec": 48.34,
+    "words": [
+     {
+      "w": "and",
+      "s": 47.14
+     },
+     {
+      "w": "has",
+      "s": 47.26
+     },
+     {
+      "w": "no",
+      "s": 47.5
+     },
+     {
+      "w": "subscription.",
+      "s": 47.84
+     }
+    ]
+   },
+   {
+    "fromSec": 49.06,
+    "toSec": 49.78,
+    "words": [
+     {
+      "w": "You",
+      "s": 49.06
+     },
+     {
+      "w": "can",
+      "s": 49.2
+     },
+     {
+      "w": "find",
+      "s": 49.36
+     },
+     {
+      "w": "it",
+      "s": 49.62
+     }
+    ]
+   },
+   {
+    "fromSec": 49.78,
+    "toSec": 51.14,
+    "words": [
+     {
+      "w": "now",
+      "s": 49.78
+     },
+     {
+      "w": "on",
+      "s": 50.06
+     },
+     {
+      "w": "Google",
+      "s": 50.46
+     },
+     {
+      "w": "Play.",
+      "s": 50.74
+     }
+    ]
+   }
+  ],
+  "hale_hook_chore.mp3": [
+   {
+    "fromSec": 0,
+    "toSec": 1.24,
+    "words": [
+     {
+      "w": "Captions",
+      "s": 0
+     },
+     {
+      "w": "are",
+      "s": 0.56
+     },
+     {
+      "w": "the",
+      "s": 0.72
+     },
+     {
+      "w": "secret",
+      "s": 0.84
+     }
+    ]
+   },
+   {
+    "fromSec": 1.24,
+    "toSec": 2.24,
+    "words": [
+     {
+      "w": "to",
+      "s": 1.24
+     },
+     {
+      "w": "viral",
+      "s": 1.48
+     },
+     {
+      "w": "video,",
+      "s": 1.78
+     }
+    ]
+   },
+   {
+    "fromSec": 2.54,
+    "toSec": 3.48,
+    "words": [
+     {
+      "w": "but",
+      "s": 2.54
+     },
+     {
+      "w": "they",
+      "s": 2.8
+     },
+     {
+      "w": "shouldn't",
+      "s": 2.98
+     },
+     {
+      "w": "be",
+      "s": 3.34
+     }
+    ]
+   },
+   {
+    "fromSec": 3.48,
+    "toSec": 3.92,
+    "words": [
+     {
+      "w": "a",
+      "s": 3.48
+     },
+     {
+      "w": "chore.",
+      "s": 3.64
+     }
+    ]
+   }
+  ],
+  "hale_hook_engagement.mp3": [
+   {
+    "fromSec": 0,
+    "toSec": 1.76,
+    "words": [
+     {
+      "w": "Your",
+      "s": 0
+     },
+     {
+      "w": "video",
+      "s": 0.3
+     },
+     {
+      "w": "content",
+      "s": 0.62
+     },
+     {
+      "w": "deserves",
+      "s": 1.2
+     }
+    ]
+   },
+   {
+    "fromSec": 1.76,
+    "toSec": 2.52,
+    "words": [
+     {
+      "w": "to",
+      "s": 1.76
+     },
+     {
+      "w": "be",
+      "s": 2.04
+     },
+     {
+      "w": "seen,",
+      "s": 2.2
+     }
+    ]
+   },
+   {
+    "fromSec": 2.78,
+    "toSec": 3.94,
+    "words": [
+     {
+      "w": "but",
+      "s": 2.78
+     },
+     {
+      "w": "bad",
+      "s": 3
+     },
+     {
+      "w": "captions",
+      "s": 3.24
+     },
+     {
+      "w": "are",
+      "s": 3.76
+     }
+    ]
+   },
+   {
+    "fromSec": 3.94,
+    "toSec": 4.9,
+    "words": [
+     {
+      "w": "killing",
+      "s": 3.94
+     },
+     {
+      "w": "your",
+      "s": 4.2
+     },
+     {
+      "w": "engagement.",
+      "s": 4.46
+     }
+    ]
+   }
+  ],
+  "hale_hook_hours.mp3": [
+   {
+    "fromSec": 0,
+    "toSec": 2,
+    "words": [
+     {
+      "w": "Stop",
+      "s": 0
+     },
+     {
+      "w": "spending",
+      "s": 0.54
+     },
+     {
+      "w": "hours",
+      "s": 0.94
+     },
+     {
+      "w": "manually",
+      "s": 1.42
+     }
+    ]
+   },
+   {
+    "fromSec": 2,
+    "toSec": 3.32,
+    "words": [
+     {
+      "w": "captioning",
+      "s": 2
+     },
+     {
+      "w": "your",
+      "s": 2.72
+     },
+     {
+      "w": "videos.",
+      "s": 2.86
+     }
+    ]
+   },
+   {
+    "fromSec": 4.08,
+    "toSec": 4.64,
+    "words": [
+     {
+      "w": "What",
+      "s": 4.08
+     },
+     {
+      "w": "if",
+      "s": 4.22
+     },
+     {
+      "w": "you",
+      "s": 4.34
+     },
+     {
+      "w": "could",
+      "s": 4.48
+     }
+    ]
+   },
+   {
+    "fromSec": 4.64,
+    "toSec": 6.42,
+    "words": [
+     {
+      "w": "get",
+      "s": 4.64
+     },
+     {
+      "w": "perfect",
+      "s": 4.82
+     },
+     {
+      "w": "timed",
+      "s": 5.26
+     },
+     {
+      "w": "captions",
+      "s": 5.78
+     }
+    ]
+   },
+   {
+    "fromSec": 6.42,
+    "toSec": 7.56,
+    "words": [
+     {
+      "w": "directly",
+      "s": 6.42
+     },
+     {
+      "w": "on",
+      "s": 6.74
+     },
+     {
+      "w": "your",
+      "s": 7.1
+     },
+     {
+      "w": "phone",
+      "s": 7.24
+     }
+    ]
+   },
+   {
+    "fromSec": 7.56,
+    "toSec": 9.08,
+    "words": [
+     {
+      "w": "without",
+      "s": 7.56
+     },
+     {
+      "w": "ever",
+      "s": 8.02
+     },
+     {
+      "w": "uploading",
+      "s": 8.42
+     },
+     {
+      "w": "your",
+      "s": 8.86
+     }
+    ]
+   },
+   {
+    "fromSec": 9.08,
+    "toSec": 10,
+    "words": [
+     {
+      "w": "footage",
+      "s": 9.08
+     },
+     {
+      "w": "to",
+      "s": 9.36
+     },
+     {
+      "w": "the",
+      "s": 9.64
+     },
+     {
+      "w": "cloud?",
+      "s": 9.78
+     }
+    ]
+   }
+  ],
+  "hale_hook_look.mp3": [
+   {
+    "fromSec": 0,
+    "toSec": 1.78,
+    "words": [
+     {
+      "w": "Viral",
+      "s": 0
+     },
+     {
+      "w": "videos",
+      "s": 0.5
+     },
+     {
+      "w": "need",
+      "s": 0.78
+     },
+     {
+      "w": "captions,",
+      "s": 1.1
+     }
+    ]
+   },
+   {
+    "fromSec": 1.98,
+    "toSec": 3.32,
+    "words": [
+     {
+      "w": "but",
+      "s": 1.98
+     },
+     {
+      "w": "they",
+      "s": 2.34
+     },
+     {
+      "w": "shouldn't",
+      "s": 2.76
+     },
+     {
+      "w": "take",
+      "s": 3.12
+     }
+    ]
+   },
+   {
+    "fromSec": 3.32,
+    "toSec": 4.34,
+    "words": [
+     {
+      "w": "hours",
+      "s": 3.32
+     },
+     {
+      "w": "to",
+      "s": 3.68
+     },
+     {
+      "w": "create.",
+      "s": 3.96
+     }
+    ]
+   },
+   {
+    "fromSec": 5.22,
+    "toSec": 6.24,
+    "words": [
+     {
+      "w": "Get",
+      "s": 5.22
+     },
+     {
+      "w": "the",
+      "s": 5.36
+     },
+     {
+      "w": "professional",
+      "s": 5.52
+     },
+     {
+      "w": "look",
+      "s": 5.98
+     }
+    ]
+   },
+   {
+    "fromSec": 6.24,
+    "toSec": 7.58,
+    "words": [
+     {
+      "w": "you",
+      "s": 6.24
+     },
+     {
+      "w": "want",
+      "s": 6.44
+     },
+     {
+      "w": "without",
+      "s": 6.8
+     },
+     {
+      "w": "the",
+      "s": 7.38
+     }
+    ]
+   },
+   {
+    "fromSec": 7.58,
+    "toSec": 9.04,
+    "words": [
+     {
+      "w": "subscription",
+      "s": 7.58
+     },
+     {
+      "w": "fees",
+      "s": 8
+     },
+     {
+      "w": "or",
+      "s": 8.5
+     },
+     {
+      "w": "the",
+      "s": 8.88
+     }
+    ]
+   },
+   {
+    "fromSec": 9.04,
+    "toSec": 10.24,
+    "words": [
+     {
+      "w": "cloud",
+      "s": 9.04
+     },
+     {
+      "w": "upload",
+      "s": 9.4
+     },
+     {
+      "w": "headaches.",
+      "s": 9.84
+     }
+    ]
+   }
+  ],
+  "hale_hook_own-it.mp3": [
+   {
+    "fromSec": 0,
+    "toSec": 1.44,
+    "words": [
+     {
+      "w": "Stop",
+      "s": 0
+     },
+     {
+      "w": "paying",
+      "s": 0.38
+     },
+     {
+      "w": "monthly",
+      "s": 0.72
+     },
+     {
+      "w": "for",
+      "s": 1.16
+     }
+    ]
+   },
+   {
+    "fromSec": 1.44,
+    "toSec": 2.12,
+    "words": [
+     {
+      "w": "captions,",
+      "s": 1.44
+     }
+    ]
+   },
+   {
+    "fromSec": 2.54,
+    "toSec": 3.46,
+    "words": [
+     {
+      "w": "make",
+      "s": 2.54
+     },
+     {
+      "w": "a",
+      "s": 2.8
+     },
+     {
+      "w": "one",
+      "s": 2.98
+     },
+     {
+      "w": "-time",
+      "s": 3.2
+     }
+    ]
+   },
+   {
+    "fromSec": 3.46,
+    "toSec": 3.9,
+    "words": [
+     {
+      "w": "payment,",
+      "s": 3.46
+     }
+    ]
+   },
+   {
+    "fromSec": 4.2,
+    "toSec": 5.36,
+    "words": [
+     {
+      "w": "and",
+      "s": 4.2
+     },
+     {
+      "w": "own",
+      "s": 4.36
+     },
+     {
+      "w": "your",
+      "s": 4.68
+     },
+     {
+      "w": "tools",
+      "s": 4.96
+     }
+    ]
+   },
+   {
+    "fromSec": 5.36,
+    "toSec": 5.84,
+    "words": [
+     {
+      "w": "forever.",
+      "s": 5.36
+     }
+    ]
+   }
+  ],
+  "hale_hook_private.mp3": [
+   {
+    "fromSec": 0,
+    "toSec": 1.24,
+    "words": [
+     {
+      "w": "Tired",
+      "s": 0
+     },
+     {
+      "w": "of",
+      "s": 0.4
+     },
+     {
+      "w": "uploading",
+      "s": 0.56
+     },
+     {
+      "w": "your",
+      "s": 1
+     }
+    ]
+   },
+   {
+    "fromSec": 1.24,
+    "toSec": 2.36,
+    "words": [
+     {
+      "w": "private",
+      "s": 1.24
+     },
+     {
+      "w": "footage",
+      "s": 1.6
+     },
+     {
+      "w": "to",
+      "s": 1.98
+     },
+     {
+      "w": "the",
+      "s": 2.22
+     }
+    ]
+   },
+   {
+    "fromSec": 2.36,
+    "toSec": 3.5,
+    "words": [
+     {
+      "w": "cloud",
+      "s": 2.36
+     },
+     {
+      "w": "just",
+      "s": 2.7
+     },
+     {
+      "w": "to",
+      "s": 3.16
+     },
+     {
+      "w": "get",
+      "s": 3.36
+     }
+    ]
+   },
+   {
+    "fromSec": 3.5,
+    "toSec": 4.08,
+    "words": [
+     {
+      "w": "captions?",
+      "s": 3.5
+     }
+    ]
+   },
+   {
+    "fromSec": 4.74,
+    "toSec": 5.98,
+    "words": [
+     {
+      "w": "Keep",
+      "s": 4.74
+     },
+     {
+      "w": "your",
+      "s": 4.88
+     },
+     {
+      "w": "content",
+      "s": 5.06
+     },
+     {
+      "w": "secure",
+      "s": 5.52
+     }
+    ]
+   },
+   {
+    "fromSec": 5.98,
+    "toSec": 7.66,
+    "words": [
+     {
+      "w": "and",
+      "s": 5.98
+     },
+     {
+      "w": "your",
+      "s": 6.46
+     },
+     {
+      "w": "workflow",
+      "s": 6.64
+     },
+     {
+      "w": "fast",
+      "s": 7.14
+     }
+    ]
+   },
+   {
+    "fromSec": 7.66,
+    "toSec": 9.34,
+    "words": [
+     {
+      "w": "with",
+      "s": 7.66
+     },
+     {
+      "w": "the",
+      "s": 8.16
+     },
+     {
+      "w": "only",
+      "s": 8.36
+     },
+     {
+      "w": "captioning",
+      "s": 8.78
+     }
+    ]
+   },
+   {
+    "fromSec": 9.34,
+    "toSec": 10.78,
+    "words": [
+     {
+      "w": "app",
+      "s": 9.34
+     },
+     {
+      "w": "that",
+      "s": 9.52
+     },
+     {
+      "w": "works",
+      "s": 9.7
+     },
+     {
+      "w": "entirely",
+      "s": 10.08
+     }
+    ]
+   },
+   {
+    "fromSec": 10.78,
+    "toSec": 11.64,
+    "words": [
+     {
+      "w": "offline.",
+      "s": 10.78
+     }
+    ]
+   }
+  ],
+  "hale_hook_taps.mp3": [
+   {
+    "fromSec": 0,
+    "toSec": 1.76,
+    "words": [
+     {
+      "w": "Stop",
+      "s": 0
+     },
+     {
+      "w": "fighting",
+      "s": 0.58
+     },
+     {
+      "w": "with",
+      "s": 1.04
+     },
+     {
+      "w": "clunky",
+      "s": 1.36
+     }
+    ]
+   },
+   {
+    "fromSec": 1.76,
+    "toSec": 2.82,
+    "words": [
+     {
+      "w": "editing",
+      "s": 1.76
+     },
+     {
+      "w": "software.",
+      "s": 2.18
+     }
+    ]
+   },
+   {
+    "fromSec": 3.76,
+    "toSec": 4.22,
+    "words": [
+     {
+      "w": "What",
+      "s": 3.76
+     },
+     {
+      "w": "if",
+      "s": 3.84
+     },
+     {
+      "w": "you",
+      "s": 3.96
+     },
+     {
+      "w": "could",
+      "s": 4.08
+     }
+    ]
+   },
+   {
+    "fromSec": 4.22,
+    "toSec": 5.04,
+    "words": [
+     {
+      "w": "get",
+      "s": 4.22
+     },
+     {
+      "w": "professional,",
+      "s": 4.44
+     }
+    ]
+   },
+   {
+    "fromSec": 5.42,
+    "toSec": 6.92,
+    "words": [
+     {
+      "w": "perfectly",
+      "s": 5.42
+     },
+     {
+      "w": "timed",
+      "s": 5.68
+     },
+     {
+      "w": "captions",
+      "s": 6.18
+     },
+     {
+      "w": "on",
+      "s": 6.74
+     }
+    ]
+   },
+   {
+    "fromSec": 6.92,
+    "toSec": 7.96,
+    "words": [
+     {
+      "w": "your",
+      "s": 6.92
+     },
+     {
+      "w": "phone",
+      "s": 7.04
+     },
+     {
+      "w": "with",
+      "s": 7.38
+     },
+     {
+      "w": "just",
+      "s": 7.72
+     }
+    ]
+   },
+   {
+    "fromSec": 7.96,
+    "toSec": 8.56,
+    "words": [
+     {
+      "w": "a",
+      "s": 7.96
+     },
+     {
+      "w": "few",
+      "s": 8.14
+     },
+     {
+      "w": "taps?",
+      "s": 8.26
+     }
+    ]
+   }
+  ]
+ }
+}

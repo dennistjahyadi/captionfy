@@ -25,10 +25,11 @@ import { tmpdir } from 'node:os';
 import { resolve } from 'node:path';
 
 import { OUT, PROJECT, REMOTION, arg, config, publicDir, timings } from './lib.mjs';
-import { buildBeats, timingSource, totalFrames } from './beats.js';
+import { buildBeats, resolveVoice, timingSource, totalFrames } from './beats.js';
 
-const cfg = config();
-const t = timings();
+// `--voice=<id>` swaps in that voice's body recording, hook set and
+// measurements; without it this is the default voice and nothing changes.
+const { cfg, t, voice } = resolveVoice(config(), timings(), arg('voice', null));
 
 /**
  * Silent until there is a voice.
@@ -39,7 +40,15 @@ const t = timings();
  */
 const muted = t.lines === null;
 
-mkdirSync(OUT, { recursive: true });
+/**
+ * Where the files land. `--outdir` keeps a finished cut safe while another is
+ * made beside it — the silent cut and the voiced one are different deliverables
+ * and neither should quietly overwrite the other.
+ */
+// A voice that names its own output directory brings it, so two cuts cannot
+// land on each other by forgetting a flag.
+const outDir = resolve(PROJECT, arg('outdir', cfg.outDir ?? 'out'));
+mkdirSync(outDir, { recursive: true });
 execFileSync(resolve(PROJECT, '../pipeline/sync-public.sh'), [publicDir(cfg)], {
   stdio: 'inherit',
   env: { ...process.env, WB_PROJECT: PROJECT },
@@ -88,7 +97,11 @@ const join = (parts, dest) => {
 if (cfg.hooks) {
   const beats = buildBeats(cfg, t);
   const bodyFrames = totalFrames(beats);
-  const hookFrames = Math.round(cfg.hookSec * cfg.format.fps);
+  // A hook is as long as its own recording plus a tail once the voice exists,
+  // and `cfg.hookSec` only while the cut is silent.
+  const measuredHooks = new Map((t.hooks ?? []).map((h) => [h.id, h.sec + (h.tailSec ?? 0.45)]));
+  const hookFrames = (id) =>
+    Math.round((measuredHooks.get(id) ?? cfg.hookSec ?? 3.5) * cfg.format.fps);
   const only = arg('only', 'all');
   const one = arg('hook', null);
   const hooks = one ? cfg.hooks.filter((h) => h.id === one) : cfg.hooks;
@@ -97,25 +110,25 @@ if (cfg.hooks) {
     process.exit(1);
   }
 
-  const body = resolve(OUT, 'body.mp4');
-  console.log(`\nbody: ${bodyFrames} frames, ${timingSource(t)} lengths; hook: ${hookFrames} frames`);
+  const body = resolve(outDir, 'body.mp4');
+  console.log(`\nbody: ${bodyFrames} frames (${(bodyFrames / cfg.format.fps).toFixed(2)} s), ${timingSource(t)} lengths`);
 
   if (only === 'all' || only === 'body') {
-    remotionRender(cfg.composition.body, {}, body, bodyFrames);
+    remotionRender(cfg.composition.body, { voice }, body, bodyFrames);
   }
   if (only === 'all' || only === 'hooks') {
     for (const h of hooks) {
-      const hookOut = resolve(OUT, `hook_${h.id}.mp4`);
-      remotionRender(cfg.composition.hook, { hook: h.id }, hookOut, hookFrames);
+      const hookOut = resolve(outDir, `hook_${h.id}.mp4`);
+      remotionRender(cfg.composition.hook, { hook: h.id, voice }, hookOut, hookFrames(h.id));
     }
   }
   for (const h of hooks) {
-    join([resolve(OUT, `hook_${h.id}.mp4`), body], resolve(OUT, `tutorial_${h.id}.mp4`));
+    join([resolve(outDir, `hook_${h.id}.mp4`), body], resolve(outDir, `tutorial_${h.id}.mp4`));
   }
 } else {
   const variant = arg('variant', cfg.defaultVariant);
   const composition = arg('comp', cfg.composition ?? 'film');
-  const outPath = resolve(PROJECT, arg('out', `out/film_${variant}.mp4`));
+  const outPath = resolve(outDir, arg('out', `film_${variant}.mp4`));
   const frames = totalFrames(buildBeats(cfg, t));
   remotionRender(composition, { variant }, outPath, frames);
 }

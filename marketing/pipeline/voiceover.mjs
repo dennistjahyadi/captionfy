@@ -11,10 +11,24 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
-import { OUT, config } from './lib.mjs';
+import { OUT, config, timings } from './lib.mjs';
 
 const cfg = config();
+const t = timings();
 mkdirSync(OUT, { recursive: true });
+
+/**
+ * How much room a hook's line has, in seconds.
+ *
+ * Once a hook has been recorded it *is* its own length and the question this
+ * column answers has already been answered by the read — so the measurement
+ * wins. Before that it is `hookSec`, the planned budget. `hookSec` is null in a
+ * voiced project, which is why this cannot simply subtract from it: doing that
+ * printed every hook as "-0.6 s" at "-11.7 w/s", a table of negative speech
+ * that no reader would act on and nothing else would catch.
+ */
+const measuredHook = new Map((t.hooks ?? []).map((h) => [h.id, h.sec]));
+const hookRoom = (id) => measuredHook.get(id) ?? (cfg.hookSec ?? 3.5) - 0.6;
 
 const words = (s) => s.trim().split(/\s+/).filter(Boolean).length;
 const row = (n, id, line, room) =>
@@ -24,7 +38,11 @@ const bodyRows = cfg.beats.filter((b) => b.vo).map((b, i) => row(`body_${i + 1}`
 const bodyWords = cfg.beats.reduce((n, b) => n + (b.vo ? words(b.vo) : 0), 0);
 const bodySec = cfg.beats.reduce((n, b) => n + b.durationSec, 0);
 
-const hookRows = (cfg.hooks ?? []).map((h, i) => row(`hook_${i + 1}`, h.id, h.vo, cfg.hookSec - 0.6));
+// Named by hook id, not by position. A positional `hook_4` moved the moment
+// `pay-once-b` was inserted in the middle, so the script would have told anyone
+// re-recording to overwrite the wrong file — and `config.json → hooks[].audio`
+// is keyed by id anyway.
+const hookRows = (cfg.hooks ?? []).map((h) => row(h.audio ?? `hook_${h.id}.mp3`, h.id, h.vo, hookRoom(h.id)));
 
 const md = `# ${cfg.title} · voice script
 
@@ -56,7 +74,7 @@ The hook's text is on screen inside its first second, because a large share of
 viewers arrive muted, so a hook needs no voice to work. If the hooks are voiced,
 record all six in one sitting so the energy matches across them — the six are
 a controlled test of the hook and a read that is brighter on one of them is a
-second variable. Files \`input/voice/hook_1.mp3\` … \`hook_${(cfg.hooks ?? []).length}.mp3\`.
+second variable. One file per hook, named by id, in the \`file\` column below.
 
 | file | hook | line | words | room | pace |
 |---|---|---|---|---|---|

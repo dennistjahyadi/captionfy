@@ -1,91 +1,116 @@
 import React from 'react';
-import { AbsoluteFill } from 'remotion';
+import { AbsoluteFill, Audio, staticFile } from 'remotion';
 
 import { Waveform } from '../Chrome';
-import { ChargeStack } from '../ads/PayOnce';
-import { ExportShot, Ground, ProjectProvider, Title } from '../parts';
+import { Punch } from '../Phone';
+import { ExportShot, Ground, ProjectProvider } from '../parts';
 import { useFonts } from '../useFonts';
+import { Captions } from './Captions';
+import { CaptionBars, Glow } from './Graphics';
+import { Headline } from './Headline';
+import { focusMoves } from './Focus';
 import { Segments } from './Segments';
-import { CONFIG, DIR, FPS, HOOK_FRAMES, clipStart, hookById } from './timeline';
+import { HookSfx } from './Sfx';
+import { CONFIG, DIR, FPS, HOOK_FRAMES, clipStart, cuesFor, hookByIdFor, hookFramesFor, hooksFor } from './timeline';
 
-export type HookProps = { hook: string };
+export type HookProps = { hook: string; voice?: string };
 
 /**
- * One hook: three seconds, resolved by the end of them.
+ * One hook: three and a half seconds, resolved well before the end of them.
  *
  * Six of these exist and they are the only thing that differs between the six
- * videos. Each is a different opening shape — the payoff, a physical action,
- * a contrarian claim, a demonstration, three statements, the other payoff —
- * and the text is on screen inside the first second, because the algorithm
- * has made up its mind by 1.5 s and a large share of viewers arrive muted.
+ * videos. Each is a different opening shape — the payoff, a physical action, a
+ * contrarian claim, a demonstration, three statements, the other payoff — and
+ * the text is on screen at 0.2 s, because the algorithm has made up its mind
+ * by 1.5 and a large share of viewers arrive muted.
+ *
+ * Two kinds. `export` plays the app's own finished file full-bleed, which is
+ * the right frame for the two hooks whose subject is the output rather than
+ * the app. `phone` shows a recording of the app inside a device, the same way
+ * the body does, so a viewer who arrives on one of those four is already
+ * looking at the thing the body is about to explain.
  */
-export const Hook: React.FC<HookProps> = ({ hook: id }) => {
+export const Hook: React.FC<HookProps> = ({ hook: id, voice }) => {
   useFonts();
-  const hook = hookById(id);
+  const hook = hookByIdFor(voice, id);
   const titleAt = Math.round(hook.titleAt * FPS);
-  const pos = hook.titlePos === 'mid' ? 'mid' : 'top';
+  const frames = hookFramesFor(voice, id);
+  // Its place in the set, so the seven do not all open on the same note.
+  const order = Math.max(0, hooksFor(voice).findIndex((h) => h.id === id));
 
   return (
     <ProjectProvider value={{ safe: CONFIG.safeBox, dir: DIR }}>
       <AbsoluteFill>
-        <Ground />
+        <Ground solid />
 
-        {hook.kind === 'export' ? <ExportShot startFrom={clipStart(hook.startSec)} /> : null}
+        {/* The hook's own recording, from frame zero. The picture is cut to the
+            voice rather than the other way round: `hookFrames` is the file's
+            length plus a tail, so there is never silence at the end of a hook
+            and never a word clipped off one. */}
+        {hook.audio ? <Audio src={staticFile(`${DIR}/${hook.audio}`)} /> : null}
 
-        {hook.kind === 'emphasis' ? (
+        <HookSfx
+          index={order}
+          moves={focusMoves(hook.segments, frames, FPS)}
+        />
+
+        {/* A hook that opens on a screenshot is asking a stranger to care about
+            an interface before they have been told why. `graphic` hooks show
+            nobody's app: the icon's own geometry at full size — a line of words
+            assembling with the accent travelling across it, which is what the
+            product does — and the headline over it. The app arrives in the body,
+            on the line that names it. */}
+        {hook.kind === 'graphic' ? (
           <>
+            <Glow atY={0.5} />
+            <CaptionBars atY={0.5} sweepSec={Math.max(1.8, frames / FPS - 1.2)} />
+          </>
+        ) : null}
+
+        {hook.kind === 'export' ? (
+          <Punch>
             <ExportShot startFrom={clipStart(hook.startSec)} />
-            {/* The speech envelope scrolling under a playhead, its spike
-                arriving on the frame the export's own loud word lights up.
-                The spike times are read off the export and live in the
-                config; if they drift from the file, the hook is showing the
-                mechanism not working. */}
-            <div
-              style={{
-                position: 'absolute',
-                top: 1150,
-                left: 0,
-                right: 0,
-                display: 'flex',
-                justifyContent: 'center',
-              }}
-            >
-              <Waveform
-                hitsMs={(hook.hitsSec ?? []).map((s) => s * 1000)}
-                windowMs={3200}
-                height={104}
-                width="78%"
-              />
-            </div>
-          </>
+          </Punch>
         ) : null}
 
-        {hook.kind === 'screens' && hook.segments ? <Segments segments={hook.segments} /> : null}
-
-        {hook.kind === 'pay-once' && hook.segments ? (
-          <>
-            <Segments segments={hook.segments} />
-            {/* A stack of pills that keeps arriving beside one that does not:
-                the claim about recurring billing, with nothing in it about
-                anybody else's number. The number lives in the post copy. */}
-            <div
-              style={{
-                position: 'absolute',
-                top: 600,
-                left: 0,
-                right: 0,
-                display: 'flex',
-                justifyContent: 'center',
-                transform: 'scale(0.82)',
-                transformOrigin: 'top center',
-              }}
-            >
-              <ChargeStack />
-            </div>
-          </>
+        {hook.waveform ? (
+          // The speech envelope scrolling under a playhead, its spike arriving
+          // on the frame the export's own loud word lights up. The spike times
+          // are read off the export and live in the config; if they drift from
+          // the file, the hook is showing the mechanism not working.
+          <div
+            style={{
+              position: 'absolute',
+              top: 1180,
+              left: 0,
+              right: 0,
+              display: 'flex',
+              justifyContent: 'center',
+            }}
+          >
+            <Waveform
+              hitsMs={(hook.hitsSec ?? []).map((s) => s * 1000)}
+              windowMs={3400}
+              height={104}
+              width="78%"
+            />
+          </div>
         ) : null}
 
-        <Title text={hook.title} at={titleAt} pos={pos} size={hook.title.length > 44 ? 66 : 74} />
+        {hook.kind === 'phone' && hook.segments ? (
+          <Segments segments={hook.segments} fillFrames={frames} />
+        ) : null}
+
+        <Headline
+          text={hook.title}
+          at={titleAt}
+          pos={hook.titlePos === 'mid' ? 'mid' : 'above'}
+        />
+
+        {/* A hook is where a muted viewer decides, so the sentence under the
+            headline matters most here. It sits a little higher than the body's
+            so it clears TikTok's own caption on a short post. */}
+        <Captions cues={cuesFor(hook.audio)} atY={0.7} size={52} />
       </AbsoluteFill>
     </ProjectProvider>
   );

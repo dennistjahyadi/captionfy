@@ -3,43 +3,43 @@
   "shots": {
     "unlock": {
       "id": "unlock",
-      "what": "The Unlock screen: 'Buy it once. Keep it forever.' and the four ticks. The price button is cropped out — the product is not in Play yet, so it spins.",
+      "what": "The Unlock screen: 'Buy it once. Keep it forever.' and the four promises. Its price button spins, because the product is in no Play Console yet, so the hook that uses this stops above it.",
       "file": "unlock.mp4",
       "width": 1080,
       "height": 2400,
-      "durationSec": 4
+      "durationSec": 5
     },
     "style": {
       "id": "style",
-      "what": "The style sheet: nine presets animating the user's own line, the scroll to the last three, the hue strip dragged, yellow picked back",
+      "what": "The style sheet: eighteen presets animating the user's own line, four of them tapped, the scroll past the first six, then the colour pair, the size and the position frame",
       "file": "style.mp4",
       "width": 1080,
       "height": 2400,
-      "durationSec": 16
+      "durationSec": 24
     },
     "dictionary": {
       "id": "dictionary",
-      "what": "A word's sheet, 'Add to your words', the dictionary with the entry half written, Save, back in the editor",
+      "what": "The word 'brand' → 'Add to your words' → the dictionary with the entry half written → Save, back in the editor",
       "file": "dictionary.mp4",
       "width": 1080,
       "height": 2400,
-      "durationSec": 10
+      "durationSec": 11
     },
     "saving": {
       "id": "saving",
-      "what": "Export → Save to gallery → the render, about thirty seconds on this emulator → Saved, with the share buttons",
+      "what": "Export → Save to gallery → the progress bar → Saved, with the tick, the filename and Share. One recording rather than two, because a separate Saved shot would have to be timed against the export by hand.",
       "file": "saving.mp4",
       "width": 1080,
       "height": 2400,
-      "durationSec": 36
+      "durationSec": 120
     },
     "pick": {
       "id": "pick",
-      "what": "Airplane mode on. Home → New video → the system picker → the curtain → Processing with the words arriving → the editor",
+      "what": "Airplane mode on. Home → New video → the system picker → the curtain → Processing with the words arriving → the editor. Run last: it makes a second project, and it needs the gallery cleared of exports first.",
       "file": "pick.mp4",
       "width": 1080,
       "height": 2400,
-      "durationSec": 40
+      "durationSec": 46
     },
     "toggle": {
       "id": "toggle",
@@ -47,7 +47,7 @@
       "file": "toggle.mp4",
       "width": 1080,
       "height": 2400,
-      "durationSec": 7
+      "durationSec": 8
     },
     "saved": {
       "id": "saved",
@@ -56,12 +56,44 @@
       "width": 1080,
       "height": 2400,
       "durationSec": 4
+    },
+    "home": {
+      "id": "home",
+      "what": "Home standing still: the promise line, New video, the watermark chip, and the one project",
+      "file": "home.mp4",
+      "width": 1080,
+      "height": 2400,
+      "durationSec": 5
+    },
+    "editor": {
+      "id": "editor",
+      "what": "The editor playing: the Focus card on the stage, the blue mark travelling word by word, the transcript scrolling under it",
+      "file": "editor.mp4",
+      "width": 1080,
+      "height": 2400,
+      "durationSec": 9
+    },
+    "fix": {
+      "id": "fix",
+      "what": "The '1 to check' chip opens the one dotted word, 'Don't.' — 'Not sure about this one' — and Looks right clears it and the chip with it",
+      "file": "fix.mp4",
+      "width": 1080,
+      "height": 2400,
+      "durationSec": 9
+    },
+    "timing": {
+      "id": "timing",
+      "what": "The timing sheet on that same word: its window on the waveform, the end handle dragged out, then Move +50 twice",
+      "file": "timing.mp4",
+      "width": 1080,
+      "height": 2400,
+      "durationSec": 10
     }
   },
   "export": {
     "file": "export.mp4",
     "what": "A real Wordburn export. Captions burned in by the app's own module, not redrawn here.",
-    "sourceName": "Wordburn 2026-09-20 012610.mp4",
+    "sourceName": "Wordburn 2026-09-20 031602.mp4",
     "width": 1080,
     "height": 1920,
     "durationSec": 19.783401,

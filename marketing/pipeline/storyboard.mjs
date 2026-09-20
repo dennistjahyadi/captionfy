@@ -24,10 +24,11 @@ import { copyFileSync, existsSync, mkdirSync, statSync } from 'node:fs';
 import { resolve } from 'node:path';
 
 import { OUT, PROJECT, REMOTION, arg, config, publicDir, timings } from './lib.mjs';
-import { beatMidpoints, buildBeats } from './beats.js';
+import { beatMidpoints, buildBeats, resolveVoice } from './beats.js';
 
-const cfg = config();
-const dest = resolve(PROJECT, arg('out', 'out/storyboard.png'));
+const { cfg, t: tv } = resolveVoice(config(), timings(), arg('voice', null));
+const srcDir = arg('outdir', cfg.outDir ?? 'out');
+const dest = resolve(PROJECT, arg('out', `${srcDir}/storyboard.png`));
 const staging = resolve(REMOTION, 'public', publicDir(cfg));
 mkdirSync(staging, { recursive: true });
 mkdirSync(OUT, { recursive: true });
@@ -43,15 +44,15 @@ const stage = (from, name) => {
 
 let composition;
 if (cfg.hooks) {
-  stage('out/body.mp4', 'preview-body.mp4');
-  for (const h of cfg.hooks) stage(`out/hook_${h.id}.mp4`, `preview-hook-${h.id}.mp4`);
+  stage(`${srcDir}/body.mp4`, 'preview-body.mp4');
+  for (const h of cfg.hooks) stage(`${srcDir}/hook_${h.id}.mp4`, `preview-hook-${h.id}.mp4`);
   composition = cfg.composition.storyboard;
 } else {
   stage(arg('in', `out/film_${cfg.defaultVariant}.mp4`), 'preview.mp4');
   composition = `${cfg.composition ?? 'film'}-storyboard`;
 }
 
-const marks = beatMidpoints(buildBeats(cfg, timings()), cfg.format.fps);
+const marks = beatMidpoints(buildBeats(cfg, tv), cfg.format.fps);
 
 execFileSync('npx', ['remotion', 'still', 'src/index.ts', composition, dest, '--log=error'], {
   cwd: REMOTION,

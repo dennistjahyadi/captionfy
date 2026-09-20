@@ -10,8 +10,8 @@ import { CONFIG, TOTAL_FRAMES as FILM_FRAMES } from './film/timeline';
 import { Body } from './tutorial/Body';
 import { Hook } from './tutorial/Hook';
 import { SHEET as TUTORIAL_SHEET, Storyboard as TutorialStoryboard } from './tutorial/Storyboard';
-import { Tutorial, TUTORIAL_FRAMES } from './tutorial/Tutorial';
-import { BODY_FRAMES, HOOKS, HOOK_FRAMES } from './tutorial/timeline';
+import { Tutorial, TUTORIAL_FRAMES, tutorialFrames } from './tutorial/Tutorial';
+import { BODY_FRAMES, HOOKS, HOOK_FRAMES, bodyFramesFor, hookFramesFor } from './tutorial/timeline';
 import { FORMAT } from './brand';
 
 export const RemotionRoot: React.FC = () => (
@@ -72,20 +72,30 @@ export const RemotionRoot: React.FC = () => (
       id="tutorial-body"
       component={Body}
       durationInFrames={BODY_FRAMES}
+      defaultProps={{ voice: 'default' }}
+      calculateMetadata={({ props }) => ({ durationInFrames: bodyFramesFor(props.voice as string) })}
       {...FORMAT}
     />
+    {/*
+      A hook's length is its own recording plus a tail, so it is computed from
+      the prop rather than registered as a constant: the six reads run from
+      2.6 s to 4.4 s, and one shared number would leave silence under the short
+      ones and clip the long ones.
+    */}
     <Composition
       id="tutorial-hook"
       component={Hook}
       durationInFrames={HOOK_FRAMES}
-      defaultProps={{ hook: HOOKS[0].id }}
+      defaultProps={{ hook: HOOKS[0].id, voice: 'default' }}
+      calculateMetadata={({ props }) => ({ durationInFrames: hookFramesFor(props.voice as string, props.hook) })}
       {...FORMAT}
     />
     <Composition
       id="tutorial"
       component={Tutorial}
       durationInFrames={TUTORIAL_FRAMES}
-      defaultProps={{ hook: HOOKS[0].id }}
+      defaultProps={{ hook: HOOKS[0].id, voice: 'default' }}
+      calculateMetadata={({ props }) => ({ durationInFrames: tutorialFrames(props.voice as string, props.hook) })}
       {...FORMAT}
     />
     <Composition

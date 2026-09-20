@@ -6,14 +6,17 @@ import {
   interpolate,
   staticFile,
   useCurrentFrame,
+  useVideoConfig,
 } from 'remotion';
 
 import { ACCENT, ON_ACCENT, color, font } from '../brand';
 import { Mark } from '../Chrome';
+import { PHONE_TOP } from './PhoneFrame';
 import { useProject, useSafeBox } from './project';
 
 export { ProjectProvider, useProject, useSafeBox } from './project';
 export type { Project, SafeBox } from './project';
+export { PhoneFrame, devicePoint, PHONE_TOP, PHONE_LEFT, SCALE, SCREEN, BODY, BEZEL, BORDER } from './PhoneFrame';
 
 const ease = (frame: number, a: number, b: number) =>
   interpolate(frame, [a, b], [0, 1], {
@@ -25,22 +28,33 @@ const ease = (frame: number, a: number, b: number) =>
 /**
  * The ground everything sits on.
  *
- * A product film is mostly one considered colour, and this one is the app's own
- * `ink` with a slow warm lift under the middle — enough that the frame is not a
- * flat rectangle, not so much that it competes with a caption. It does not
- * move: the motion in this film belongs to the product, and a drifting
- * background is the tell of a template.
+ * Two modes, and which one is right depends on what is standing on it.
+ *
+ * The default is the app's own `ink` with a slow warm lift under the middle —
+ * enough that the frame is not a flat rectangle, not so much that it competes
+ * with a caption. It does not move: the motion belongs to the product, and a
+ * drifting background is the tell of a template. That is video 01, a paid
+ * product film, where the frame is mostly one considered colour.
+ *
+ * `solid` is true black, and it is what video 02 uses. A tutorial is a device
+ * on a ground for most of its length, and any gradient behind the device reads
+ * as a studio backdrop — which is the manufactured look organic TikTok
+ * punishes. True black also meets the platform's own chrome without a seam,
+ * and on the panels most of this will be watched on it is not lit at all.
  */
-export const Ground: React.FC = () => (
-  <AbsoluteFill style={{ background: color.ink }}>
-    <AbsoluteFill
-      style={{
-        background:
-          'radial-gradient(120% 70% at 50% 42%, rgba(255,224,61,0.07) 0%, rgba(255,224,61,0.02) 38%, rgba(0,0,0,0) 72%)',
-      }}
-    />
-  </AbsoluteFill>
-);
+export const Ground: React.FC<{ solid?: boolean }> = ({ solid = false }) => {
+  if (solid) return <AbsoluteFill style={{ background: '#000000' }} />;
+  return (
+    <AbsoluteFill style={{ background: color.ink }}>
+      <AbsoluteFill
+        style={{
+          background:
+            'radial-gradient(120% 70% at 50% 42%, rgba(255,224,61,0.07) 0%, rgba(255,224,61,0.02) 38%, rgba(0,0,0,0) 72%)',
+        }}
+      />
+    </AbsoluteFill>
+  );
+};
 
 /**
  * The app's own exported file, 1:1.
@@ -204,22 +218,51 @@ export const Title: React.FC<{
    * account. No upload. No server." straight through "Captions by Wordburn".
    * The captions themselves own the lower third. `mid` is the band between
    * them, and it is the only place on an export beat a line can go.
+   *
+   * `above` sits in the band over a `PhoneFrame`, anchored to its foot rather
+   * than to its head, so a one-line title and a two-line one both stop the
+   * same distance above the device. Anchoring from the top instead lets the
+   * gap breathe and shrink between beats, which on a cut every five seconds
+   * reads as the phone moving.
    */
-  pos?: 'top' | 'mid';
+  pos?: 'top' | 'mid' | 'above';
   size?: number;
 }> = ({ text, at = 0, kicker, pos = 'top', size = 74 }) => {
   const frame = useCurrentFrame() - at;
   const SAFE = useSafeBox();
+  const { width } = useVideoConfig();
   if (frame < 0) return null;
   const enter = ease(frame, 0, 20);
+
+  const box =
+    pos === 'above'
+      ? { bottom: 1920 - PHONE_TOP + 20 }
+      : { top: pos === 'mid' ? 700 : SAFE.y0 + 70 };
+
+  /**
+   * Centred on the frame, not on the safe box.
+   *
+   * The safe box is not symmetric and is not meant to be: it starts at x 60 and
+   * stops at x 960 because TikTok's action rail eats the right-hand side, so
+   * its own centre is x 510. A line centred *in the box* therefore sits 30 px
+   * left of the frame — and 30 px left of the phone under it, which is centred
+   * on 540. On a still that reads as a mistake because it is one; the device
+   * and the label over it are one object and have to share an axis.
+   *
+   * So: centre on the frame and clamp the half-width to the nearer margin. The
+   * line keeps the frame's axis and still cannot cross either edge of the box,
+   * which is the whole job the box was doing. It costs 60 px of measure on a
+   * 1080 frame — the right-hand margin, mirrored onto the left.
+   */
+  const half = Math.min(width / 2 - SAFE.x0, SAFE.x1 - width / 2);
 
   return (
     <div
       style={{
         position: 'absolute',
-        top: pos === 'mid' ? 700 : SAFE.y0 + 70,
-        left: SAFE.x0,
-        width: SAFE.x1 - SAFE.x0,
+        ...box,
+        left: width / 2 - half,
+        width: half * 2,
         textAlign: 'center',
         opacity: enter,
         transform: `translateY(${(1 - enter) * 18}px)`,

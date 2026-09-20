@@ -3,7 +3,7 @@
     "name": "Wordburn",
     "slug": "wordburn",
     "scheme": "wordburn",
-    "version": "1.0.2",
+    "version": "1.0.3",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "newArchEnabled": true,
@@ -12,7 +12,7 @@
       "bundleIdentifier": "com.wordburn.app"
     },
     "android": {
-      "versionCode": 102,
+      "versionCode": 103,
       "package": "com.wordburn.app",
       "adaptiveIcon": {
         "backgroundColor": "#0F0E0D",

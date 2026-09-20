@@ -1,8 +1,8 @@
 {
   "id": "02-tutorial",
-  "kind": "six hooks, one tutorial",
+  "kind": "seven hooks, one tutorial",
   "surface": "organic TikTok, 9:16",
-  "title": "Video 02 — six hooks, one tutorial · organic 9:16",
+  "title": "Video 02 — seven hooks, one tutorial · organic 9:16",
   "publicDir": "tutorial",
   "composition": {
     "dir": "tutorial",
@@ -15,327 +15,484 @@
     "height": 1920,
     "fps": 30
   },
-  "cta": "Android · one payment",
+  "cta": "Get it on Google Play",
+  "framing": {
+    "note": "Every app shot is the WHOLE 1080 x 2400 screen inside a device frame, at 0.5. The first cut showed a cropped band of the screen at near-native scale, on the argument that an advertisement for a typography feature must not shrink the typography. That was right about type and wrong about tutorials: a viewer who has never seen the app cannot tell a cropped band from a full screen, so every cut looked like a different app. The second cut showed the whole screen at 0.6 and put the device's foot at 1898 — under TikTok's own caption, which covers everything below 1498, and which is exactly where the word sheet, the timing sheet and the dictionary dock. 0.5 puts the foot at 1603, so the only thing crossing is the phone's bottom bezel and Android's gesture bar.",
+    "phoneScale": 0.5,
+    "ground": "solid black",
+    "groundNote": "True black behind the device, not the app's ink with a warm lift under it. That gradient is video 01's, and it belongs there: a paid product film is mostly one considered colour. A tutorial is a phone standing on a ground for most of its length, and any gradient behind the phone reads as a studio backdrop — the manufactured look organic TikTok punishes. Black also meets the platform's own chrome without a seam, and is not lit at all on the panels most of this will be watched on. `Ground` keeps both modes so video 01 is untouched."
+  },
   "safeBox": {
     "kind": "organic",
-    "note": "Organic, not paid. TikTok's own chrome leaves 211 px at the top and 422 at the bottom of a 1080 x 1920 frame, so anything that must be read sits between y 211 and 1498. If any of the six is ever run as a paid unit, `kind` becomes `paid`, y1 becomes 1128, and every title moves up with it because nothing is positioned by hand.",
+    "note": "Organic, not paid. TikTok's own chrome leaves 211 px at the top and 422 at the bottom of a 1080 x 1920 frame, so anything that must be read sits between y 211 and 1498. If any of the six is ever run as a paid unit, `kind` becomes `paid`, y1 becomes 1128, and every title moves with it because nothing is positioned by hand.",
     "x0": 60,
     "x1": 960,
     "y0": 211,
     "y1": 1498
   },
-  "hookSec": 3,
+  "hookSec": null,
   "hooks": [
     {
       "id": "outcome",
       "type": "outcome showcase — the payoff is the opening frame",
       "kind": "export",
-      "startSec": 6.0,
       "title": "these captions were made on a phone",
       "titleAt": 0.2,
-      "titlePos": "mid",
-      "vo": "these captions were made on a phone."
+      "vo": "These captions were made on a phone.",
+      "audio": "hook_outcome.mp3",
+      "tailSec": 0.45,
+      "startSec": 7.2,
+      "titlePos": "mid"
     },
     {
       "id": "airplane",
       "type": "physical action — a pattern interrupt",
-      "kind": "screens",
-      "title": "airplane mode on. can it still caption?",
+      "kind": "phone",
+      "title": "airplane mode on. can it still caption this?",
       "titleAt": 0.2,
+      "vo": "Airplane mode's on. Can it still caption this?",
+      "audio": "hook_airplane.mp3",
+      "tailSec": 0.45,
       "segments": [
         {
-          "file": "toggle.mp4",
-          "startSec": 3.4,
-          "durationSec": 1.8,
-          "crop": {
-            "y": 400,
-            "h": 1180
-          }
-        },
-        {
           "file": "pick.mp4",
-          "startSec": 9.8,
-          "durationSec": 1.2,
-          "crop": {
-            "y": 0,
-            "h": 1180
-          },
+          "startSec": 9.5,
           "pointer": "airplane"
         }
-      ],
-      "vo": "airplane mode on. watch.",
-      "segmentsNote": "The tile flips to On at 4.4 s of toggle.mp4, read off frames at 0.3 s steps, so the first segment starts a second before it."
+      ]
     },
     {
       "id": "pay-once",
       "type": "contrarian, about this app only",
-      "kind": "pay-once",
-      "title": "most caption apps bill you monthly. this one bills you once.",
+      "kind": "phone",
+      "title": "most caption apps bill you every month.",
       "titleAt": 0.2,
+      "vo": "Most caption apps bill you every month.",
+      "audio": "hook_pay-once.mp3",
+      "tailSec": 0.45,
       "segments": [
         {
           "file": "unlock.mp4",
-          "startSec": 0.4,
-          "durationSec": 3,
-          "crop": {
-            "y": 300,
-            "h": 600
-          },
-          "scale": 0.7,
-          "top": 1180
+          "startSec": 0
         }
       ],
-      "vo": "most caption apps bill you every month. this one, once."
+      "abNote": "The A side of the only pair in the seven. It names the subscription as the problem and lets the Unlock screen under it answer — 'Buy it once. Keep it forever.', in the app's own words. `pay-once-b` puts the same claim the other way up."
+    },
+    {
+      "id": "pay-once-b",
+      "type": "contrarian, the same claim put as a question",
+      "kind": "phone",
+      "title": "what if captions only cost you once?",
+      "titleAt": 0.2,
+      "vo": "What if captions only cost you once?",
+      "audio": "hook_pay-once-b.mp3",
+      "tailSec": 0.45,
+      "segments": [
+        {
+          "file": "unlock.mp4",
+          "startSec": 0
+        }
+      ],
+      "abNote": "The B side. Same footage, same first frame, one variable: whether the hook states the problem (`pay-once`, 3.24 s) or asks for the alternative (`pay-once-b`, 2.85 s). Both were recorded, so both ship. Read the pair against each other before reading either against the other five — a difference between these two is about how the claim is worded, where a difference against `airplane` or `styles` is about which claim it is."
     },
     {
       "id": "emphasis",
       "type": "demonstration of the one thing nobody else does",
-      "kind": "emphasis",
-      "startSec": 13.0,
-      "hitsSec": [
-        1.0
-      ],
-      "hitsNote": "Where in these three seconds the loud word takes the frame: the export from 13.0 s reads 'Then ask for 20%' and the box lands on the yellow 20% at 14.0 s. Read off out/exp-sheet.png (two frames a second) and not guessed; if the export is remade, read it again.",
-      "title": "it hears which word you leaned on",
+      "kind": "export",
+      "title": "your captions hear which word you leaned on",
       "titleAt": 0.2,
+      "vo": "Your captions hear which word you leaned on.",
+      "audio": "hook_emphasis.mp3",
+      "tailSec": 0.45,
+      "startSec": 13.5,
       "titlePos": "mid",
-      "vo": "it hears which word you leaned on."
+      "waveform": true,
+      "hitsSec": [
+        0.6
+      ]
     },
     {
       "id": "no-account",
       "type": "claim-first — three statements, not a list",
-      "kind": "screens",
+      "kind": "phone",
       "title": "no account. no upload. no server.",
       "titleAt": 0.2,
+      "vo": "Captions with no account, no upload, no server.",
+      "audio": "hook_no-account.mp3",
+      "tailSec": 0.45,
       "segments": [
         {
           "file": "home.mp4",
-          "startSec": 0.5,
-          "durationSec": 1.6,
-          "crop": {
-            "y": 0,
-            "h": 1180
-          }
-        },
-        {
-          "file": "pick.mp4",
-          "startSec": 9.8,
-          "durationSec": 1.4,
-          "crop": {
-            "y": 0,
-            "h": 1180
-          }
+          "startSec": 0
         }
-      ],
-      "vo": "no account. no upload. no server."
+      ]
     },
     {
       "id": "styles",
       "type": "outcome showcase, the other payoff",
-      "kind": "screens",
-      "title": "nine caption styles. all animating your own words.",
+      "kind": "phone",
+      "title": "eighteen caption styles, on your own words",
       "titleAt": 0.2,
+      "vo": "Eighteen caption styles, on your own words.",
+      "audio": "hook_styles.mp3",
+      "tailSec": 0.45,
       "segments": [
         {
           "file": "style.mp4",
-          "startSec": 2.6,
-          "durationSec": 3,
-          "crop": {
-            "y": 1080,
-            "h": 1320
-          }
+          "startSec": 1
         }
-      ],
-      "vo": "nine looks. every one live."
+      ]
     }
   ],
   "beats": [
     {
       "id": "pick",
-      "durationSec": 2.5,
-      "source": "app:pick",
-      "what": "Home → New video → the system picker, the raw clip tapped",
+      "source": "app",
+      "what": "Home → New video → the system picker, the clip tapped",
       "kicker": "how it works",
-      "title": "pick a video",
-      "vo": "pick a video.",
+      "title": "this is wordburn",
+      "vo": "Meet Wordburn, the app that captions any video right on your phone.",
       "voInAt": 0.2,
-      "titlePos": "top",
-      "startSec": 0.6,
-      "crop": {
-        "y": 0,
-        "h": 1180
-      }
+      "titlePos": "above",
+      "segments": [
+        {
+          "file": "pick.mp4",
+          "startSec": 0.8,
+          "focus": {
+            "deviceX": 36,
+            "deviceW": 1008,
+            "deviceY": 560,
+            "deviceH": 180,
+            "inSec": 0.35,
+            "outSec": 1.45,
+            "tapAt": 1.15,
+            "zoom": false
+          },
+          "focusNote": "Tight against the footage, not against the beat. The picker sheet starts rising over the New video button 2.0 s into this segment, and the old window (1.1 to 3.1) held the accent box on the button for most of a second after the sheet had covered it — a box pointing at a thing that is no longer there. It now lands at 0.9 and has faded by 1.75. Any focus window has to be checked against what the recording is doing, not just against how long the line is."
+        }
+      ],
+      "introSec": 1.35,
+      "introNote": "The line is \"Meet Wordburn, the app that captions any video right on your phone.\" It used to name the app in the voice and show a screenshot in the picture on the same frame, so neither landed. The mark now has the first half of the sentence to itself and the phone arrives under \"the app that captions any video\" — 1.35 s, which is where the word timings in captions.json put the comma after the name."
     },
     {
       "id": "transcribe",
-      "durationSec": 3.0,
-      "source": "app:pick",
-      "what": "Processing — 'Transcribing' with the aeroplane in the phone's own status bar, ringed — and the transcript landing in the editor",
-      "title": "it transcribes on the phone. nothing is uploaded.",
-      "vo": "it transcribes on the phone. nothing is uploaded.",
+      "source": "app",
+      "what": "Processing — the words arriving, the aeroplane in the phone's own status bar, ringed",
+      "title": "nothing is uploaded",
+      "vo": "Everything happens locally on your device, so your video never leaves your phone.",
       "voInAt": 0.2,
-      "titlePos": "top",
-      "pointer": "airplane",
+      "titlePos": "above",
       "segments": [
         {
           "file": "pick.mp4",
           "startSec": 9.5,
-          "durationSec": 3.0,
-          "crop": {
-            "y": 0,
-            "h": 1620
-          },
-          "scale": 0.62,
-          "top": 560,
-          "pointer": "airplane"
+          "pointer": "airplane",
+          "focus": {
+            "deviceX": 520,
+            "deviceW": 545,
+            "deviceY": 0,
+            "deviceH": 210,
+            "inSec": 1,
+            "outSec": 3.3,
+            "fill": 0.62,
+            "zoom": true
+          }
         }
-      ],
-      "segmentsNote": "A taller band at a smaller scale, because the Processing screen's 'Transcribing' line sits at y 1440 and the aeroplane it is being ringed against sits at y 61 — a 1180 px band cannot hold both."
+      ]
     },
     {
       "id": "editor",
-      "durationSec": 2.5,
-      "source": "app:editor",
-      "what": "The editor playing: captions on the stage, the transcript under it, the loud words already bold",
-      "title": "timed to the word. the loud one gets big.",
-      "vo": "timed to the word. the loud one gets big.",
+      "source": "app",
+      "what": "The editor playing: the mark travelling word by word, the transcript scrolling under it",
+      "title": "timed to the voice",
+      "vo": "Every word is perfectly timed to your voice, and the app even highlights the louder words for you.",
       "voInAt": 0.2,
-      "titlePos": "top",
-      "startSec": 1.2,
-      "crop": {
-        "y": 290,
-        "h": 1180
-      }
+      "titlePos": "above",
+      "segments": [
+        {
+          "file": "editor.mp4",
+          "startSec": 1,
+          "focus": {
+            "deviceX": 300,
+            "deviceW": 470,
+            "deviceY": 890,
+            "deviceH": 180,
+            "inSec": 1.6,
+            "outSec": 4.4,
+            "tapAt": 4.6,
+            "zoom": false
+          }
+        }
+      ]
     },
     {
       "id": "fix",
-      "durationSec": 3.5,
-      "source": "app:fix",
-      "what": "The '1 to check' chip opens the flagged word; one tap and the chip is gone",
-      "title": "it flags what to check. one tap to fix.",
-      "vo": "it flags what to check. one tap to fix.",
+      "source": "app",
+      "what": "The '1 to check' chip opens the dotted word; Looks right clears it and the chip goes",
+      "title": "it marks what to check",
+      "vo": "If you're ever unsure about a word, it shows you dots, and one tap is all it takes to fix it.",
       "voInAt": 0.2,
-      "titlePos": "top",
-      "startSec": 1.2,
-      "crop": {
-        "y": 1200,
-        "h": 1180
-      }
+      "titlePos": "above",
+      "segments": [
+        {
+          "file": "fix.mp4",
+          "startSec": 2.5,
+          "focus": {
+            "deviceX": 36,
+            "deviceW": 1008,
+            "deviceY": 1560,
+            "deviceH": 210,
+            "inSec": 1.7,
+            "outSec": 4.6,
+            "tapAt": 4.8,
+            "zoom": true
+          }
+        }
+      ]
     },
     {
       "id": "timing",
-      "durationSec": 3.0,
-      "source": "app:timing",
-      "what": "The timing sheet: a handle dragged on the waveform, the neighbour following",
-      "title": "nudge any word. the rest stays put.",
-      "vo": "nudge any word. the rest stays put.",
+      "source": "app",
+      "what": "The timing sheet: the word's window on the waveform, a handle dragged, the neighbour following",
+      "title": "move any word",
+      "vo": "You can even drag the edge of a caption if it appears a bit early, without affecting anything else.",
       "voInAt": 0.2,
-      "titlePos": "top",
-      "startSec": 1.8,
-      "crop": {
-        "y": 1220,
-        "h": 1180
-      }
+      "titlePos": "above",
+      "segments": [
+        {
+          "file": "timing.mp4",
+          "startSec": 1.6,
+          "focus": {
+            "deviceX": 36,
+            "deviceW": 1008,
+            "deviceY": 1430,
+            "deviceH": 380,
+            "inSec": 1.6,
+            "outSec": 4,
+            "tapAt": 4.2,
+            "zoom": true
+          }
+        }
+      ]
     },
     {
       "id": "styles",
-      "durationSec": 4.5,
-      "source": "app:style",
-      "what": "The style sheet: presets tapped, the scroll past six, the hue strip dragged",
-      "title": "nine looks. your colour, your size, your position.",
-      "vo": "nine looks. your colour, your size, your position.",
+      "source": "app",
+      "what": "The style sheet: presets tapped, the scroll past the first six, the colour pair and the position frame",
+      "title": "one look, every client",
+      "vo": "With eighteen different looks to choose from, you can find the perfect style for every creator.",
       "voInAt": 0.2,
-      "titlePos": "top",
-      "startSec": 9.2,
-      "crop": {
-        "y": 1080,
-        "h": 1320
-      }
+      "titlePos": "above",
+      "segments": [
+        {
+          "file": "style.mp4",
+          "startSec": 14.5,
+          "rate": 0.7
+        }
+      ],
+      "segmentsNote": "One window, no move, and slowed to 0.7. The window used to start at 1.0 s, which is the style sheet opening — and the preset tiles are EMPTY there. They animate the transcript line, so they are blank until the line reaches them and blank again at every pause in it; the beat that promises eighteen looks was showing six grey rectangles. Populated from about 8 s, and the swipe that reveals the rest runs 11.5 to 12.5. Starting at 11.2 opens on full tiles and scrolls almost immediately; 0.7 turns a one-second flick into a reveal you can read. The clips carry no audio and the beat is cut to the voice, so slowing the picture costs nothing.",
+      "focusRemoved": "No accent box and no tap on this beat. The subject is the whole sheet rather than one control — boxing a tile would say \"this one\" about a line that means \"all eighteen\" — and a box pinned to the frame while the content scrolls underneath it is worse than none."
     },
     {
       "id": "dictionary",
-      "durationSec": 2.5,
-      "source": "app:dictionary",
-      "what": "'Add to your words' from a word's sheet, the dictionary with the entry half written, Save",
-      "title": "teach it your words once",
-      "vo": "teach it your words once.",
+      "source": "app",
+      "what": "A word's sheet → 'Add to your words' → the dictionary with the entry half written → Save",
+      "title": "brand names, spelled right",
+      "vo": "Plus, you only need to teach it a brand name once, and it will get it right every time after.",
       "voInAt": 0.2,
-      "titlePos": "top",
-      "startSec": 3.6,
-      "crop": {
-        "y": 1220,
-        "h": 1180
-      }
+      "titlePos": "above",
+      "segments": [
+        {
+          "file": "dictionary.mp4",
+          "startSec": 3.4,
+          "focus": {
+            "deviceX": 36,
+            "deviceW": 1008,
+            "deviceY": 1890,
+            "deviceH": 150,
+            "inSec": 1.9,
+            "outSec": 4.2,
+            "tapAt": 4.4,
+            "zoom": false
+          }
+        }
+      ]
     },
     {
       "id": "export",
-      "durationSec": 3.5,
-      "source": "app:saving",
-      "what": "Export → Save to gallery → the progress bar, then a cut to Saved: the tick, Share, and the feedback card",
-      "title": "export in seconds. share anywhere.",
-      "vo": "export in seconds. share anywhere.",
+      "source": "app",
+      "what": "Export → Save to gallery → the progress bar; cut to Saved, with the tick and Share",
+      "title": "done in seconds",
+      "vo": "When you're done, it burns the captions in and saves the video directly to your gallery.",
       "voInAt": 0.2,
-      "titlePos": "top",
-      "crop": {
-        "y": 0,
-        "h": 1180
-      },
+      "titlePos": "above",
       "segments": [
         {
           "file": "saving.mp4",
-          "startSec": 1.4,
-          "durationSec": 2.0,
-          "crop": {
-            "y": 1250,
-            "h": 1150
+          "startSec": 0.3,
+          "durationSec": 2.4,
+          "focus": {
+            "deviceX": 36,
+            "deviceW": 1008,
+            "deviceY": 1900,
+            "deviceH": 180,
+            "inSec": 0.4,
+            "outSec": 1.45,
+            "tapAt": 1.7,
+            "zoom": false
           }
         },
         {
-          "file": "saved.mp4",
-          "startSec": 0.3,
-          "durationSec": 1.5,
-          "crop": {
-            "y": 0,
-            "h": 1180
-          }
+          "file": "saving.mp4",
+          "startSec": 81
         }
       ],
-      "segmentsNote": "The first band is the bottom of the Export screen — the size line, Save to gallery, and the progress bar that replaces it — not the preview, which is a video the viewer has just watched three beats of."
+      "segmentsNote": "Two windows of one 120 s recording. The first is the Save to gallery button and the tap on it; the second is the Saved screen at the end. Both starts are read off the recording and BOTH were wrong before: the export ran 65 s this time against about 54 s when these numbers were first written, so the old second window at 61 s landed on a progress bar at 80% and the beat that promises a file in your gallery never showed one. The first window was wrong in the other direction — its focus moved in at clip 2.6 s, half a second after the button had been tapped and replaced by a progress bar, so the accent box framed a bar. The render time is the emulators and it is not a constant: check both windows against the recording after every capture, never carry them over. The second window carries no move: it is a tick and a heading at full size, legible without help, and a second zoom inside one beat is the thing the style beat was just corrected for."
     },
     {
       "id": "close",
-      "durationSec": 2.5,
-      "source": "export",
-      "what": "The app's own exported file, full frame, the name and the store line over it — a running shot, not a card",
+      "durationSec": 5.2,
+      "source": "black",
+      "what": "Solid black, with the mark, the name and the store line over it.",
       "title": null,
-      "vo": "wordburn. android. one payment.",
+      "vo": "Wordburn is offline, requires just one payment, and has no subscription. You can find it now on Google Play.",
       "voInAt": 0.2,
-      "titlePos": "mid"
+      "titlePos": "mid",
+      "whyNotTheExport": "It used to play the app's own finished file full-bleed, and that stopped working the moment this cut grew subtitles of its own. The export has Wordburn captions burned into it — that is the entire point of it — so the last beat was showing the app's captions and the video's subtitles at the same time, in two different typefaces, eight inches apart. Two sets of captions on a captions ad reads as a bug, and it is one. Black is also the right ground for a close: nothing competes with the name.",
+      "brandAtSec": 5.45,
+      "brandNote": "Read off captions.json, not chosen: the words \"You can find it\" begin 5.59 s into this beat, so the mark starts arriving at 5.45 and has settled under the instruction rather than after it. Before this the logo was up at 0.33 s and sat still for seven and a half seconds while the voice made three claims it could not illustrate — a static end card wearing a beat and a half of runtime, which is the thing this whole video is built to avoid."
     }
   ],
   "sources": {
     "export": {
       "file": "export.mp4",
-      "what": "A real Wordburn export of the demo clip. 1080 x 1920, 30 fps, captions burned in by the app's own burn-in module. Pulled off the emulator by ../pipeline/pull-export.mjs after the `saving` shot made it.",
+      "what": "A real Wordburn export of the demo clip, made by the app during the `saving` shot. 1080 x 1920, 30 fps, captions burned in by the app's own burn-in module and drawn in the default preset, Focus.",
       "startSec": {
-        "close": 5.5
+        "close": 7.2
       }
     }
   },
   "pointers": {
     "airplane": {
-      "deviceX": 941,
-      "deviceY": 61,
-      "r": 44
+      "note": "The aeroplane glyph in the device's own status bar, measured in the recording's 1080 x 2400 space. `r` is in device pixels too and is scaled by the phone frame, so the ring stays the same size relative to the glyph however the device is framed.",
+      "measured": "Re-measured on the re-captured pick.mp4, 2026-09-20: the glyph is x 929-959, y 52-84 — 31 x 33 px, centred (944.0, 68.0). The battery is the next bright run, x 985-1004.",
+      "wasWrong": "`r` was 70 through every cut up to and including the first hale render, and that is what made the status bar look cropped. A ring of 70 about (941, 61) spans x 871-1011 and y -9 to 131: it reached well past the battery's left edge at 985, drawing a yellow stroke straight through the battery, and it began nine pixels ABOVE the top of the screen, so its top arc left the recording, crossed the bezel and was cut flat. Two glyphs inside a hoop that runs off the edge of the phone reads as a bar with its top sliced off, which is exactly what it was reported as. A highlight has to fit inside the thing it highlights.",
+      "measuringNote": "The first attempt at this fix moved the centre to 964 and made it worse, because the measurement behind it was taken with an ffmpeg crop that ran past the right edge of the frame — `crop=200:100:900:10` on a 1080-wide image. ffmpeg clamps x to 880 rather than failing, so every run came back 20 px to the right of where it really was. A crop window that does not fit is silently moved, not refused: keep the window inside the frame, or measure the full width and let the numbers be absolute.",
+      "deviceX": 944,
+      "deviceY": 68,
+      "r": 33,
+      "rNote": "33 is the largest that clears both walls with the stroke counted. The ring is drawn 4 frame px wide, which is 8 device px, so its outer edge is r + 4: 944 + 37 = 981 against the battery at 985, and 68 - 37 = 31 against the top of the screen at 0. Four pixels of clearance on the tighter side, round a glyph that is now its full height.",
+      "wasClipped": "Every number here before this was taken from footage whose status bar was cut off at y=73. The emulator was recording the bar with its bottom third missing, so the aeroplane measured 22 px tall instead of 33 and its centre sat at y 62 instead of 68 — and a ring built on that is both too small and six pixels high. The recording was re-taken after the emulator was restarted; the glyph heights went 20/22/23 to 27/33/34 and nothing stops at 73 any more."
     }
   },
   "checks": {
-    "note": "What ../pipeline/selfcheck.mjs expects on disk after each phase. Every tutorial file is one hook (hookSec) followed by the body.",
     "1": {
       "audio": false
     },
     "3": {
       "audio": true
+    },
+    "note": "What ../pipeline/selfcheck.mjs expects on disk after each phase. Every tutorial file is one hook (hookSec) followed by the body."
+  },
+  "voiceNote": "The script names the category in the first line and keeps saying it: 'caption a video', 'a caption lands early', 'eighteen caption styles', 'burns the captions in'. A viewer who arrives mid-scroll on a phone-in-a-frame does not otherwise know what the app is for, and the on-screen labels are too short to carry it. The editor line says the stressed word gets bigger rather than the tapped one, because the pick is acoustic — emphasis.ts reads loudness, length and the pause around a word — and a line about tapping would describe what every competitor does and contradict footage in which nothing is tapped.",
+  "voiceDelivery": "The body is recorded as ONE generation and split here, not as nine. A text-to-speech model is measurably steadier over a hundred words than over eight, and nine separate generations also drift in energy against each other — which matters more than usual, because the body is the control half of a six-way test of the hook. `../pipeline/split-voice.mjs` cuts input/voice/body.mp3 at the pauses and writes body_1..body_9; the sentences in config.json are the split, in order, so changing one means re-recording.",
+  "hookNote": "Hook length is per hook now, not one number: each is its own recorded file plus a short tail, so the six finished videos differ in length by up to two seconds. They were recorded before the last two script rewrites, so the lines below are what the audio actually says — read back by running the six through Wordburn on the emulator rather than assumed, because a title that disagrees with the voice under it is the one defect nobody notices until it is posted.",
+  "audience": "Talent managers, not creators. The pain is a manager's: a client's video that is not out yet, a caption bill that scales with the roster, a brand name spelled wrong for the third time, a clip that landed at midnight, a week with thirty videos in it, and a day spent away from the desk. **The product has no team features** — no accounts, no shared library, no second device — so every line here is true of one person captioning on one phone, and nothing claims otherwise. That is the honest limit of this angle.",
+  "story": "Pain lives in the hook, the rest lives in the body: brand, then feature, then what the feature is worth, then the link. The body has to work after any of the six pains, so it answers all of them — the upload at beat 2, the roster at beats 6 and 9, the misspelled brand at beat 7, the deadline at beat 8, the phone itself throughout. Plain words on purpose: most of this audience reads English as a second language, and a hook that needs decoding is a hook that has already lost.",
+  "ctaNote": "Google Play only, on purpose. iOS has never been built — not once, in any slice — so there is no iPhone build to send anybody to, and a store line naming both would be the one claim in this video that is not true. When the iOS build exists, this string and the close line are the two places that change. **The Play listing is not live yet either**, so nothing here may be posted until it is: a CTA pointing at a store page that 404s costs more than the post earns.",
+  "voiceFile": "body2_slow.mp3",
+  "durationNote": "Beat lengths come from `timings.json`, measured off the recording by `split-voice.mjs`, not from this file any more. A segment with no `durationSec` fills its beat; where a beat has two segments the first is fixed and the second takes the remainder, so a re-read that runs long stretches the second half of the shot rather than running out of footage.",
+  "voicesNote": "A voice is an overlay on this file, not a copy of it — `../pipeline/beats.js → resolveVoice` replaces whatever the entry names and leaves the rest. The default voice is the bare top level. Everything a voice does not mention — the framing, the safe box, the nine beats and their labels, the segments, the pointers, the sources — is shared, which is the point: two reads of one script are one video, and a folder per voice would copy three hundred lines to change a filename.",
+  "voices": {
+    "hale": {
+      "note": "A second read of the same nine body lines, word for word, in a different voice and a third faster: 51.49 s against 61.96. Only `timings` change for the body — the labels on screen are the same labels, because the script is the same script. The hooks are not a re-read; they are seven new lines on seven new claims, so they get their own ids, their own titles and their own footage.",
+      "voiceFile": "hale_body.mp3",
+      "outDir": "out/voiced-hale",
+      "hookLengthNote": "These run 4.36 s to 12.04 s, where the first set ran 2.59 to 4.44. That is a real break with this project's own hook doctrine — `../README.md`'s study is about the first three seconds, and the README here says a hook has resolved by 3 s or it has not. Two of these are still talking at 12. They are used at their full length anyway, because the alternative is clipping a recorded sentence mid-word, and a hook that stops halfway through its own claim is worse than a long one. What it costs is that the longest of the seven opens on 12.5 s before the body starts, and the finished file is 64 s. If the three-second hold comes back poor, the fix is a shorter *read*, not a shorter picture.",
+      "kindNote": "Every hook is `graphic`: no app on screen at all until the body names it. A hook that opens on a screenshot asks a stranger to care about an interface before they have been told why, and seven of them opening on seven different screens made the set read as seven different products. They open instead on the icon's own geometry at full size — a line of words assembling with the accent travelling across it, which is what the product does — and the app arrives in the body, on the line that says \"Meet Wordburn\". It also makes the seven properly comparable: the picture is now identical across all of them and the only variable is the claim, which is what a seven-way test of the hook is for.",
+      "hooks": [
+        {
+          "id": "hours",
+          "type": "pain then promise — manual work, answered by the phone",
+          "kind": "graphic",
+          "title": "captions on your phone. nothing uploaded.",
+          "titleAt": 0.2,
+          "vo": "Stop spending hours manually captioning your videos. What if you could get perfect timed captions directly on your phone without ever uploading your footage to the cloud?",
+          "audio": "hale_hook_hours.mp3",
+          "tailSec": 0.45,
+          "proof": "Two sentences, two shots: picking a clip while the pain is named, then Processing with the aeroplane ringed while the promise is. The second half of the claim — 'without ever uploading' — is the one the picture can actually prove, so it gets the pointer."
+        },
+        {
+          "id": "engagement",
+          "type": "pain — the captions themselves are the problem",
+          "kind": "graphic",
+          "title": "bad captions are killing your engagement",
+          "titleAt": 0.2,
+          "vo": "Your video content deserves to be seen, but bad captions are killing your engagement.",
+          "audio": "hale_hook_engagement.mp3",
+          "tailSec": 0.45,
+          "proof": "The grid of eighteen looks, every tile animating the real transcript. The line says bad captions cost you; the answer under it is a wall of good ones."
+        },
+        {
+          "id": "chore",
+          "type": "contrarian — the work, not the result",
+          "kind": "graphic",
+          "title": "captions shouldn't be a chore",
+          "titleAt": 0.2,
+          "vo": "Captions are the secret to viral video, but they shouldn't be a chore.",
+          "audio": "hale_hook_chore.mp3",
+          "tailSec": 0.45,
+          "proof": "No app at all. The line is about effort, not about an interface, and a stranger has no reason to care about a screenshot before they have been told why. The icon's own geometry carries it: a line of words assembling with the accent travelling across, which is what the product does, at full-frame size."
+        },
+        {
+          "id": "look",
+          "type": "pain then promise — the look, without the bill",
+          "kind": "graphic",
+          "title": "the look you want, without the subscription",
+          "titleAt": 0.2,
+          "vo": "Viral videos need captions, but they shouldn't take hours to create. Get the professional look you want without the subscription fees or the cloud upload headaches.",
+          "audio": "hale_hook_look.mp3",
+          "tailSec": 0.45,
+          "proof": "The look first, then what it costs — the style grid for the first sentence, the Unlock screen's 'Buy it once. Keep it forever.' for the second. `unlock.mp4` is 5.0 s and the fill takes about 4.78 of it, so the first segment is the one carrying the length; lengthen that, not this one, if the read is ever re-recorded longer."
+        },
+        {
+          "id": "taps",
+          "type": "pain then promise — software, answered by a thumb",
+          "kind": "graphic",
+          "title": "a few taps, not an editing suite",
+          "titleAt": 0.2,
+          "vo": "Stop fighting with clunky editing software. What if you could get professional, perfectly timed captions on your phone with just a few taps?",
+          "audio": "hale_hook_taps.mp3",
+          "tailSec": 0.45,
+          "proof": "The editor playing, then the timing sheet being dragged. 'A few taps' is the claim and a handle moving one word is the smallest honest picture of it."
+        },
+        {
+          "id": "private",
+          "type": "pain — the upload itself",
+          "kind": "graphic",
+          "title": "your footage never leaves the phone",
+          "titleAt": 0.2,
+          "vo": "Tired of uploading your private footage to the cloud just to get captions? Keep your content secure and your workflow fast with the only captioning app that works entirely offline.",
+          "audio": "hale_hook_private.mp3",
+          "tailSec": 0.45,
+          "proof": "The longest of the seven at 12.04 s, and the only one with a physical action in it: the Airplane tile actually being switched on, then the app transcribing with the radio off. 'Entirely offline' is the strongest claim in the set and this is the only shot that proves rather than states it.",
+          "honesty": "'The only captioning app that works entirely offline' is the recording's wording, not a claim this repository has checked. Nothing here has surveyed the category. Keep it in the voice if you like the line, but it is the one sentence in the seven that an ASA-style complaint could reach, and the on-screen title deliberately does not repeat it."
+        },
+        {
+          "id": "own-it",
+          "type": "contrarian — the billing model",
+          "kind": "graphic",
+          "title": "pay once. own it forever.",
+          "titleAt": 0.2,
+          "vo": "Stop paying monthly for captions, make a one-time payment, and own your tools forever.",
+          "audio": "hale_hook_own-it.mp3",
+          "tailSec": 0.45,
+          "proof": "Home, which carries the free-tier line, then the Unlock screen answering it in the app's own words. Home rather than the picker because the claim is about what the app costs, and Home is where the app says so."
+        }
+      ]
     }
-  }
+  },
+  "focusNote": "Where each beat leans in, in the recording's own 1080 x 2400 pixels. Device pixels rather than frame pixels on purpose: a rectangle typed in frame coordinates has to be re-derived every time the framing moves and drifts off the control it was drawn around, where one in device pixels is read straight off the app and keeps the app's own padding. Content runs x 40..1040 in every screen here, so a full-width region is 36..1044 and a focus box round a card is the card's own bounds plus the app's own margin — not a crop that happens to look about right. `inSec` and `outSec` are seconds into the SEGMENT, not into the beat, because a beat with two segments moves twice. The shot always opens wide and always comes back out before the cut: nothing here is ever cropped without having been shown whole first, which is the rule the second cut was built on and this keeps.",
+  "tapNote": "A tutorial that cuts from one screen to the next asks the viewer to believe a step happened off camera. Each beat that leads somewhere presses the control it has just been holding, a beat before the hand-off, and the next beat fades up over this one rather than replacing it — so the new screen arrives as the consequence of a tap instead of as a new shot. `transcribe` has no tap because nothing is tapped there — the ring on the aeroplane is the whole point of that beat — and neither does `close`, which is the end. The second segment of a two-segment beat has none either: the hand-off is at the end of the beat, not in the middle of it.",
+  "moveNote": "Three push-ins in the body, not eight. A move is how a beat says \"this one\", and when every beat does it the eye starts watching the camera instead of the app — which is what \"zoom in, zoom out, zoom in, zoom out\" is describing. So the mechanism split in two: every beat still marks the control it is talking about, with an accent box and a tap that lands on it, but the box now draws IN PLACE and the shot holds still. Only `transcribe`, `fix` and `timing` push in, because their targets genuinely cannot be read at full size — the aeroplane is about thirty device pixels, and the waveform handles are a few. The springs are slower too: 34 frames in and 28 back, where they were 26 and 20."
 }

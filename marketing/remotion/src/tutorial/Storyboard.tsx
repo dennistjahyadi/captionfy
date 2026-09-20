@@ -1,7 +1,7 @@
 import React from 'react';
 
 import { Sheet, Tile, sheetSize } from '../parts/Sheet';
-import { BODY_FRAMES, CONFIG, DIR, FPS, HOOKS, MIDPOINTS, TIMING_SOURCE } from './timeline';
+import { BODY_FRAMES, CONFIG, DIR, FPS, HOOKS, MIDPOINTS, TIMING_SOURCE, hookSeconds } from './timeline';
 
 /**
  * Video 02's contact sheet: the six hooks across the top, then the body.
@@ -18,7 +18,7 @@ const tiles: Tile[] = [
     file: `${DIR}/preview-hook-${h.id}.mp4`,
     frame: Math.round(HOOK_TILE_SEC * FPS),
     label: `hook ${i + 1} · ${h.id} — ${h.title}`,
-    sub: `${h.type}`,
+    sub: `${hookSeconds(h.id).toFixed(2)} s · ${h.type}`,
     tone: 'accent' as const,
   })),
   ...MIDPOINTS.map((m) => ({
@@ -36,8 +36,8 @@ export const Storyboard: React.FC = () => (
   <Sheet
     title={CONFIG.title}
     subtitle={
-      `${HOOKS.length} hooks × ${CONFIG.hookSec} s + body ${(BODY_FRAMES / FPS).toFixed(2)} s · ` +
-      `${MIDPOINTS.length} beats · ${CONFIG.format.width}×${CONFIG.format.height} · ${TIMING_SOURCE} line lengths · silent`
+      `${HOOKS.length} hooks (${Math.min(...HOOKS.map((h) => hookSeconds(h.id))).toFixed(1)}–${Math.max(...HOOKS.map((h) => hookSeconds(h.id))).toFixed(1)} s) + body ${(BODY_FRAMES / FPS).toFixed(2)} s · ` +
+      `${MIDPOINTS.length} beats · ${CONFIG.format.width}×${CONFIG.format.height} · ${TIMING_SOURCE} line lengths`
     }
     tiles={tiles}
   />

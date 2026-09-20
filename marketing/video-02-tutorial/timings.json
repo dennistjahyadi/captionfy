@@ -1,6 +1,173 @@
 {
-  "source": "planned",
+  "source": "measured",
   "note": "Phase 3 overwrites `lines` with the real length of each input/voice/body_N.mp3, measured by ffprobe, keyed by beat id. Until then the body runs on config.json's durationSec and `lines` stays null, so the silent cut is a plan and says so. Hooks are not re-timed by voice: three seconds is the hook's budget whatever is said over it.",
-  "lines": null,
-  "mix": { "ambienceDb": -22, "loudnessLufs": -14 }
+  "lines": [
+    {
+      "id": "pick",
+      "sec": 5.85
+    },
+    {
+      "id": "transcribe",
+      "sec": 5.823
+    },
+    {
+      "id": "editor",
+      "sec": 7.817
+    },
+    {
+      "id": "fix",
+      "sec": 7.386
+    },
+    {
+      "id": "timing",
+      "sec": 6.778
+    },
+    {
+      "id": "styles",
+      "sec": 6.798
+    },
+    {
+      "id": "dictionary",
+      "sec": 6.753
+    },
+    {
+      "id": "export",
+      "sec": 5.993
+    },
+    {
+      "id": "close",
+      "sec": 8.765
+    }
+  ],
+  "mix": {
+    "ambienceDb": -22,
+    "loudnessLufs": -14
+  },
+  "pad": 0,
+  "voice": {
+    "file": "body2_slow.mp3",
+    "totalSec": 61.962
+  },
+  "hooks": [
+    {
+      "id": "outcome",
+      "sec": 2.586,
+      "tailSec": 0.45
+    },
+    {
+      "id": "airplane",
+      "sec": 3.082,
+      "tailSec": 0.45
+    },
+    {
+      "id": "pay-once",
+      "sec": 3.239,
+      "tailSec": 0.45
+    },
+    {
+      "id": "pay-once-b",
+      "sec": 2.847,
+      "tailSec": 0.45
+    },
+    {
+      "id": "emphasis",
+      "sec": 3.553,
+      "tailSec": 0.45
+    },
+    {
+      "id": "no-account",
+      "sec": 4.441,
+      "tailSec": 0.45
+    },
+    {
+      "id": "styles",
+      "sec": 3.866,
+      "tailSec": 0.45
+    }
+  ],
+  "voices": {
+    "hale": {
+      "source": "measured",
+      "lines": [
+        {
+          "id": "pick",
+          "sec": 4.449
+        },
+        {
+          "id": "transcribe",
+          "sec": 4.771
+        },
+        {
+          "id": "editor",
+          "sec": 5.992
+        },
+        {
+          "id": "fix",
+          "sec": 6.19
+        },
+        {
+          "id": "timing",
+          "sec": 5.413
+        },
+        {
+          "id": "styles",
+          "sec": 5.803
+        },
+        {
+          "id": "dictionary",
+          "sec": 5.549
+        },
+        {
+          "id": "export",
+          "sec": 5.301
+        },
+        {
+          "id": "close",
+          "sec": 8.019
+        }
+      ],
+      "pad": 0,
+      "voice": {
+        "file": "hale_body.mp3",
+        "totalSec": 51.487
+      },
+      "hooks": [
+        {
+          "id": "hours",
+          "sec": 10.449,
+          "tailSec": 0.45
+        },
+        {
+          "id": "engagement",
+          "sec": 5.329,
+          "tailSec": 0.45
+        },
+        {
+          "id": "chore",
+          "sec": 4.362,
+          "tailSec": 0.45
+        },
+        {
+          "id": "look",
+          "sec": 10.527,
+          "tailSec": 0.45
+        },
+        {
+          "id": "taps",
+          "sec": 9.326,
+          "tailSec": 0.45
+        },
+        {
+          "id": "private",
+          "sec": 12.042,
+          "tailSec": 0.45
+        },
+        {
+          "id": "own-it",
+          "sec": 6.348,
+          "tailSec": 0.45
+        }
+      ]
+    }
+  }
 }
