@@ -89,8 +89,9 @@ describe('recordUnlock', () => {
   });
 
   it('leaves the free exports where they were', () => {
-    // "Your free exports stay yours either way" is on the Unlock screen. A
-    // refund must not hand somebody a fresh three.
+    // A refund must not hand somebody a fresh three. Nothing on the Unlock
+    // screen promises this any more — under the mark there is no count to
+    // keep — but the counter policy is still in the type and this is its rule.
     expect(recordUnlock(fresh({ exportsUsed: 2 }), at).exportsUsed).toBe(2);
   });
 

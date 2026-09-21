@@ -424,14 +424,17 @@ export const KeywordPanel: React.FC<{ startFrame?: number }> = ({ startFrame = 0
 export const UnlockScreen: React.FC = () => (
   <div style={{ width: SCREEN.width, height: SCREEN.height, background: color.ink, padding: PAD }}>
     <div style={{ fontFamily: font.bold, fontSize: 44, color: color.paper, letterSpacing: -1 }}>
-      Unlock everything
+      Unlock Wordburn
     </div>
     <div style={{ fontFamily: font.medium, fontSize: 22, color: color.mute, marginTop: 10 }}>
       One payment. No subscription, now or later.
     </div>
 
+    {/* Says what the real screen says. It listed "Unlimited exports" and
+        "Every caption style", both of which the free tier gives away, so the
+        video was advertising a paywall the app does not have. */}
     <div style={{ marginTop: 34 }}>
-      {['Removes the watermark', 'Unlimited exports', 'Unlimited dictionary', 'Every caption style'].map(
+      {['Removes the watermark', 'Unlimited dictionary words', 'No account, no upload, ever'].map(
         (line) => (
           <div
             key={line}

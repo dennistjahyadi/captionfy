@@ -23,12 +23,19 @@ import { buyUnlock, storeHasNothing, storeUnreachable, unlockPrice } from '../sr
 import { Label, PrimaryButton, QuietButton, Screen } from '../src/ui/atoms';
 import { color, DEFAULT_ACCENT, MIN_TOUCH, radius, space } from '../src/ui/theme';
 
-/** Four, in the order somebody weighing it up would ask them. */
+/**
+ * Three, and every one of them is a thing the payment actually changes or
+ * guarantees. This list used to promise "All caption styles" and "Unlimited
+ * exports", which the free tier has given away since the counter became a mark:
+ * all eighteen presets and every export are free, and a tick beside a feature
+ * somebody already has is a claim their own app contradicts. What is bought is
+ * the watermark and the dictionary cap, and saying so is both honest and
+ * stronger — a small ask is easier to believe than a vague large one.
+ */
 const PROMISES = [
-  'Unlimited exports, full quality, no watermark',
-  'All caption styles',
+  'Exports with no watermark',
   'Unlimited dictionary words',
-  'No subscription, no account, ever',
+  'No account, no upload, no subscription',
 ];
 
 type Phase =
@@ -131,7 +138,16 @@ export default function Unlock() {
       </View>
 
       <ScrollView contentContainerStyle={[styles.body, { paddingBottom: insets.bottom + space.xl }]}>
-        <Label variant="title">Buy it once. Keep it forever.</Label>
+        {/* The headline names what the money does and the line under it names
+            the payment model. It was the other way round — "Buy it once. Keep
+            it forever." alone, which is a fine thing to say second and says
+            nothing about what is being bought. */}
+        <View style={styles.head}>
+          <Label variant="title">Export without the watermark.</Label>
+          <Label variant="body" tone="mute">
+            Buy it once. Keep it forever.
+          </Label>
+        </View>
 
         <View style={styles.promises}>
           {PROMISES.map((promise) => (
@@ -167,8 +183,29 @@ export default function Unlock() {
             </Label>
           ) : null}
 
+          {/* The only place in the app that asks for goodwill, and it is under
+              the button rather than on it. A button reading "Support the
+              developer" turns a purchase into a donation: it converts worse,
+              because optional is what a donation sounds like, and it is a
+              bait-and-switch in the one direction that matters — somebody who
+              taps it to be kind has in fact bought a feature nobody told them
+              about. The button names the trade; this names who is on the other
+              end of it.
+
+              Three beats, and the order is the argument: who is behind it,
+              what the support actually pays for, and a thank you. What the
+              middle sentence promises is time rather than features — the small
+              fixes nobody writes a roadmap entry for — which is both the honest
+              answer for a one-person app and the one a user can believe.
+
+              Dennis's words, and they are third person where the feedback card
+              is first. Left as written: it is his app and his voice, and the
+              distance reads as modesty rather than as a company. If the two
+              screens should ever match, this is the one to change, not the
+              card — "I read every message" is a promise a "we" cannot make. */}
           <Label variant="micro" tone="mute" style={styles.centre}>
-            One payment. Not a subscription. Your free exports stay yours either way.
+            Wordburn is built by one independent developer. Your support means more time to
+            improve the app, fix the little things, and keep making it better. Thank you.
           </Label>
         </View>
       </ScrollView>
@@ -236,6 +273,7 @@ const styles = StyleSheet.create({
     paddingBottom: space.sm,
   },
   body: { paddingHorizontal: space.lg, paddingTop: space.xl, gap: space.xl },
+  head: { gap: space.sm },
   promises: { gap: space.md },
   promise: { flexDirection: 'row', gap: space.md, alignItems: 'flex-start' },
   promiseText: { flex: 1 },

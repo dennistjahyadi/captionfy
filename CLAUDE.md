@@ -679,6 +679,43 @@ has to argue with that gap.
   a wall nobody could see coming for one they can. `exportsUsed` still counts and
   nothing reads it for gating; the free-tier test asserts that 99 exports still
   do not block, so a counter cannot grow back by accident.
+- **The Unlock screen sells the watermark, not "everything", and the button is
+  never a tip jar.** Two copy decisions, one cause: when the counter became a
+  mark, the paywall stopped standing in front of most of what the screen was
+  promising. `PROMISES` still listed "All caption styles" and "Unlimited
+  exports, full quality" — all eighteen presets, every export and the whole
+  editor are free, so a tick beside them is a claim the user's own app
+  contradicts, and on a billing screen that is a Play problem as well as a
+  dishonest one. It is three lines now, each of them a thing the payment
+  actually changes or guarantees: the watermark, the dictionary cap, and the
+  shape of the deal. The headline leads with what the money does — "Export
+  without the watermark." — and "Buy it once. Keep it forever." drops to the
+  line under it, where a payment model belongs once the purchase has been
+  named. The same edit went through `FreeTierLine`, whose "Unlock everything →"
+  now follows `tier.watermark` the way its chip already follows `tier.line`,
+  and through Settings, where the row read "Unlock everything" directly above
+  "Free exports carry a small watermark".
+  **"Support the developer" was considered for the button and turned down.** It
+  reframes a purchase as a donation, and the two audiences barely overlap:
+  somebody who would pay to get a clean file taps a button that sounds optional
+  much less readily, and somebody who taps it out of goodwill has in fact bought
+  a feature nobody told them about — a bait-and-switch in the one direction that
+  matters. The button is the single place in this app that has to be literal
+  about what money does. The goodwill line survives under it instead, where the
+  trade is already settled: "Wordburn is built by one independent developer.
+  Your support means more time to improve the app, fix the little things, and
+  keep making it better. Thank you."
+  Three beats, and the order is the argument: who is behind it, what the support
+  actually pays for, and a thank you. The middle sentence promises **time**
+  rather than features — the small fixes nobody writes a roadmap entry for —
+  which is the honest answer for a one-person app and the one a reader can
+  believe, where a list of promised features on a payment screen is a debt.
+  **It is third person, where everything else in this app is first.** Dennis's
+  own words, kept as written: it is his app and his voice, and the distance
+  reads as modesty rather than as a company. The convention below still holds
+  for the feedback card, which is the screen that cannot afford a "we" — "I read
+  every message" is a promise no company voice can make. If the two should ever
+  be reconciled, this is the line to move.
 - **The watermark is not part of `layoutCaptionFrame`.** It is `layoutWatermark`,
   its own pure function of a canvas and a measurer, in its own file. A mark takes
   no part in fitting, shrinking, revealing or emphasis, and threading an

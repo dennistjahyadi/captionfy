@@ -31,10 +31,19 @@ export function FreeTierLine({
   // reward for buying it is never being sold to again.
   if (tier.line === '') return null;
 
+  // The call to action says what the payment does, and under the mark that is
+  // one specific thing. "Unlock everything" was written for the counter, where
+  // the wall was in front of the exports themselves; under the watermark it
+  // promises an "everything" the free tier already hands out — all eighteen
+  // styles, every export, the whole editor — and a user who has been using
+  // those for free reads the overclaim rather than the offer. It follows the
+  // policy instead of being spelled twice, for the same reason `line` does.
+  const cta = tier.watermark ? 'Remove the watermark' : 'Unlock';
+
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={`${tier.line}. Unlock everything.`}
+      accessibilityLabel={`${tier.line}. ${cta}.`}
       onPress={onPress}
       style={({ pressed }) => [styles.row, { opacity: pressed ? 0.6 : 1 }, style]}
     >
@@ -44,7 +53,7 @@ export function FreeTierLine({
         </Label>
       </View>
       <Label variant="micro" style={{ color: accent }}>
-        Unlock everything →
+        {cta} →
       </Label>
     </Pressable>
   );

@@ -56,8 +56,12 @@ export default function Settings() {
           onPress={() => router.push('/settings/dictionary')}
         />
         <Divider />
+        {/* The title names the destination and the detail says where they
+            stand, which is this list's shape everywhere else in it. It read
+            "Unlock everything" over "Free exports carry a small watermark" —
+            a row promising more than the line under it grants. */}
         <Row
-          title={entitlement.unlocked ? 'Unlocked' : 'Unlock everything'}
+          title={entitlement.unlocked ? 'Unlocked' : 'Unlock Wordburn'}
           detail={entitlement.unlocked ? unlockedOn(entitlement.unlockedAt) : tier.line}
           onPress={() => router.push({ pathname: '/unlock', params: { from: 'settings' } })}
         />
