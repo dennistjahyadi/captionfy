@@ -109,6 +109,13 @@ marketing/video-02-tutorial/out/*
 !marketing/video-02-tutorial/out/*.md
 !marketing/video-02-tutorial/out/post.txt
 
+# What gets uploaded to the Play Console and nowhere else. The foreground
+# service declaration video is a screen recording of one export on a real
+# phone, megabytes of it, and `scripts/record-fgs-demo.sh` is the tracked half
+# that takes it again. The same split as every recording above: the script is
+# source, the footage is output.
+play-assets/
+
 # Creator deals: real handles, real fees, real sales. The .example.csv files are
 # the schema and are tracked; these two are other people's names and money.
 marketing/creators/creators.csv
