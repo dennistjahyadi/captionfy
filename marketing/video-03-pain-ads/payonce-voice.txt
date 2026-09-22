@@ -1,0 +1,71 @@
+PAY ONCE — plain text for TTS
+One block per generation. Paste each block on its own. Punctuation is the only direction.
+ElevenLabs: stability ~55, similarity ~75, style 0–10. Same voice as video 02.
+Cut the body at the full stops after generating (split-voice.mjs), do not generate line by line.
+
+=== HOOK A (payonce_hookA) ===
+i got tired of renting my captions.
+
+=== HOOK B (payonce_hookB) ===
+captions you buy, not captions you rent.
+
+=== HOOK C (payonce_hookC) ===
+caption apps charge monthly. this one, once.
+
+=== BODY, SHORT — about 15 seconds (payonce_short) ===
+so this one asks for money exactly once. free exports carry a small watermark, and that payment takes it off for good. nothing renews. nothing expires. there is nothing to cancel later. wordburn. bought once, and yours after that.
+
+=== BODY, LONG — about 25 seconds (payonce_long) ===
+so this one asks for money exactly once. the editor, all eighteen styles, and every export are free. free exports carry a small watermark. one payment takes it off, on every video, for good. nothing renews. nothing expires. there is nothing to cancel later. wordburn. bought once, and yours after that.
+
+=== ONE-READ VERSION, question hook, live close — about 16 seconds (payonce_full) ===
+your caption app charges monthly? this one charges once. free exports carry a small watermark, and one payment takes it off for good. nothing renews. nothing expires. nothing to cancel later. wordburn. bought once, yours forever. it's on google play.
+
+Alternate openers, same body from "free exports" on:
+caption apps charge monthly? this one charges once.
+still paying monthly for captions? this one charges once.
+
+Singular "app", not "apps": the viewer has one, and the line should name the one
+they are holding without saying which.
+
+Read: the question rises, everything after it reads down and flat. The three
+"nothing" sentences are one beat each. "wordburn." is its own sentence so the
+name gets a beat before the tag.
+
+=== STORY VERSION, 30 seconds, talent manager, pain > brand > feature > benefits > CTA (payonce_story_30) ===
+your caption app charges monthly? this one charges once.
+
+i manage three creators. every clip needs captions. some months we post almost nothing. the bill comes anyway.
+
+then i found wordburn. captions made on the phone, no credits that run out. video in, words out, fix a name, pick a style, export. free exports have a small watermark. i paid once, it's gone for good.
+
+no monthly bill. nothing to cancel.
+
+wordburn. pay once. link in bio.
+
+About 78 words. This is the one to generate. The 45-second version below is
+kept for reference only.
+
+=== STORY VERSION, 45 seconds, kept for reference (payonce_story_45) ===
+your caption app charges monthly? this one charges once.
+
+i manage three creators. every week i cut their clips, and every clip needs captions. so i paid for a caption app every month. some months we posted a lot. some months we posted almost nothing. the bill came anyway.
+
+then i found wordburn. it makes captions right on the phone. no upload, no account, no credits that run out. i put the video in, it writes the words, i fix a name with one tap, pick a style, and export. free exports have a small watermark. i paid once, and the watermark is gone for good.
+
+now every clip costs me nothing extra. no bill at the end of the month. nothing to cancel.
+
+wordburn. pay once. link in bio.
+
+Read: the hook question rises, everything after it flat and down. Paragraph
+breaks are the cut points for the picture. Plain words on purpose, for viewers
+whose first language is not English. Picture for "fix a name with one tap" is
+the word sheet, not the dictionary (free dictionary caps at 20 words).
+
+=== CLOSE, for when the Play listing is live (payonce_close_live) ===
+wordburn. bought once, and yours after that. it's on google play.
+
+=== NOT IN THE VOICE ===
+No dollar figures. "$15.90 once" and "CapCut Pro is $19.99 a month" go in the post copy,
+where they can be edited when a price moves and where a named competitor's price can
+carry a source. The recorded file outlives both numbers.

@@ -109,6 +109,12 @@ marketing/video-02-tutorial/out/*
 !marketing/video-02-tutorial/out/*.md
 !marketing/video-02-tutorial/out/post.txt
 
+# Video 03, the same shape again. `words.json` stays in: it is the measured
+# word timings the cut is placed on, and a decision rather than a byte.
+marketing/video-03-pain-ads/input/
+marketing/video-03-pain-ads/out/*
+!marketing/video-03-pain-ads/out/*.md
+
 # What gets uploaded to the Play Console and nowhere else. The foreground
 # service declaration video is a screen recording of one export on a real
 # phone, megabytes of it, and `scripts/record-fgs-demo.sh` is the tracked half

@@ -96,6 +96,27 @@
       "abNote": "The B side. Same footage, same first frame, one variable: whether the hook states the problem (`pay-once`, 3.24 s) or asks for the alternative (`pay-once-b`, 2.85 s). Both were recorded, so both ship. Read the pair against each other before reading either against the other five — a difference between these two is about how the claim is worded, where a difference against `airplane` or `styles` is about which claim it is."
     },
     {
+      "id": "no-meters",
+      "type": "contrarian, the absence named — and the only pricing hook whose picture proves it",
+      "kind": "phone",
+      "title": "no credits. no meters. no top-ups.",
+      "titleAt": 0.2,
+      "vo": "No credits. No meters. No top-ups.",
+      "tailSec": 0.45,
+      "segments": [
+        {
+          "file": "pick.mp4",
+          "startSec": 9.5,
+          "pointer": "airplane"
+        }
+      ],
+      "note": "Dennis's line, cut to the budget. It arrived as four beats — 'No credits. No meters. No top-ups. / Because the transcription happens right on your phone. / Caption one video… or a hundred. / The price never changes.' — which is about twelve seconds and therefore a value block, not a hook. Only the first beat competes in the three seconds this set is testing, so only the first beat is here.",
+      "pictureNote": "It takes `airplane`'s footage rather than `pay-once`'s Unlock screen, and that is the whole point of adding an eighth. The other two pricing hooks state a pricing claim over a pricing screen, so the viewer is asked to take the claim on trust. Here the words carry the claim and the picture carries the *reason* — a phone in aeroplane mode captioning anyway — which is the 'because the transcription happens right on your phone' beat the original script spent a second and a half saying out loud. The mechanism is not dropped, it is moved into the frame, and `body_2` says it in words a few seconds later.",
+      "abNote": "Third on the pricing axis, so read it against `pay-once` and `pay-once-b` first. Those two vary the wording of one claim over one screen; this one varies the picture under it. If it beats both, the finding is about proof, not about phrasing — and the same swap is available to the other two.",
+      "copyNote": "'The price never changes' was cut and not kept for the body either. It does not say there is a price or that it is one-time, and read literally it is a promise about a Play Console listing that can be edited. The claim this app owns is 'pay once', which `pay-once` already makes. What the four-beat version was missing is the free tier: since the watermark replaced the counter, 'caption one video or a hundred' is true *before* anyone pays, and that is a larger offer than anything about the price holding.",
+      "voiceNote": "No `audio` key yet, so this renders silent at `hookSec`'s 3.5 s and the picture is already testable. `voiceover.mjs` prints the row against `hook_no-meters.mp3`; record that into `input/voice/`, re-run `split-voice.mjs`, and the entry becomes its own length like the other seven. Record it in the same sitting as any re-read of the others — a brighter take on one hook is a second variable in what is meant to be a one-variable test."
+    },
+    {
       "id": "emphasis",
       "type": "demonstration of the one thing nobody else does",
       "kind": "export",

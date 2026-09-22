@@ -44,6 +44,7 @@ second variable. One file per hook, named by id, in the `file` column below.
 | hook_airplane.mp3 | airplane | Airplane mode's on. Can it still caption this? | 8 | 3.1 s | 2.6 w/s |
 | hook_pay-once.mp3 | pay-once | Most caption apps bill you every month. | 7 | 3.2 s | 2.2 w/s |
 | hook_pay-once-b.mp3 | pay-once-b | What if captions only cost you once? | 7 | 2.8 s | 2.5 w/s |
+| hook_no-meters.mp3 | no-meters | No credits. No meters. No top-ups. | 6 | 2.9 s | 2.1 w/s |
 | hook_emphasis.mp3 | emphasis | Your captions hear which word you leaned on. | 8 | 3.6 s | 2.3 w/s |
 | hook_no-account.mp3 | no-account | Captions with no account, no upload, no server. | 8 | 4.4 s | 1.8 w/s |
 | hook_styles.mp3 | styles | Eighteen caption styles, on your own words. | 7 | 3.9 s | 1.8 w/s |

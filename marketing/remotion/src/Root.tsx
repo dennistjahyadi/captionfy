@@ -12,6 +12,10 @@ import { Hook } from './tutorial/Hook';
 import { SHEET as TUTORIAL_SHEET, Storyboard as TutorialStoryboard } from './tutorial/Storyboard';
 import { Tutorial, TUTORIAL_FRAMES, tutorialFrames } from './tutorial/Tutorial';
 import { BODY_FRAMES, HOOKS, HOOK_FRAMES, bodyFramesFor, hookFramesFor } from './tutorial/timeline';
+import { JustCaptionsAd, TOTAL_FRAMES as JUSTCAPTIONS_FRAMES } from './justcaptions/Ad';
+import { NoCreditsAd, TOTAL_FRAMES as NOCREDITS_FRAMES } from './nocredits/Ad';
+import { NoInternetAd, TOTAL_FRAMES as NOINTERNET_FRAMES } from './nointernet/Ad';
+import { PayOnceAd, TOTAL_FRAMES as PAYONCE_FRAMES } from './payonce/Ad';
 import { FORMAT } from './brand';
 
 export const RemotionRoot: React.FC = () => (
@@ -103,6 +107,36 @@ export const RemotionRoot: React.FC = () => (
       component={TutorialStoryboard}
       durationInFrames={1}
       {...TUTORIAL_SHEET}
+    />
+
+    {/*
+      Video 03 — three voiced 9:16 ads, about 23 s each, cut to the recordings
+      in marketing/video-03-pain-ads/. `render.sh` there stages the voice and
+      renders any of them. They share `src/voiced/`.
+    */}
+    <Composition
+      id="payonce"
+      component={PayOnceAd}
+      durationInFrames={PAYONCE_FRAMES}
+      {...FORMAT}
+    />
+    <Composition
+      id="nointernet"
+      component={NoInternetAd}
+      durationInFrames={NOINTERNET_FRAMES}
+      {...FORMAT}
+    />
+    <Composition
+      id="nocredits"
+      component={NoCreditsAd}
+      durationInFrames={NOCREDITS_FRAMES}
+      {...FORMAT}
+    />
+    <Composition
+      id="justcaptions"
+      component={JustCaptionsAd}
+      durationInFrames={JUSTCAPTIONS_FRAMES}
+      {...FORMAT}
     />
   </>
 );

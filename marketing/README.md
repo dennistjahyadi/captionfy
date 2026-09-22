@@ -249,6 +249,22 @@ npm run render:all  # → out/*.mp4
 Self-contained: its own `package.json`, its own React, nothing shared with the
 app's build.
 
+The voiced ads — video 03, `payonce`, `nointernet`, `nocredits` and
+`justcaptions`, 23 to 27 s each on Dennis's own reads — render from their own
+folder rather than through `render:all`:
+
+```sh
+cd marketing/video-03-pain-ads
+./render.sh              # → out/wordburn-03-pay-once.mp4
+./render.sh nointernet   # → out/wordburn-03-no-internet.mp4
+./render.sh nocredits    # → out/wordburn-03-no-credits.mp4
+./render.sh justcaptions # → out/wordburn-03-just-captions.mp4
+```
+
+They are cut from video 02's recordings and need nothing captured of their
+own; `src/voiced/` is the kit they share and `video-03-pain-ads/README.md` has
+the shape and the decisions.
+
 `public/` and `out/` are both out of git. `out/` is a build artifact like any
 APK, and `public/` is nothing but copies — the fonts are tracked once in
 `assets/fonts/` and the demo clip is rebuilt by `scripts/make-demo-clip.py`.
