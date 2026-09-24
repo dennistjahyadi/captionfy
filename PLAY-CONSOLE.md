@@ -11,7 +11,7 @@ Everything here was checked against the code and the merged release manifest on
 
 ## Read this before you open the console
 
-Four things are wrong or missing right now. Two of them are policy violations if
+Five things are wrong or missing right now. Two of them are policy violations if
 you upload as-is.
 
 ### 1. ~~The description in ASO.md does not match the app~~ — closed
@@ -81,6 +81,23 @@ AAB containing the billing library has to be on a track before the purchase flow
 can run even once. The order that works is: upload to Internal testing → create
 the in-app product → add a licence-tested account → buy it for free. Section 9
 below has the product details.
+
+### 5. ~~DEX code optimization is below Play's threshold~~ — fixed at the build
+
+Release 104 earned a **Bad behavior** flag on its bundle: "DEX code optimization
+is below our threshold", **Obfuscation 1%**, optimization and shrinking blank,
+"fix by Feb 2027". The cause was that release builds had never been through R8 —
+Expo's generated project leaves `minifyEnabled` off and nothing warns.
+
+Fixed in `app.json` and `plugins/with-r8-optimization.js`; CLAUDE.md, under
+"Things Android taught us the hard way", carries what was wrong and what the
+keep rules had to protect. The bundle now reports 84% obfuscated, 84% shrunk and
+83% optimized, against Play's floor of 25%, and its DEX went from 51 MB to
+11.9 MB.
+
+**Nothing in the console closes this — a new bundle does.** The flag is attached
+to release 104, which is spent, so the fix reaches Play with the next upload:
+`npm run bump`, then `./aab.sh`.
 
 ### Two permission declarations you will be asked to justify
 

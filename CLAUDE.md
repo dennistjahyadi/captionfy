@@ -16,6 +16,14 @@ device and `scripts/build-aab.sh` builds the bundle for Play. Cloud builds would
 have to be taught to fetch the 82 MB of models, which are not in git, so the
 local build stays until there is a reason to move.
 
+**Release builds go through R8**, which no bundle before this one did.
+`enableMinifyInReleaseBuilds` and
+`enableShrinkResourcesInReleaseBuilds` sit in `app.json` beside the rest of the
+Android build properties, and `plugins/with-r8-optimization.js` swaps AGP's
+default rule file for the one that does not say `-dontoptimize`. See the note in
+"Things Android taught us the hard way" for what Play was complaining about and
+what the numbers came out as.
+
 **The models are in the APK.** `base.en-q8_0` is 81.8 MB and the Silero VAD is
 0.9 MB, on top of a 62.9 MB app: an install of about 145 MB, inside the 150 MB
 line. They live in `assets/models/`, which is not in git — `scripts/fetch-models.sh`
@@ -308,7 +316,21 @@ Every slice runs as a release build on the Galaxy A54 before it is called done.
 
 ## Known issues
 
-Seven are left, and none of them can be closed from this machine.
+Eight are left, and none of them can be closed from this machine.
+
+- **R8 has never run on the A54.** The release build that Play will grade was
+  driven end to end on an Android 16 emulator — Welcome, Home, the picker, a
+  0:19 clip transcribed to the right words with the model read out of the APK,
+  the Skia overlay and the watermark drawing, and a 1080 × 1920 export burned in
+  and published to the gallery in 9 s — so whisper's JNI binding, the Expo
+  modules, Play Billing's classes and the burn-in all survive obfuscation. What
+  an emulator cannot answer is the thing R8 is most likely to have moved:
+  **cold start and the frame rates**, both of which this file quotes to three
+  significant figures off that phone and neither of which has been read since
+  the DEX went from 51 MB to 11.9 MB. Nothing in the app is expected to be
+  slower and some of it should be faster; expected is not measured. The purchase
+  path is the one code path still unexercised under R8, and it is unexercised
+  for the separate reason below.
 
 - **Slice 14 has not been drawn by Skia or by the painter, anywhere.** Eight new
   presets, a new highlight mode and a new default, all of them unit tests and
@@ -1430,7 +1452,49 @@ animates the user's own line with its real picks.
 - Raising `minSdkVersion` past 28 makes AGP store DEX uncompressed. Nothing warns,
   and this app's 51 MB of DEX turned a 145 MB APK into a 179 MB one. It is a
   packaging change, not a payload change: the same contents deflate to 112 MB,
-  which is nearer what a store delivers.
+  which is nearer what a store delivers. The 51 MB was the other half of the
+  lesson and it took Play's own warning to see it: none of that DEX had ever
+  been through R8. See the next note. It is 11.9 MB now and the APK is 139 MB,
+  so the packaging change that looked like 34 MB of damage was sitting on top of
+  39 MB of code nobody was using.
+- **The generated project ships release DEX with no R8 at all, and Play grades
+  you on it.** AGP's template reads `android.enableMinifyInReleaseBuilds` and
+  `expo-build-properties` can write it, but nothing in Expo turns it on, so every
+  bundle this repo produced went to Play unshrunk, unoptimized and
+  unobfuscated. Play Console says so on the bundle — "DEX code optimization is
+  below our threshold", **Obfuscation 1%**, everything else a dash, and a
+  deadline attached — and the fix is the one
+  https://developer.android.com/topic/performance/vitals/code-optimization
+  gives. It is two changes and only one of them is the flag.
+  `enableMinifyInReleaseBuilds` and `enableShrinkResourcesInReleaseBuilds` go in
+  `app.json`. The other is `plugins/with-r8-optimization.js`, because
+  `proguardFiles` is not a build property Expo exposes and AGP's template picks
+  `proguard-android.txt`, whose only line of substance is `-dontoptimize` —
+  which is exactly the dash under "Optimization percentage". It has to be a
+  plugin for the same reason the signing config does: `android/` is regenerated
+  and a hand edit lives until the next `prebuild`.
+  **The keep rules are the part that can break the app, and this one has one.**
+  whisper.rn binds through `Java_com_rnwhisper_RNWhisperModule_installJSIBindings`,
+  a JNI symbol built out of the class's own name, so `com.rnwhisper` is kept
+  whole — a package-wide keep of the kind the Play guidance warns about, over
+  four classes. Everything else is already covered by consumer rules the
+  libraries ship: React Native keeps `@DoNotStrip` and every `native <methods>`,
+  expo-modules-core keeps `Module` subclasses by name while explicitly allowing
+  them to be obfuscated and optimized, and reanimated and worklets keep
+  themselves. Nothing in this app's own Kotlin needed a rule: the burn-in reads
+  its plan with `org.json` and the foreground service is a manifest component,
+  which AGP keeps for you.
+  **R8 reports what it did, and it counts the share it did *not* do.**
+  `android/app/build/intermediates/r8_metadata/release/minifyReleaseWithR8/r8-metadata.dat`
+  is the same JSON that rides in the bundle as `BUNDLE-METADATA/com.android.tools/r8.json`
+  and is what Play reads. On this app: `noObfuscationPercentage` 15.99,
+  `noOptimizationPercentage` 16.46, `noShrinkingPercentage` 15.92 — so 84%
+  obfuscated against Play's floor of 25%. Before the change that file was
+  `d8.json` with no stats in it at all, which is what a dash in the console
+  means.
+  **Obfuscation is also why `mapping.txt` now matters.** It is 121 MB in
+  `android/app/build/outputs/mapping/release/`, AGP puts it in the bundle by
+  itself, and without it a crash in Play Console is unreadable.
 - React Native's Android alert calls `options.onDismiss` when a button closes the
   dialog, not only when the dialog is dismissed, so a promise wrapped around an
   alert cannot tell the two apart and latches onto whichever fires first. Put the

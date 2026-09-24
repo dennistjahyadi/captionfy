@@ -48,7 +48,9 @@
               "arm64-v8a",
               "x86_64"
             ],
-            "extraProguardRules": "-keep class com.rnwhisper.** { *; }"
+            "enableMinifyInReleaseBuilds": true,
+            "enableShrinkResourcesInReleaseBuilds": true,
+            "extraProguardRules": "# whisper.rn binds its JSI installer by JNI symbol name\n# (Java_com_rnwhisper_RNWhisperModule_installJSIBindings), so the .so looks the\n# class up by the name it was compiled against and obfuscating it breaks the\n# bridge at load time. A package-wide keep is what Play's guidance warns about;\n# this one covers four classes.\n-keep class com.rnwhisper.** { *; }\n"
           }
         }
       ],
@@ -57,6 +59,7 @@
       "expo-iap",
       "./plugins/with-bundled-models.js",
       "./plugins/with-release-signing.js",
+      "./plugins/with-r8-optimization.js",
       "./plugins/with-debug-symbols.js"
     ],
     "experiments": {
